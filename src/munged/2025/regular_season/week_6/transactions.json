@@ -1,0 +1,396 @@
+[
+  {
+    "transaction_id": "1284039400702869504",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1760501358728,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Harold Fannin": 3
+    },
+    "drops": {
+      "Mason Taylor": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1284000144424980480",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1760491999302,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Luther Burden": 3
+    },
+    "drops": {
+      "Mason Taylor": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1283840494710849536",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1760453935844,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Harold Fannin": 1
+    },
+    "drops": {
+      "Keon Coleman": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1283789526669496320",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1760441784115,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Harold Fannin": 10
+    },
+    "drops": {
+      "Juwan Johnson": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1283788937810182144",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760441643720,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {},
+    "drops": {
+      "WAS": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1283482971155750912",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1760368695586,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Eddy Pineiro": 9
+    },
+    "drops": {
+      "LV": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1283470697871466496",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1760365769406,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Kayshon Boutte": 2
+    },
+    "drops": {
+      "Kendre Miller": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1283470462042509312",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1760365713181,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Daniel Jones": 2
+    },
+    "drops": {
+      "Hassan Haskins": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1283266392577032192",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1760317059228,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Harold Fannin": 10
+    },
+    "drops": {
+      "Juwan Johnson": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1283177291882455040",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760295815968,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Harrison Butker": 3
+    },
+    "drops": {
+      "Brandon McManus": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1283129789019865088",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760284490402,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Tre Tucker": 12
+    },
+    "drops": {
+      "Will Reichard": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1282912767333916672",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760232748400,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Matthew Stafford": 12
+    },
+    "drops": {
+      "Darius Slayton": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1282162778987036672",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760053937244,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Michael Badgley": 12
+    },
+    "drops": {
+      "Cedric Tillman": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1282126287246209024",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1760045236935,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "LAC": 2
+    },
+    "drops": {
+      "ARI": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1281840808189771776",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759977173425,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Mark Andrews": 3
+    },
+    "drops": {
+      "Theo Johnson": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1281682605393072128",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759939454938,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "IND": 10
+    },
+    "drops": {
+      "BUF": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1281681008885784576",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759939074301,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Kyle Pitts Truther",
+    "adds": {
+      "Isaiah Bond": 6
+    },
+    "drops": {},
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1281677116802347008",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759938146356,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Kyle Pitts Truther",
+    "adds": {},
+    "drops": {
+      "Najee Harris": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1281648482515456000",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759931319410,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Mason Taylor": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1281648406434963456",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759931301272,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Mark Andrews": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1281647715704385536",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759931136589,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "IND": 2
+    },
+    "drops": {
+      "ARI": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1281646560228184064",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759930861101,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "WAS": 5
+    },
+    "drops": {
+      "Tre Tucker": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1281645804339105792",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759930680883,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Matt Gay": 5
+    },
+    "drops": {},
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1281645390315143168",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759930582173,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {},
+    "drops": {
+      "Dalton Schultz": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  }
+]

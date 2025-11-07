@@ -1,0 +1,1440 @@
+{
+  "matchups": [
+    {
+      "roster_id": 1,
+      "team_name": "Supreme Leader White",
+      "points": 170.62,
+      "matchup_id": 1,
+      "starters": [
+        {
+          "player_id": "3163",
+          "player_name": "Jared Goff",
+          "points": 25.82,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "4018",
+          "player_name": "Joe Mixon",
+          "points": 5.9,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "3198",
+          "player_name": "Derrick Henry",
+          "points": 24.5,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "2216",
+          "player_name": "Mike Evans",
+          "points": 29.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "9493",
+          "player_name": "Puka Nacua",
+          "points": 22.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4217",
+          "player_name": "George Kittle",
+          "points": 19.2,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "6794",
+          "player_name": "Justin Jefferson",
+          "points": 17.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8136",
+          "player_name": "Rachaad White",
+          "points": 4.4,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "11792",
+          "player_name": "Will Reichard",
+          "points": 9.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "LAC",
+          "player_name": "LAC",
+          "points": 12.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "10222",
+          "player_name": "Jayden Reed",
+          "points": 1.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "3451",
+          "player_name": "Ka'imi Fairbairn",
+          "points": 0.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "5849",
+          "player_name": "Kyler Murray",
+          "points": 16.04,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "7090",
+          "player_name": "Darnell Mooney",
+          "points": 5.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7525",
+          "player_name": "DeVonta Smith",
+          "points": 30.0,
+          "positions": [
+            "WR"
+          ]
+        }
+      ],
+      "starters_points": [
+        25.82,
+        5.9,
+        24.5,
+        29.7,
+        22.9,
+        19.2,
+        17.2,
+        4.4,
+        9.0,
+        12.0
+      ]
+    },
+    {
+      "roster_id": 2,
+      "team_name": "melvins room ",
+      "points": 131.98,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "4984",
+          "player_name": "Josh Allen",
+          "points": 22.98,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "4866",
+          "player_name": "Saquon Barkley",
+          "points": 18.9,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "6813",
+          "player_name": "Jonathan Taylor",
+          "points": 27.6,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "7547",
+          "player_name": "Amon-Ra St. Brown",
+          "points": 20.0,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "11624",
+          "player_name": "Xavier Worthy",
+          "points": 22.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "10236",
+          "player_name": "Dalton Kincaid",
+          "points": 4.4,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "5872",
+          "player_name": "Deebo Samuel",
+          "points": 9.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7611",
+          "player_name": "Rhamondre Stevenson",
+          "points": 0.1,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "11539",
+          "player_name": "Jake Bates",
+          "points": 9.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "SF",
+          "player_name": "SF",
+          "points": -3.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "11655",
+          "player_name": "Tyrone Tracy",
+          "points": 9.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "1339",
+          "player_name": "Zach Ertz",
+          "points": 25.2,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "7553",
+          "player_name": "Kyle Pitts",
+          "points": 14.4,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "9500",
+          "player_name": "Josh Downs",
+          "points": 5.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "NYJ",
+          "player_name": "NYJ",
+          "points": -4.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "starters_points": [
+        22.98,
+        18.9,
+        27.6,
+        20.0,
+        22.9,
+        4.4,
+        9.1,
+        0.1,
+        9.0,
+        -3.0
+      ]
+    },
+    {
+      "roster_id": 3,
+      "team_name": "Team 365bumpinthat",
+      "points": 186.28,
+      "matchup_id": 1,
+      "starters": [
+        {
+          "player_id": "4943",
+          "player_name": "Sam Darnold",
+          "points": 24.78,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "9509",
+          "player_name": "Bijan Robinson",
+          "points": 24.8,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "9224",
+          "player_name": "Chase Brown",
+          "points": 13.1,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8137",
+          "player_name": "George Pickens",
+          "points": 8.0,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "6801",
+          "player_name": "Tee Higgins",
+          "points": 40.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "1466",
+          "player_name": "Travis Kelce",
+          "points": 22.4,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "11631",
+          "player_name": "Brian Thomas",
+          "points": 23.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4983",
+          "player_name": "DJ Moore",
+          "points": 12.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4233",
+          "player_name": "Zane Gonzalez",
+          "points": 6.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "MIA",
+          "player_name": "MIA",
+          "points": 11.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "11533",
+          "player_name": "Brandon Aubrey",
+          "points": 0.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "6797",
+          "player_name": "Justin Herbert",
+          "points": 24.44,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "8205",
+          "player_name": "Isiah Pacheco",
+          "points": 1.8,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "9508",
+          "player_name": "Tyjae Spears",
+          "points": 13.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "IND",
+          "player_name": "IND",
+          "points": -5.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "starters_points": [
+        24.78,
+        24.8,
+        13.1,
+        8.0,
+        40.1,
+        22.4,
+        23.9,
+        12.2,
+        6.0,
+        11.0
+      ]
+    },
+    {
+      "roster_id": 4,
+      "team_name": "Team jmiley2791",
+      "points": 158.6,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "4046",
+          "player_name": "Patrick Mahomes",
+          "points": 26.0,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "7543",
+          "player_name": "Travis Etienne",
+          "points": 8.5,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5967",
+          "player_name": "Tony Pollard",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "7564",
+          "player_name": "Ja'Marr Chase",
+          "points": 19.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "2309",
+          "player_name": "Amari Cooper",
+          "points": 14.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8130",
+          "player_name": "Trey McBride",
+          "points": 30.3,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "11632",
+          "player_name": "Malik Nabers",
+          "points": 36.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4039",
+          "player_name": "Cooper Kupp",
+          "points": 3.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7839",
+          "player_name": "Evan McPherson",
+          "points": 0.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "PHI",
+          "player_name": "PHI",
+          "points": 20.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "11566",
+          "player_name": "Jayden Daniels",
+          "points": 31.78,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "5022",
+          "player_name": "Dallas Goedert",
+          "points": 0.0,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "9753",
+          "player_name": "Zach Charbonnet",
+          "points": 10.6,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "9756",
+          "player_name": "Jordan Addison",
+          "points": 18.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "PIT",
+          "player_name": "PIT",
+          "points": -1.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "starters_points": [
+        26.0,
+        8.5,
+        0.0,
+        19.2,
+        14.6,
+        30.3,
+        36.1,
+        3.9,
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "roster_id": 5,
+      "team_name": "Tagan",
+      "points": 118.06,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "4892",
+          "player_name": "Baker Mayfield",
+          "points": 34.56,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "8155",
+          "player_name": "Breece Hall",
+          "points": 6.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8150",
+          "player_name": "Kyren Williams",
+          "points": 16.2,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5045",
+          "player_name": "Courtland Sutton",
+          "points": 16.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "11620",
+          "player_name": "Rome Odunze",
+          "points": 2.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4144",
+          "player_name": "Jonnu Smith",
+          "points": 11.6,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "6963",
+          "player_name": "Patrick Taylor",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "10859",
+          "player_name": "Sam LaPorta",
+          "points": 18.4,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "8258",
+          "player_name": "Cade York",
+          "points": 5.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "MIN",
+          "player_name": "MIN",
+          "points": 7.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "11563",
+          "player_name": "Bo Nix",
+          "points": 21.86,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "2359",
+          "player_name": "Ameer Abdullah",
+          "points": 17.7,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "4035",
+          "player_name": "Alvin Kamara",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "4663",
+          "player_name": "Austin Ekeler",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "6819",
+          "player_name": "Michael Pittman",
+          "points": 25.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8167",
+          "player_name": "Christian Watson",
+          "points": 0.0,
+          "positions": [
+            "WR"
+          ]
+        }
+      ],
+      "starters_points": [
+        34.56,
+        6.3,
+        16.2,
+        16.5,
+        2.5,
+        11.6,
+        0.0,
+        18.4,
+        5.0,
+        7.0
+      ]
+    },
+    {
+      "roster_id": 6,
+      "team_name": "Dicked Down in DallASS",
+      "points": 89.7,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "1234",
+          "player_name": "Russell Wilson",
+          "points": 17.7,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "4137",
+          "player_name": "James Conner",
+          "points": 2.8,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "7021",
+          "player_name": "Rico Dowdle",
+          "points": 9.8,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8134",
+          "player_name": "Khalil Shakir",
+          "points": 5.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4981",
+          "player_name": "Calvin Ridley",
+          "points": 14.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "6826",
+          "player_name": "Cole Kmet",
+          "points": 0.0,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "8154",
+          "player_name": "Brian Robinson",
+          "points": 8.9,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "11651",
+          "player_name": "Isaac Guerendo",
+          "points": 13.9,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "6650",
+          "player_name": "Chase McLaughlin",
+          "points": 12.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "TEN",
+          "player_name": "TEN",
+          "points": 5.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "4988",
+          "player_name": "Nick Chubb",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5012",
+          "player_name": "Mark Andrews",
+          "points": 14.8,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "6783",
+          "player_name": "Jerry Jeudy",
+          "points": 21.4,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7526",
+          "player_name": "Jaylen Waddle",
+          "points": 0.0,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7528",
+          "player_name": "Najee Harris",
+          "points": 10.1,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8144",
+          "player_name": "Chris Olave",
+          "points": 0.0,
+          "positions": [
+            "WR"
+          ]
+        }
+      ],
+      "starters_points": [
+        17.7,
+        2.8,
+        9.8,
+        5.5,
+        14.1,
+        0.0,
+        8.9,
+        13.9,
+        12.0,
+        5.0
+      ]
+    },
+    {
+      "roster_id": 7,
+      "team_name": "Team Coletti",
+      "points": 171.48,
+      "matchup_id": 2,
+      "starters": [
+        {
+          "player_id": "6770",
+          "player_name": "Joe Burrow",
+          "points": 36.98,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "9221",
+          "player_name": "Jahmyr Gibbs",
+          "points": 26.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "4199",
+          "player_name": "Aaron Jones",
+          "points": 11.7,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8146",
+          "player_name": "Garrett Wilson",
+          "points": 17.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7049",
+          "player_name": "Jauan Jennings",
+          "points": 13.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "5844",
+          "player_name": "T.J. Hockenson",
+          "points": 11.8,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "7569",
+          "player_name": "Nico Collins",
+          "points": 8.9,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8148",
+          "player_name": "Jameson Williams",
+          "points": 24.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "1945",
+          "player_name": "Chris Boswell",
+          "points": 4.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "SEA",
+          "player_name": "SEA",
+          "points": 16.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "11637",
+          "player_name": "Keon Coleman",
+          "points": 11.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "1426",
+          "player_name": "DeAndre Hopkins",
+          "points": 2.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8111",
+          "player_name": "Cade Otton",
+          "points": 0.0,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "8143",
+          "player_name": "Jerome Ford",
+          "points": 2.2,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8183",
+          "player_name": "Brock Purdy",
+          "points": 30.28,
+          "positions": [
+            "QB"
+          ]
+        }
+      ],
+      "starters_points": [
+        36.98,
+        26.3,
+        11.7,
+        17.6,
+        13.7,
+        11.8,
+        8.9,
+        24.5,
+        4.0,
+        16.0
+      ]
+    },
+    {
+      "roster_id": 8,
+      "team_name": "Team piamlodos",
+      "points": 86.7,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "6904",
+          "player_name": "Jalen Hurts",
+          "points": 0.0,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "7594",
+          "player_name": "Chuba Hubbard",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "9226",
+          "player_name": "De'Von Achane",
+          "points": 5.8,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5947",
+          "player_name": "Jakobi Meyers",
+          "points": 17.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "1479",
+          "player_name": "Keenan Allen",
+          "points": 7.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "11604",
+          "player_name": "Brock Bowers",
+          "points": 14.6,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "9997",
+          "player_name": "Zay Flowers",
+          "points": 5.1,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "11628",
+          "player_name": "Marvin Harrison",
+          "points": 15.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8259",
+          "player_name": "Cameron Dicker",
+          "points": 17.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "WAS",
+          "player_name": "WAS",
+          "points": 4.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "5001",
+          "player_name": "Dalton Schultz",
+          "points": 4.1,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "6768",
+          "player_name": "Tua Tagovailoa",
+          "points": 0.0,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "6790",
+          "player_name": "D'Andre Swift",
+          "points": 12.1,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8228",
+          "player_name": "Jaylen Warren",
+          "points": 16.2,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "CIN",
+          "player_name": "CIN",
+          "points": 4.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "starters_points": [
+        0.0,
+        0.0,
+        5.8,
+        17.1,
+        7.5,
+        14.6,
+        5.1,
+        15.6,
+        17.0,
+        4.0
+      ]
+    },
+    {
+      "roster_id": 9,
+      "team_name": "Njigbas in Paris",
+      "points": 107.2,
+      "matchup_id": 2,
+      "starters": [
+        {
+          "player_id": "6804",
+          "player_name": "Jordan Love",
+          "points": 14.0,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "11584",
+          "player_name": "Bucky Irving",
+          "points": 23.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8138",
+          "player_name": "James Cook",
+          "points": 11.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8112",
+          "player_name": "Drake London",
+          "points": 17.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "5927",
+          "player_name": "Terry McLaurin",
+          "points": 1.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "9484",
+          "player_name": "Tucker Kraft",
+          "points": 7.3,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "9488",
+          "player_name": "Jaxon Smith-Njigba",
+          "points": 6.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "6806",
+          "player_name": "J.K. Dobbins",
+          "points": 15.3,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "4195",
+          "player_name": "Jake Elliott",
+          "points": 11.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "GB",
+          "player_name": "GB",
+          "points": 0.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "167",
+          "player_name": "Tom Brady",
+          "points": 0.0,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "1689",
+          "player_name": "Adam Thielen",
+          "points": 28.0,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "3321",
+          "player_name": "Tyreek Hill",
+          "points": 19.5,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4033",
+          "player_name": "David Njoku",
+          "points": 0.0,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "5892",
+          "player_name": "David Montgomery",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        }
+      ],
+      "starters_points": [
+        14.0,
+        23.0,
+        11.3,
+        17.6,
+        1.5,
+        7.3,
+        6.2,
+        15.3,
+        11.0,
+        0.0
+      ]
+    },
+    {
+      "roster_id": 10,
+      "team_name": "Team hilalzbr",
+      "points": 119.22,
+      "matchup_id": null,
+      "starters": [
+        {
+          "player_id": "4881",
+          "player_name": "Lamar Jackson",
+          "points": 29.42,
+          "positions": [
+            "QB"
+          ]
+        },
+        {
+          "player_id": "11589",
+          "player_name": "Trey Benson",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5850",
+          "player_name": "Josh Jacobs",
+          "points": 10.9,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "5859",
+          "player_name": "A.J. Brown",
+          "points": 12.6,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "11635",
+          "player_name": "Ladd McConkey",
+          "points": 29.4,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4066",
+          "player_name": "Evan Engram",
+          "points": 0.0,
+          "positions": [
+            "TE"
+          ]
+        },
+        {
+          "player_id": "5846",
+          "player_name": "DK Metcalf",
+          "points": 7.2,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "2133",
+          "player_name": "Davante Adams",
+          "points": 9.7,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "4227",
+          "player_name": "Harrison Butker",
+          "points": 4.0,
+          "positions": [
+            "K"
+          ]
+        },
+        {
+          "player_id": "TB",
+          "player_name": "TB",
+          "points": 16.0,
+          "positions": [
+            "DEF"
+          ]
+        }
+      ],
+      "bench": [
+        {
+          "player_id": "3164",
+          "player_name": "Ezekiel Elliott",
+          "points": 0.2,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "4950",
+          "player_name": "Christian Kirk",
+          "points": 0.0,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "7588",
+          "player_name": "Javonte Williams",
+          "points": 2.0,
+          "positions": [
+            "RB"
+          ]
+        },
+        {
+          "player_id": "8121",
+          "player_name": "Romeo Doubs",
+          "points": 14.8,
+          "positions": [
+            "WR"
+          ]
+        },
+        {
+          "player_id": "8151",
+          "player_name": "Kenneth Walker",
+          "points": 0.0,
+          "positions": [
+            "RB"
+          ]
+        }
+      ],
+      "starters_points": [
+        29.42,
+        0.0,
+        10.9,
+        12.6,
+        29.4,
+        0.0,
+        7.2,
+        9.7,
+        4.0,
+        16.0
+      ]
+    }
+  ]
+}

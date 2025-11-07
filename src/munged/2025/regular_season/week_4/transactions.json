@@ -1,0 +1,746 @@
+[
+  {
+    "transaction_id": "1278961973765111808",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759290805812,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Brenton Strange": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278961387900514304",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759290666131,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Brenton Strange": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278920842264211456",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759280999297,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {},
+    "drops": {
+      "Chig Okonkwo": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1278873041186615296",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759269602633,
+    "creator": "1124163023276503040",
+    "creator_team_name": "Team jmiley2791",
+    "adds": {
+      "Woody Marks": 4
+    },
+    "drops": {
+      "Ollie Gordon": 4
+    },
+    "roster_ids": [
+      4
+    ]
+  },
+  {
+    "transaction_id": "1278866044236075008",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759267934429,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Jaxson Dart": 2
+    },
+    "drops": {
+      "Tyreek Hill": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278842289258508288",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759262270801,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {},
+    "drops": {
+      "Marquise Brown": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1278836629137551360",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759260921323,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Joshua Karty": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278836383238074368",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759260862696,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {
+      "Darius Slayton": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278830095548551168",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759259363594,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Kendre Miller": 5
+    },
+    "drops": {
+      "Kareem Hunt": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1278816611020607488",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759256148632,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Darius Slayton": 12
+    },
+    "drops": {},
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1278812856686481408",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759255253529,
+    "creator": "1124163023276503040",
+    "creator_team_name": "Team jmiley2791",
+    "adds": {
+      "Justice Hill": 4
+    },
+    "drops": {
+      "Ollie Gordon": 4
+    },
+    "roster_ids": [
+      4
+    ]
+  },
+  {
+    "transaction_id": "1278771514719625216",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759245396836,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Darren Waller": 5
+    },
+    "drops": {
+      "Kareem Hunt": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1278759067367505920",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759242429156,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Woody Marks": 2
+    },
+    "drops": {
+      "Sterling Shepard": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278750782568546304",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759240453906,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Kendre Miller": 2
+    },
+    "drops": {
+      "Tyreek Hill": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278747395349291008",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759239646331,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Woody Marks": 5
+    },
+    "drops": {
+      "Kareem Hunt": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1278746550905896960",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759239445000,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Marvin Mims": 7
+    },
+    "drops": {
+      "Tory Horton": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1278746464410951680",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759239424378,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Malik Washington": 7
+    },
+    "drops": {
+      "Geno Smith": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1278746163448655872",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759239352622,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Isiah Pacheco": 7
+    },
+    "drops": {
+      "Tory Horton": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1278730136434266112",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759235531485,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "ARI": 2
+    },
+    "drops": {
+      "PIT": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278703395712045056",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759229156000,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Darius Slayton": 9
+    },
+    "drops": {
+      "Calvin Austin": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1278701279731810304",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759228651510,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {
+      "Woody Marks": 11
+    },
+    "drops": {
+      "Dallas Goedert": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1278675644489670656",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759222539592,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {},
+    "drops": {
+      "Brandon McManus": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278670950929268736",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759221420561,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {},
+    "drops": {
+      "Malik Nabers": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1278467701362155520",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759172962087,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Isiah Pacheco": 2
+    },
+    "drops": {
+      "Sterling Shepard": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278467434868674560",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759172898551,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Darius Slayton": 2
+    },
+    "drops": {
+      "Rhamondre Stevenson": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1278337127897112576",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759141830947,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Woody Marks": 9
+    },
+    "drops": {
+      "Calvin Austin": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1278231251286757376",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759116587997,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Isiah Pacheco": 9
+    },
+    "drops": {
+      "Calvin Austin": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1278180422542454784",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1759104469480,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Woody Marks": 7
+    },
+    "drops": {
+      "Tory Horton": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1278166256301641728",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759101091985,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Tua Tagovailoa": 10
+    },
+    "drops": {
+      "Rashod Bateman": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1278075998172123136",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1759079572770,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Kyle Pitts Truther",
+    "adds": {
+      "Jaxson Dart": 6
+    },
+    "drops": {
+      "C.J. Stroud": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1278012637216509952",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759064466340,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Kareem Hunt": 5
+    },
+    "drops": {},
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1277993038219612160",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759059793575,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {
+      "Kenneth Gainwell": 11
+    },
+    "drops": {
+      "Isiah Pacheco": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1277787796710359040",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1759010860186,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Rachaad White": 1
+    },
+    "drops": {},
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1277678065991847936",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758984698344,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Geno Smith": 7
+    },
+    "drops": {
+      "Cam Ward": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1277090698968956928",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758844659133,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Tory Horton": 7
+    },
+    "drops": {
+      "Marvin Mims": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1277090524905340928",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758844617634,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Marvin Mims": 7
+    },
+    "drops": {},
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1277090471969067008",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758844605013,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Josh Downs": 7
+    },
+    "drops": {},
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1276922335705714688",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1758804518203,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {
+      "SEA": 11
+    },
+    "drops": {
+      "ATL": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1276922168554315776",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758804478352,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {},
+    "drops": {
+      "Kenneth Gainwell": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1276784339652194304",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758771617381,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Matt Prater": 1
+    },
+    "drops": {
+      "Ka'imi Fairbairn": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1276717768573452288",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758755745598,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Kyle Pitts Truther",
+    "adds": {
+      "KaVontae Turpin": 6
+    },
+    "drops": {},
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1276717752760938496",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758755741828,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Kyle Pitts Truther",
+    "adds": {},
+    "drops": {
+      "Najee Harris": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1276607852064047104",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758729539461,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "adds": {},
+    "drops": {
+      "Harold Fannin": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1276576833998974976",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758722144178,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "LAC": 7
+    },
+    "drops": {
+      "SEA": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1276576198519955456",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758721992667,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {},
+    "drops": {
+      "LAR": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1276573929489596416",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1758721451688,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {},
+    "drops": {
+      "Kyle Monangai": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  }
+]

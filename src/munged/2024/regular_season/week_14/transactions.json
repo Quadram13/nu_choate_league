@@ -1,0 +1,436 @@
+[
+  {
+    "transaction_id": "1172463812344344576",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1733899665488,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "C.J. Stroud": 3
+    },
+    "drops": {
+      "Elijah Moore": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1172461726722457600",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733899168237,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "IND": 3
+    },
+    "drops": {
+      "Elijah Moore": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1172461418738982912",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1733899094808,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "ATL": 3
+    },
+    "drops": {
+      "Elijah Moore": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1172459619864719360",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733898665923,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "DEN": 3
+    },
+    "drops": {
+      "Braelon Allen": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1172459172424880128",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733898559245,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "C.J. Stroud": 1
+    },
+    "drops": {
+      "Tyler Bass": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1172458320867782656",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733898356218,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "LAC": 1
+    },
+    "drops": {
+      "Anthony Richardson": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1172403008047591424",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733885168614,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Noah Gray": 2
+    },
+    "drops": {
+      "DeMario Douglas": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1172399950081318912",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733884439538,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Njigbas in Paris",
+    "adds": {
+      "BAL": 9
+    },
+    "drops": {
+      "NO": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1172339972360245248",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1733870139735,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "BAL": 3
+    },
+    "drops": {
+      "Braelon Allen": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1171925237878050816",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733771259329,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Patrick Taylor": 2
+    },
+    "drops": {
+      "Nick Westbrook-Ikhine": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1171897732651483136",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1733764701572,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Patrick Taylor": 1
+    },
+    "drops": {
+      "Tyler Bass": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1171517721977286656",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733674099967,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Tagan",
+    "adds": {
+      "Ameer Abdullah": 5
+    },
+    "drops": {
+      "Quentin Johnston": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1170864776356933632",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733518425600,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Tyler Bass": 1
+    },
+    "drops": {
+      "Hunter Henry": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1170848191256834048",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733514471404,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Sam Darnold": 3
+    },
+    "drops": {
+      "Tank Dell": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1170672685827862528",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733472627649,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Tank Dell": 3
+    },
+    "drops": {
+      "Cedric Tillman": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1170505987858477056",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733432883756,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Tagan",
+    "adds": {
+      "Cade York": 5
+    },
+    "drops": {
+      "Tyler Bass": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1170481865451483136",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733427132526,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Tagan",
+    "adds": {
+      "Jake Ferguson": 5
+    },
+    "drops": {},
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1170481517303279616",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733427049521,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Tagan",
+    "adds": {
+      "Tyler Bass": 5
+    },
+    "drops": {},
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1170164705865052160",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1733351515788,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "Cole Kmet": 6
+    },
+    "drops": {
+      "C.J. Stroud": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1170164233498112000",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733351403167,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "TEN": 6
+    },
+    "drops": {
+      "HOU": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1170164149528145920",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733351383147,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "Russell Wilson": 6
+    },
+    "drops": {
+      "Christian McCaffrey": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1170135321032372224",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733344509898,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Nick Westbrook-Ikhine": 2
+    },
+    "drops": {
+      "Ray-Ray McCloud": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1170056512039927808",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733325720370,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "BUF": 1
+    },
+    "drops": {
+      "DET": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1170054793797156864",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733325310709,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Ray-Ray McCloud": 2
+    },
+    "drops": {
+      "Jordan Mason": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1169950562184445952",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733300459956,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Njigbas in Paris",
+    "adds": {
+      "Tom Brady": 9
+    },
+    "drops": {},
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1169947117176078336",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1733299638602,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Njigbas in Paris",
+    "adds": {},
+    "drops": {
+      "DAL": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  }
+]

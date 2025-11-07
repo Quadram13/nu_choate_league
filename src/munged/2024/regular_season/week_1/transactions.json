@@ -1,0 +1,459 @@
+[
+  {
+    "transaction_id": "1139451182814101504",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1726028841263,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Wan'Dale Robinson": 3
+    },
+    "drops": {
+      "Jerry Jeudy": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1139450677316505600",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1726028720743,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Gabe Davis": 3
+    },
+    "drops": {
+      "Jerry Jeudy": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1139422135782539264",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1726021915911,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Team Coletti",
+    "adds": {
+      "LAC": 7
+    },
+    "drops": {
+      "NO": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1139421366287167488",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1726021732449,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Team Coletti",
+    "adds": {
+      "Allen Lazard": 7
+    },
+    "drops": {
+      "Tyjae Spears": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1139377444210917376",
+    "type": "trade",
+    "status": "complete",
+    "created": 1726011260610,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Mike Evans": 1,
+      "Joe Mixon": 1,
+      "Amon-Ra St. Brown": 2,
+      "Brian Robinson": 2,
+      "Zay Flowers": 1
+    },
+    "drops": {
+      "Mike Evans": 2,
+      "Joe Mixon": 2,
+      "Amon-Ra St. Brown": 1,
+      "Brian Robinson": 1,
+      "Zay Flowers": 2
+    },
+    "roster_ids": [
+      1,
+      2
+    ]
+  },
+  {
+    "transaction_id": "1139363730136981504",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1726007990920,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "LAC": 2
+    },
+    "drops": {
+      "BUF": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1139334670509928448",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1726001062565,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "J.K. Dobbins": 3
+    },
+    "drops": {
+      "Curtis Samuel": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1139325705038192640",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725998925030,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {},
+    "drops": {
+      "Gus Edwards": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1139320295602425856",
+    "type": "trade",
+    "status": "complete",
+    "created": 1725997635320,
+    "creator": "1122419476437340160",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "DeAndre Hopkins": 3,
+      "Mike Williams": 2,
+      "Curtis Samuel": 3
+    },
+    "drops": {
+      "DeAndre Hopkins": 2,
+      "Mike Williams": 3,
+      "Curtis Samuel": 2
+    },
+    "roster_ids": [
+      2,
+      3
+    ]
+  },
+  {
+    "transaction_id": "1139261641021321216",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1725983650978,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Alexander Mattison": 1
+    },
+    "drops": {
+      "Joshua Palmer": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1139261564328333312",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1725983632693,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "J.K. Dobbins": 1
+    },
+    "drops": {
+      "Joshua Palmer": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1139261502131085312",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1725983617864,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Isaiah Likely": 1
+    },
+    "drops": {
+      "Joshua Palmer": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1139261357125398528",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1725983583292,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Alexander Mattison": 1
+    },
+    "drops": {
+      "CIN": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1139261305493417984",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1725983570982,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "J.K. Dobbins": 1
+    },
+    "drops": {
+      "CIN": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1139183825629769728",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1725965098343,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "J.K. Dobbins": 6
+    },
+    "drops": {
+      "Braelon Allen": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1139016809396580352",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725925278570,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "Braelon Allen": 6
+    },
+    "drops": {
+      "Chuba Hubbard": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1138980215910305792",
+    "type": "trade",
+    "status": "complete",
+    "created": 1725916554003,
+    "creator": "1122419476437340160",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Rashee Rice": 2,
+      "Jared Goff": 3,
+      "Joe Mixon": 2,
+      "Gus Edwards": 3,
+      "Terry McLaurin": 3,
+      "Jordan Love": 3,
+      "Jonathan Taylor": 2,
+      "Rhamondre Stevenson": 2,
+      "Bijan Robinson": 3,
+      "C.J. Stroud": 2
+    },
+    "drops": {
+      "Rashee Rice": 3,
+      "Jared Goff": 2,
+      "Joe Mixon": 3,
+      "Gus Edwards": 2,
+      "Terry McLaurin": 2,
+      "Jordan Love": 2,
+      "Jonathan Taylor": 3,
+      "Rhamondre Stevenson": 3,
+      "Bijan Robinson": 2,
+      "C.J. Stroud": 3
+    },
+    "roster_ids": [
+      2,
+      3
+    ]
+  },
+  {
+    "transaction_id": "1138302961697787904",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725755084016,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "BUF": 2
+    },
+    "drops": {
+      "MIA": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1137634708102082560",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1725595759943,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Isaiah Likely": 1
+    },
+    "drops": {
+      "CIN": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1137579460745752576",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725582587947,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Team Coletti",
+    "adds": {
+      "NO": 7
+    },
+    "drops": {
+      "WAS": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1136199721652977664",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725253632513,
+    "creator": "1131200109846532096",
+    "creator_team_name": "Dicked Down in DallASS",
+    "adds": {
+      "Chuba Hubbard": 6
+    },
+    "drops": {},
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1136151396107587584",
+    "type": "trade",
+    "status": "complete",
+    "created": 1725242110805,
+    "creator": "1132026771949568000",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "CeeDee Lamb": 3,
+      "Justin Jefferson": 8,
+      "Jalen Hurts": 8,
+      "C.J. Stroud": 3
+    },
+    "drops": {
+      "CeeDee Lamb": 8,
+      "Justin Jefferson": 3,
+      "Jalen Hurts": 3,
+      "C.J. Stroud": 8
+    },
+    "roster_ids": [
+      3,
+      8
+    ]
+  },
+  {
+    "transaction_id": "1135818899393478656",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725162837411,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Jerry Jeudy": 3
+    },
+    "drops": {},
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1135749687035691008",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725146335899,
+    "creator": "1122419476437340160",
+    "creator_team_name": "Team 365bumpinthat",
+    "adds": {
+      "Mike Williams": 3
+    },
+    "drops": {
+      "Dontayvion Wicks": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1135746932950827008",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1725145679274,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "CIN": 1
+    },
+    "drops": {},
+    "roster_ids": [
+      1
+    ]
+  }
+]
