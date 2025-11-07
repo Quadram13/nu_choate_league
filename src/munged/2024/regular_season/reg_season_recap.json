@@ -1,0 +1,114 @@
+{
+  "standings": [
+    {
+      "roster_id": 1,
+      "team_name": "Supreme Leader White",
+      "wins": 11,
+      "losses": 3,
+      "ties": 0,
+      "win_pct": 0.7857,
+      "pf": 2016.76,
+      "pa": 1834.84,
+      "transaction_count": 34
+    },
+    {
+      "roster_id": 9,
+      "team_name": "Njigbas in Paris",
+      "wins": 9,
+      "losses": 5,
+      "ties": 0,
+      "win_pct": 0.6429,
+      "pf": 1881.32,
+      "pa": 1803.28,
+      "transaction_count": 30
+    },
+    {
+      "roster_id": 8,
+      "team_name": "Team piamlodos",
+      "wins": 9,
+      "losses": 5,
+      "ties": 0,
+      "win_pct": 0.6429,
+      "pf": 1853.38,
+      "pa": 1780.36,
+      "transaction_count": 20
+    },
+    {
+      "roster_id": 7,
+      "team_name": "Team Coletti",
+      "wins": 9,
+      "losses": 5,
+      "ties": 0,
+      "win_pct": 0.6429,
+      "pf": 1841.12,
+      "pa": 1764.78,
+      "transaction_count": 30
+    },
+    {
+      "roster_id": 2,
+      "team_name": "melvins room ",
+      "wins": 8,
+      "losses": 6,
+      "ties": 0,
+      "win_pct": 0.5714,
+      "pf": 1863.34,
+      "pa": 1696.32,
+      "transaction_count": 41
+    },
+    {
+      "roster_id": 3,
+      "team_name": "Team 365bumpinthat",
+      "wins": 6,
+      "losses": 8,
+      "ties": 0,
+      "win_pct": 0.4286,
+      "pf": 1898.66,
+      "pa": 1860.04,
+      "transaction_count": 56
+    },
+    {
+      "roster_id": 5,
+      "team_name": "Tagan",
+      "wins": 6,
+      "losses": 8,
+      "ties": 0,
+      "win_pct": 0.4286,
+      "pf": 1886.62,
+      "pa": 1870.46,
+      "transaction_count": 31
+    },
+    {
+      "roster_id": 6,
+      "team_name": "Dicked Down in DallASS",
+      "wins": 6,
+      "losses": 8,
+      "ties": 0,
+      "win_pct": 0.4286,
+      "pf": 1589.52,
+      "pa": 1812.5,
+      "transaction_count": 34
+    },
+    {
+      "roster_id": 4,
+      "team_name": "Team jmiley2791",
+      "wins": 3,
+      "losses": 11,
+      "ties": 0,
+      "win_pct": 0.2143,
+      "pf": 1740.36,
+      "pa": 1892.78,
+      "transaction_count": 3
+    },
+    {
+      "roster_id": 10,
+      "team_name": "Team hilalzbr",
+      "wins": 3,
+      "losses": 11,
+      "ties": 0,
+      "win_pct": 0.2143,
+      "pf": 1665.7,
+      "pa": 1921.42,
+      "transaction_count": 0
+    }
+  ]
+}
