@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from typing import Dict, List
-from recap_generator import generate_weekly_recap
+from recap import generate_weekly_recap
 
 
 def map_bracket(
@@ -72,6 +72,11 @@ def generate_postseason_recap(
         
     Returns:
         Dictionary containing postseason recap data
+        
+    Raises:
+        FileNotFoundError: If bracket files don't exist
+        json.JSONDecodeError: If JSON files are invalid
+        IOError: If files cannot be read
     """
     with open(winners_bracket_path, 'r') as f:
         winners_bracket = json.load(f)

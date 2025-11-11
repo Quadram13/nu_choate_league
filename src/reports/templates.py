@@ -1,0 +1,735 @@
+"""HTML templates and CSS styling for reports."""
+
+# Embedded CSS styles
+CSS_STYLES = """
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f5f5f5;
+        padding: 20px;
+    }
+    
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+    }
+    
+    h2 {
+        color: #34495e;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #ecf0f1;
+        padding-bottom: 8px;
+    }
+    
+    h3 {
+        color: #7f8c8d;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .nav {
+        background: #34495e;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .nav a {
+        color: white;
+        text-decoration: none;
+        margin-right: 15px;
+        padding: 5px 10px;
+        border-radius: 3px;
+        transition: background 0.3s;
+    }
+    
+    .nav a:hover {
+        background: #2c3e50;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    th {
+        background: #3498db;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+    
+    td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .winner {
+        background: #d4edda !important;
+        font-weight: 600;
+    }
+    
+    .loser {
+        background: #f8d7da !important;
+    }
+    
+    .tie {
+        background: #fff3cd !important;
+    }
+    
+    .award-box {
+        background: #f8f9fa;
+        border-left: 4px solid #3498db;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    
+    .award-box h4 {
+        color: #3498db;
+        margin-bottom: 8px;
+    }
+    
+    .team-highlight {
+        background: #e8f4f8;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .player-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .player-list li {
+        padding: 8px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    .player-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .player-name {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .player-points {
+        color: #27ae60;
+        font-weight: 600;
+        float: right;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+    
+    .standings-table {
+        margin-top: 20px;
+    }
+    
+    .rank {
+        font-weight: 700;
+        color: #3498db;
+        width: 50px;
+    }
+    
+    .week-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0;
+    }
+    
+    .week-link {
+        display: inline-block;
+        padding: 8px 15px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    
+    .week-link:hover {
+        background: #2980b9;
+    }
+    
+    .season-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .season-list li {
+        padding: 15px;
+        margin: 10px 0;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .season-list a {
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.1em;
+    }
+    
+    .season-list a:hover {
+        color: #3498db;
+    }
+    
+    .breadcrumb {
+        color: #7f8c8d;
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumb a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .bracket-container {
+        overflow-x: auto;
+        margin: 30px 0;
+        padding: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        position: relative;
+        min-height: 500px;
+    }
+    
+    .bracket-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        min-width: 1200px;
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .bracket-round {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        flex: 1;
+        position: relative;
+        min-width: 200px;
+    }
+    
+    .bracket-round:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 0;
+        bottom: 0;
+        width: 60px;
+        z-index: 0;
+    }
+    
+    .bracket-matchup {
+        display: flex;
+        flex-direction: column;
+        margin: 15px 0;
+        position: relative;
+        min-height: 80px;
+    }
+    
+    .bracket-matchup:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        width: 30px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1;
+    }
+    
+    .bracket-team {
+        background: rgba(255, 255, 255, 0.95);
+        border: 2px solid #3498db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 4px 0;
+        min-width: 180px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.3s;
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+    
+    .bracket-team:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        background: rgba(255, 255, 255, 1);
+    }
+    
+    .bracket-team.winner {
+        background: #d4edda;
+        border-color: #28a745;
+        font-weight: 600;
+        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+    }
+    
+    .bracket-team.tbd {
+        background: rgba(248, 249, 250, 0.7);
+        border-color: #dee2e6;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .bracket-round-label {
+        text-align: center;
+        color: white;
+        font-weight: 700;
+        margin-bottom: 30px;
+        font-size: 1.2em;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        padding: 8px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 5px;
+    }
+    
+    .bracket-final {
+        background: rgba(255, 215, 0, 0.95) !important;
+        border: 3px solid #ffd700 !important;
+        font-size: 1.15em;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5) !important;
+    }
+    
+    .bracket-round:first-child .bracket-matchup {
+        margin-top: 0;
+    }
+    
+    .bracket-round:last-child {
+        flex: 0.8;
+    }
+    
+    .bracket-round:last-child .bracket-matchup {
+        margin: 0;
+    }
+    
+    .matchup-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .matchup-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .matchup-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .matchup-details.expanded {
+        display: table-row;
+    }
+    
+    .matchup-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .matchup-details-content {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    
+    .team-details {
+        background: white;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .team-details h4 {
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .player-section {
+        margin-bottom: 20px;
+    }
+    
+    .player-section h5 {
+        color: #34495e;
+        margin-bottom: 10px;
+        font-size: 0.95em;
+    }
+    
+    .player-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 10px;
+        margin: 4px 0;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 3px solid #3498db;
+    }
+    
+    .player-item.bench {
+        border-left-color: #95a5a6;
+        background: #ecf0f1;
+    }
+    
+    .player-name {
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.85em;
+        margin-left: 8px;
+    }
+    
+    .player-points {
+        font-weight: 600;
+        color: #27ae60;
+    }
+    
+    .expand-icon {
+        display: inline-block;
+        margin-left: 8px;
+        transition: transform 0.3s;
+    }
+    
+    .matchup-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .draft-container {
+        margin: 30px 0;
+    }
+    
+    .draft-team {
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .draft-team h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .draft-picks-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .draft-picks-table th {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .draft-picks-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .draft-picks-table tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .transaction-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .transaction-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .transaction-row.has-failed-claims {
+        cursor: pointer;
+    }
+    
+    .transaction-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .transaction-details.expanded {
+        display: table-row;
+    }
+    
+    .transaction-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .transaction-details-content {
+        padding: 20px;
+        background: white;
+        margin: 10px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .transaction-details-content h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    
+    .failed-claims-group {
+        margin-bottom: 20px;
+    }
+    
+    .failed-claims-group h5 {
+        color: #e74c3c;
+        margin-bottom: 10px;
+        font-size: 1em;
+    }
+    
+    .failed-claims-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .failed-claims-list li {
+        padding: 8px 12px;
+        margin: 5px 0;
+        background: #fff3cd;
+        border-left: 3px solid #ffc107;
+        border-radius: 4px;
+        color: #856404;
+    }
+    
+    .transaction-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .time-cell {
+        font-size: 0.9em;
+        color: #7f8c8d;
+        white-space: nowrap;
+    }
+    
+    h3 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        font-size: 1.3em;
+    }
+    
+    h3:first-of-type {
+        margin-top: 0;
+    }
+    
+    @media (max-width: 768px) {
+        body {
+            padding: 10px;
+        }
+        
+        .container {
+            padding: 15px;
+        }
+        
+        table {
+            font-size: 0.9em;
+        }
+        
+        th, td {
+            padding: 8px;
+        }
+        
+        .nav {
+            text-align: center;
+        }
+        
+        .nav a {
+            display: inline-block;
+            margin: 5px;
+        }
+        
+        .bracket-container {
+            padding: 10px;
+        }
+        
+        .bracket-wrapper {
+            min-width: 800px;
+        }
+        
+        .bracket-team {
+            min-width: 150px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+    }
+</style>
+"""
+
+def get_html_template(title: str, nav: str, content: str) -> str:
+    """
+    Generate complete HTML page with embedded styles.
+    
+    Args:
+        title: Page title
+        nav: Navigation HTML
+        content: Main content HTML
+        
+    Returns:
+        Complete HTML document as string
+    """
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    {CSS_STYLES}
+</head>
+<body>
+    <div class="container">
+        {nav}
+        {content}
+    </div>
+</body>
+</html>
+"""
+
+def get_navigation(season: str = None, week: int = None, prev_week: int = None, next_week: int = None, in_subdirectory: bool = False) -> str:
+    """
+    Generate navigation bar HTML with relative paths that work for both local and GitHub Pages.
+    
+    Args:
+        season: Current season (e.g., "2024")
+        week: Current week number
+        prev_week: Previous week number (if available)
+        next_week: Next week number (if available)
+        in_subdirectory: Whether the page is in a subdirectory (e.g., all_time/)
+        
+    Returns:
+        Navigation HTML string
+    """
+    nav_links = ['<div class="nav">']
+    
+    # Home link - use relative path based on current location
+    if season or in_subdirectory:
+        # From season pages or all_time subdirectory, go up one level
+        home_link = "../index.html"
+    else:
+        # From root index.html, link to itself
+        home_link = "index.html"
+    nav_links.append(f'<a href="{home_link}">Home</a>')
+    
+    if season:
+        # From season pages, link to root index
+        nav_links.append(f'<a href="../index.html">All Seasons</a>')
+        # Link to season index (same directory)
+        nav_links.append(f'<a href="index.html">{season} Season</a>')
+        
+        if week:
+            # Week navigation (same directory)
+            if prev_week:
+                nav_links.append(f'<a href="week_{prev_week}.html">← Week {prev_week}</a>')
+            if next_week:
+                nav_links.append(f'<a href="week_{next_week}.html">Week {next_week} →</a>')
+    else:
+        # From root index, link to all-time stats
+        if not in_subdirectory:
+            nav_links.append('<a href="all_time/standings.html">All-Time Stats</a>')
+        else:
+            # From all_time subdirectory, link back to root
+            nav_links.append('<a href="../index.html">All Seasons</a>')
+    
+    nav_links.append('</div>')
+    return ''.join(nav_links)
+
+def get_breadcrumb(season: str = None, week: int = None, in_subdirectory: bool = False) -> str:
+    """
+    Generate breadcrumb navigation with relative paths.
+    
+    Args:
+        season: Current season
+        week: Current week number
+        in_subdirectory: Whether the page is in a subdirectory (e.g., all_time/)
+        
+    Returns:
+        Breadcrumb HTML string
+    """
+    breadcrumbs = ['<div class="breadcrumb">']
+    
+    # Home link - use relative path based on current location
+    if season or in_subdirectory:
+        # From season pages or all_time subdirectory, go up one level to root
+        breadcrumbs.append('<a href="../index.html">Home</a>')
+    else:
+        # From root, link to itself
+        breadcrumbs.append('<a href="index.html">Home</a>')
+    
+    if season:
+        breadcrumbs.append(' / ')
+        breadcrumbs.append(f'<a href="index.html">{season}</a>')
+        
+        if week:
+            breadcrumbs.append(f' / Week {week}')
+    elif in_subdirectory:
+        # From all_time subdirectory
+        breadcrumbs.append(' / <a href="standings.html">All-Time Stats</a>')
+    else:
+        # From root index
+        breadcrumbs.append(' / All-Time Stats')
+    
+    breadcrumbs.append('</div>')
+    return ''.join(breadcrumbs)
+
