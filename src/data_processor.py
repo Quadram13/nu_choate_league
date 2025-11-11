@@ -5,8 +5,14 @@ from typing import Dict, List
 
 from constants import (
     DEFAULT_LAST_SCORED_LEG,
-    DEFAULT_PLAYOFF_WEEK_START
+    DEFAULT_PLAYOFF_WEEK_START,
+    MUNGED_DIR,
+    UNMUNGED_DIR
 )
+from utils.logging_utils import get_logger
+from utils.validation import validate_path, validate_dict, validate_season_year
+
+logger = get_logger('data_processor')
 from mappers import (
     load_players_maps,
     load_users_map,
@@ -18,7 +24,7 @@ from standings import (
     calculate_weekly_standings_dict,
     standings_to_list
 )
-from recap_generator import (
+from recap import (
     generate_weekly_recap,
     map_transactions
 )
@@ -45,14 +51,14 @@ def process_drafts(
     """
     drafts_path = season_unmunged / "draft.json"
     if not drafts_path.exists():
-        print("  No draft.json file found, skipping draft processing")
+        logger.debug("  No draft.json file found, skipping draft processing")
         return
     
     with open(drafts_path, 'r') as f:
         drafts = json.load(f)
     
     if not drafts:
-        print("  No drafts found in draft.json")
+        logger.debug("  No drafts found in draft.json")
         return
     
     # Process the first draft (typically the main regular season draft)
@@ -62,7 +68,7 @@ def process_drafts(
     draft_order = draft.get('draft_order', {})
     
     if not picks:
-        print("  No picks found in draft data")
+        logger.debug("  No picks found in draft data")
         return
     
     # Organize picks by team
@@ -115,7 +121,7 @@ def process_drafts(
     with open(drafts_output_path, 'w') as f:
         json.dump(teams_draft_data, f, indent=2)
     
-    print(f"  Processed draft data for {len(teams_draft_data)} teams")
+    logger.info(f"  Processed draft data for {len(teams_draft_data)} teams")
 
 
 def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
@@ -124,11 +130,23 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     
     Args:
         year: Season year (e.g., "2024")
-        unmunged_dir: Path to unmunged directory (e.g., src/unmunged)
-        munged_dir: Path to munged directory (e.g., src/munged)
+        unmunged_dir: Path to unmunged directory (e.g., src/data/unmunged)
+        munged_dir: Path to munged directory (e.g., src/data/munged)
+        
+    Raises:
+        DataValidationError: If validation fails
     """
+    from utils.exceptions import DataValidationError
+    
+    # Validate inputs
+    validate_season_year(year)
+    validate_path(unmunged_dir, must_exist=True, must_be_dir=True)
+    validate_path(munged_dir, must_exist=False)  # Will be created if needed
+    
     season_unmunged = unmunged_dir / year
     season_munged = munged_dir / year
+    
+    validate_path(season_unmunged, must_exist=True, must_be_dir=True)
     
     # Create output directories
     regular_season_dir = season_munged / "regular_season"
@@ -138,15 +156,22 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     
     # Load league info
     league_info_path = season_unmunged / "league_info.json"
+    validate_path(league_info_path, must_exist=True, must_be_file=True)
+    
     with open(league_info_path, 'r') as f:
         league_info = json.load(f)
+    
+    validate_dict(league_info, name="league_info")
     
     playoff_week_start = league_info.get('settings', {}).get('playoff_week_start', DEFAULT_PLAYOFF_WEEK_START)
     last_scored_leg = league_info.get('settings', {}).get('last_scored_leg', DEFAULT_LAST_SCORED_LEG)
     roster_positions = league_info.get('roster_positions', [])
     
+    if not isinstance(roster_positions, list):
+        raise DataValidationError(f"roster_positions must be a list, got {type(roster_positions).__name__}")
+    
     # Load all mappings
-    print(f"Loading mappings for {year}...")
+    logger.info(f"Loading mappings for {year}...")
     players_path = unmunged_dir / "players.json"
     users_path = season_unmunged / "users.json"
     rosters_path = season_unmunged / "rosters.json"
@@ -156,15 +181,15 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     users_map = load_users_map(users_path)
     rosters_map = load_rosters_map(rosters_path, users_map)
     
-    print(f"Loaded {len(players_map)} players, {len(users_map)} users, {len(rosters_map)} rosters")
+    logger.info(f"Loaded {len(players_map)} players, {len(users_map)} users, {len(rosters_map)} rosters")
     
     # Process drafts
-    print("\nProcessing drafts...")
+    logger.info("\nProcessing drafts...")
     process_drafts(season_unmunged, season_munged, players_map, users_map)
     
     # Process regular season weeks
     regular_season_weeks = range(1, playoff_week_start)
-    print(f"\nProcessing regular season weeks 1-{playoff_week_start - 1}...")
+    logger.info(f"\nProcessing regular season weeks 1-{playoff_week_start - 1}...")
     
     all_regular_standings = []
     cached_standings = None  # Cache standings dict for incremental calculation
@@ -175,10 +200,10 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         transactions_path = week_dir / "transactions.json"
         
         if not matchups_path.exists():
-            print(f"  Week {week}: No matchups file found, skipping")
+            logger.warning(f"  Week {week}: No matchups file found, skipping")
             continue
         
-        print(f"  Processing week {week}...")
+        logger.info(f"  Processing week {week}...")
         
         # Load week data
         with open(matchups_path, 'r') as f:
@@ -227,7 +252,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
             json.dump(recap, f, indent=2)
     
     # Generate complete regular season recap
-    print("\nGenerating regular season recap...")
+    logger.info("\nGenerating regular season recap...")
     # Use cached standings from the last week instead of recalculating
     if cached_standings is not None:
         final_standings = standings_to_list(cached_standings)
@@ -250,7 +275,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     # Process postseason weeks (only if postseason has started)
     if last_scored_leg >= playoff_week_start:
         postseason_weeks = range(playoff_week_start, last_scored_leg + 1)
-        print(f"\nProcessing postseason weeks {playoff_week_start}-{last_scored_leg}...")
+        logger.info(f"\nProcessing postseason weeks {playoff_week_start}-{last_scored_leg}...")
         
         for week in postseason_weeks:
             week_dir = season_unmunged / f"week_{week}"
@@ -258,10 +283,10 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
             transactions_path = week_dir / "transactions.json"
             
             if not matchups_path.exists():
-                print(f"  Week {week}: No matchups file found, skipping")
+                logger.warning(f"  Week {week}: No matchups file found, skipping")
                 continue
             
-            print(f"  Processing week {week}...")
+            logger.info(f"  Processing week {week}...")
             
             # Load week data
             with open(matchups_path, 'r') as f:
@@ -288,10 +313,10 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
             with open(recap_output, 'w') as f:
                 json.dump(recap, f, indent=2)
     else:
-        print(f"\nPostseason has not started yet (starts at week {playoff_week_start}, currently at week {last_scored_leg})")
+        logger.info(f"\nPostseason has not started yet (starts at week {playoff_week_start}, currently at week {last_scored_leg})")
     
     # Generate complete postseason recap
-    print("\nGenerating postseason recap...")
+    logger.info("\nGenerating postseason recap...")
     winners_bracket_path = season_unmunged / "playoffs_winnersbracket.json"
     losers_bracket_path = season_unmunged / "playoffs_losersbracket.json"
     
@@ -306,9 +331,9 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         with open(postseason_recap_path, 'w') as f:
             json.dump(postseason_recap, f, indent=2)
     else:
-        print("  Postseason bracket files not found (postseason may not have started yet)")
+        logger.warning("  Postseason bracket files not found (postseason may not have started yet)")
     
-    print(f"\nCompleted processing {year} season!")
+    logger.info(f"\nCompleted processing {year} season!")
 
 
 def main():
@@ -318,8 +343,8 @@ def main():
     # Default to processing 2024 if no year specified
     year = sys.argv[1] if len(sys.argv) > 1 else "2024"
     
-    unmunged_dir = Path("src/unmunged")
-    munged_dir = Path("src/munged")
+    unmunged_dir = Path(UNMUNGED_DIR)
+    munged_dir = Path(MUNGED_DIR)
     
     if not (unmunged_dir / year).exists():
         print(f"Error: Season {year} not found in {unmunged_dir}")

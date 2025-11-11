@@ -2,25 +2,9 @@
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from collections import defaultdict
 
-
-def _group_matchups_by_id(matchups: List[Dict]) -> Dict[int, List[Dict]]:
-    """
-    Group matchups by matchup_id.
-    
-    Args:
-        matchups: List of matchup dictionaries
-        
-    Returns:
-        Dictionary mapping matchup_id to list of matchups
-    """
-    matchup_groups = defaultdict(list)
-    for matchup in matchups:
-        matchup_id = matchup.get('matchup_id')
-        if matchup_id:
-            matchup_groups[matchup_id].append(matchup)
-    return matchup_groups
+from utils.matchup_utils import group_matchups_by_id
+from utils.json_utils import load_json
 
 
 def _process_week_data(
@@ -44,11 +28,12 @@ def _process_week_data(
         return
     
     # Process matchups to update W-L and points
-    with open(matchups_path, 'r') as f:
-        matchups = json.load(f)
+    matchups = load_json(matchups_path)
+    if matchups is None:
+        return
     
     # Group matchups by matchup_id
-    matchup_groups = _group_matchups_by_id(matchups)
+    matchup_groups = group_matchups_by_id(matchups)
     
     # Determine wins/losses for each matchup
     for matchup_id, matchup_list in matchup_groups.items():
@@ -80,9 +65,8 @@ def _process_week_data(
                     standings[roster_id2]['ties'] += 1
     
     # Process transactions to count them
-    if transactions_path.exists():
-        with open(transactions_path, 'r') as f:
-            transactions = json.load(f)
+    transactions = load_json(transactions_path)
+    if transactions is not None:
         
         for transaction in transactions:
             # Only count complete transactions
@@ -164,7 +148,7 @@ def calculate_weekly_standings(
     Calculate cumulative standings up to and including the specified week.
     
     Args:
-        season_dir: Path to season directory (e.g., src/unmunged/2024)
+        season_dir: Path to season directory (e.g., src/data/unmunged/2024)
         week: Week number to calculate standings for
         rosters_map: Roster ID to user info mapping
         previous_standings: Optional previous standings dict to increment from
@@ -172,6 +156,10 @@ def calculate_weekly_standings(
         
     Returns:
         List of standings dictionaries, sorted by win percentage (desc), then PF (desc)
+        
+    Raises:
+        FileNotFoundError: If required matchup files don't exist
+        json.JSONDecodeError: If JSON files are invalid
     """
     # Get standings dict (for caching) and convert to list
     standings_dict = calculate_weekly_standings_dict(
@@ -191,7 +179,7 @@ def calculate_weekly_standings_dict(
     Returns the standings dictionary (for caching) instead of a list.
     
     Args:
-        season_dir: Path to season directory (e.g., src/unmunged/2024)
+        season_dir: Path to season directory (e.g., src/data/unmunged/2024)
         week: Week number to calculate standings for
         rosters_map: Roster ID to user info mapping
         previous_standings: Optional previous standings dict to increment from
@@ -199,6 +187,10 @@ def calculate_weekly_standings_dict(
         
     Returns:
         Dictionary of standings keyed by roster_id
+        
+    Raises:
+        FileNotFoundError: If required matchup files don't exist
+        json.JSONDecodeError: If JSON files are invalid
     """
     # Initialize or copy previous standings
     if previous_standings is None:
@@ -239,7 +231,7 @@ def get_matchup_results(matchups: List[Dict]) -> Dict[int, Tuple[int, int, float
         Dictionary mapping roster_id to (opponent_roster_id, won, points, opponent_points)
     """
     # Reuse the existing grouping function instead of duplicating logic
-    matchup_groups = _group_matchups_by_id(matchups)
+    matchup_groups = group_matchups_by_id(matchups)
     
     results = {}
     for matchup_id, matchup_list in matchup_groups.items():

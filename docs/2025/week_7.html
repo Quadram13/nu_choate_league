@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 Season - Week 7 Recap</title>
+    
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f5f5f5;
+        padding: 20px;
+    }
+    
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+    }
+    
+    h2 {
+        color: #34495e;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #ecf0f1;
+        padding-bottom: 8px;
+    }
+    
+    h3 {
+        color: #7f8c8d;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .nav {
+        background: #34495e;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .nav a {
+        color: white;
+        text-decoration: none;
+        margin-right: 15px;
+        padding: 5px 10px;
+        border-radius: 3px;
+        transition: background 0.3s;
+    }
+    
+    .nav a:hover {
+        background: #2c3e50;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    th {
+        background: #3498db;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+    
+    td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .winner {
+        background: #d4edda !important;
+        font-weight: 600;
+    }
+    
+    .loser {
+        background: #f8d7da !important;
+    }
+    
+    .tie {
+        background: #fff3cd !important;
+    }
+    
+    .award-box {
+        background: #f8f9fa;
+        border-left: 4px solid #3498db;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    
+    .award-box h4 {
+        color: #3498db;
+        margin-bottom: 8px;
+    }
+    
+    .team-highlight {
+        background: #e8f4f8;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .player-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .player-list li {
+        padding: 8px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    .player-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .player-name {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .player-points {
+        color: #27ae60;
+        font-weight: 600;
+        float: right;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+    
+    .standings-table {
+        margin-top: 20px;
+    }
+    
+    .rank {
+        font-weight: 700;
+        color: #3498db;
+        width: 50px;
+    }
+    
+    .week-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0;
+    }
+    
+    .week-link {
+        display: inline-block;
+        padding: 8px 15px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    
+    .week-link:hover {
+        background: #2980b9;
+    }
+    
+    .season-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .season-list li {
+        padding: 15px;
+        margin: 10px 0;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .season-list a {
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.1em;
+    }
+    
+    .season-list a:hover {
+        color: #3498db;
+    }
+    
+    .breadcrumb {
+        color: #7f8c8d;
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumb a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .bracket-container {
+        overflow-x: auto;
+        margin: 30px 0;
+        padding: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        position: relative;
+        min-height: 500px;
+    }
+    
+    .bracket-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        min-width: 1200px;
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .bracket-round {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        flex: 1;
+        position: relative;
+        min-width: 200px;
+    }
+    
+    .bracket-round:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 0;
+        bottom: 0;
+        width: 60px;
+        z-index: 0;
+    }
+    
+    .bracket-matchup {
+        display: flex;
+        flex-direction: column;
+        margin: 15px 0;
+        position: relative;
+        min-height: 80px;
+    }
+    
+    .bracket-matchup:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        width: 30px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1;
+    }
+    
+    .bracket-team {
+        background: rgba(255, 255, 255, 0.95);
+        border: 2px solid #3498db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 4px 0;
+        min-width: 180px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.3s;
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+    
+    .bracket-team:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        background: rgba(255, 255, 255, 1);
+    }
+    
+    .bracket-team.winner {
+        background: #d4edda;
+        border-color: #28a745;
+        font-weight: 600;
+        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+    }
+    
+    .bracket-team.tbd {
+        background: rgba(248, 249, 250, 0.7);
+        border-color: #dee2e6;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .bracket-round-label {
+        text-align: center;
+        color: white;
+        font-weight: 700;
+        margin-bottom: 30px;
+        font-size: 1.2em;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        padding: 8px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 5px;
+    }
+    
+    .bracket-final {
+        background: rgba(255, 215, 0, 0.95) !important;
+        border: 3px solid #ffd700 !important;
+        font-size: 1.15em;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5) !important;
+    }
+    
+    .bracket-round:first-child .bracket-matchup {
+        margin-top: 0;
+    }
+    
+    .bracket-round:last-child {
+        flex: 0.8;
+    }
+    
+    .bracket-round:last-child .bracket-matchup {
+        margin: 0;
+    }
+    
+    .matchup-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .matchup-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .matchup-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .matchup-details.expanded {
+        display: table-row;
+    }
+    
+    .matchup-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .matchup-details-content {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    
+    .team-details {
+        background: white;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .team-details h4 {
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .player-section {
+        margin-bottom: 20px;
+    }
+    
+    .player-section h5 {
+        color: #34495e;
+        margin-bottom: 10px;
+        font-size: 0.95em;
+    }
+    
+    .player-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 10px;
+        margin: 4px 0;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 3px solid #3498db;
+    }
+    
+    .player-item.bench {
+        border-left-color: #95a5a6;
+        background: #ecf0f1;
+    }
+    
+    .player-name {
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.85em;
+        margin-left: 8px;
+    }
+    
+    .player-points {
+        font-weight: 600;
+        color: #27ae60;
+    }
+    
+    .expand-icon {
+        display: inline-block;
+        margin-left: 8px;
+        transition: transform 0.3s;
+    }
+    
+    .matchup-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .draft-container {
+        margin: 30px 0;
+    }
+    
+    .draft-team {
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .draft-team h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .draft-picks-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .draft-picks-table th {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .draft-picks-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .draft-picks-table tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .transaction-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .transaction-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .transaction-row.has-failed-claims {
+        cursor: pointer;
+    }
+    
+    .transaction-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .transaction-details.expanded {
+        display: table-row;
+    }
+    
+    .transaction-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .transaction-details-content {
+        padding: 20px;
+        background: white;
+        margin: 10px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .transaction-details-content h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    
+    .failed-claims-group {
+        margin-bottom: 20px;
+    }
+    
+    .failed-claims-group h5 {
+        color: #e74c3c;
+        margin-bottom: 10px;
+        font-size: 1em;
+    }
+    
+    .failed-claims-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .failed-claims-list li {
+        padding: 8px 12px;
+        margin: 5px 0;
+        background: #fff3cd;
+        border-left: 3px solid #ffc107;
+        border-radius: 4px;
+        color: #856404;
+    }
+    
+    .transaction-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .time-cell {
+        font-size: 0.9em;
+        color: #7f8c8d;
+        white-space: nowrap;
+    }
+    
+    h3 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        font-size: 1.3em;
+    }
+    
+    h3:first-of-type {
+        margin-top: 0;
+    }
+    
+    @media (max-width: 768px) {
+        body {
+            padding: 10px;
+        }
+        
+        .container {
+            padding: 15px;
+        }
+        
+        table {
+            font-size: 0.9em;
+        }
+        
+        th, td {
+            padding: 8px;
+        }
+        
+        .nav {
+            text-align: center;
+        }
+        
+        .nav a {
+            display: inline-block;
+            margin: 5px;
+        }
+        
+        .bracket-container {
+            padding: 10px;
+        }
+        
+        .bracket-wrapper {
+            min-width: 800px;
+        }
+        
+        .bracket-team {
+            min-width: 150px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+    }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <div class="nav"><a href="../index.html">Home</a><a href="../index.html">All Seasons</a><a href="index.html">2025 Season</a><a href="week_6.html">← Week 6</a><a href="week_8.html">Week 8 →</a></div>
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">2025</a> / Week 7</div><h1>Week 7 Recap - 2025 Season</h1><h2>Matchup Results</h2><table><thead><tr><th>Team 1</th><th>Points</th><th>Team 2</th><th>Points</th><th>Winner</th></tr></thead><tbody><tr class="matchup-row winner" onclick="toggleMatchup(0)"><td><strong>Supreme Leader White</strong></td><td>165.44</td><td><strong>Team ahhowey</strong></td><td>201.36</td><td><strong>Team ahhowey</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-0"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>Supreme Leader White - 165.44 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Jayden Daniels</span><span class="player-position">(QB)</span></div><span class="player-points">17.74 pts</span></div><div class="player-item "><div><span class="player-name">Christian McCaffrey</span><span class="player-position">(RB)</span></div><span class="player-points">39.10 pts</span></div><div class="player-item "><div><span class="player-name">D&#x27;Andre Swift</span><span class="player-position">(RB)</span></div><span class="player-points">20.80 pts</span></div><div class="player-item "><div><span class="player-name">Rashee Rice</span><span class="player-position">(WR)</span></div><span class="player-points">23.20 pts</span></div><div class="player-item "><div><span class="player-name">Brian Thomas</span><span class="player-position">(WR)</span></div><span class="player-points">6.10 pts</span></div><div class="player-item "><div><span class="player-name">Trey McBride</span><span class="player-position">(TE)</span></div><span class="player-points">29.40 pts</span></div><div class="player-item "><div><span class="player-name">Courtland Sutton</span><span class="player-position">(WR)</span></div><span class="player-points">16.70 pts</span></div><div class="player-item "><div><span class="player-name">Rachaad White</span><span class="player-position">(RB)</span></div><span class="player-points">8.40 pts</span></div><div class="player-item "><div><span class="player-name">Ka&#x27;imi Fairbairn</span><span class="player-position">(K)</span></div><span class="player-points">8.00 pts</span></div><div class="player-item "><div><span class="player-name">PIT</span><span class="player-position">(DEF)</span></div><span class="player-points">-4.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Caleb Williams</span><span class="player-position">(QB)</span></div><span class="player-points">4.68 pts</span></div><div class="player-item bench"><div><span class="player-name">Trey Benson</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Jalen Coker</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Harold Fannin</span><span class="player-position">(TE)</span></div><span class="player-points">7.60 pts</span></div><div class="player-item bench"><div><span class="player-name">Jakobi Meyers</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Brian Robinson</span><span class="player-position">(RB)</span></div><span class="player-points">3.60 pts</span></div></div></div><div class="team-details"><h4>Team ahhowey - 201.36 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Dak Prescott</span><span class="player-position">(QB)</span></div><span class="player-points">23.26 pts</span></div><div class="player-item "><div><span class="player-name">Bijan Robinson</span><span class="player-position">(RB)</span></div><span class="player-points">21.20 pts</span></div><div class="player-item "><div><span class="player-name">Jonathan Taylor</span><span class="player-position">(RB)</span></div><span class="player-points">34.20 pts</span></div><div class="player-item "><div><span class="player-name">Jaxon Smith-Njigba</span><span class="player-position">(WR)</span></div><span class="player-points">26.30 pts</span></div><div class="player-item "><div><span class="player-name">Jordan Addison</span><span class="player-position">(WR)</span></div><span class="player-points">21.80 pts</span></div><div class="player-item "><div><span class="player-name">Jake Ferguson</span><span class="player-position">(TE)</span></div><span class="player-points">21.90 pts</span></div><div class="player-item "><div><span class="player-name">DJ Moore</span><span class="player-position">(WR)</span></div><span class="player-points">8.20 pts</span></div><div class="player-item "><div><span class="player-name">Kenneth Gainwell</span><span class="player-position">(RB)</span></div><span class="player-points">3.50 pts</span></div><div class="player-item "><div><span class="player-name">Evan McPherson</span><span class="player-position">(K)</span></div><span class="player-points">17.00 pts</span></div><div class="player-item "><div><span class="player-name">CLE</span><span class="player-position">(DEF)</span></div><span class="player-points">24.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Chris Rodriguez</span><span class="player-position">(RB)</span></div><span class="player-points">7.20 pts</span></div><div class="player-item bench"><div><span class="player-name">Troy Franklin</span><span class="player-position">(WR)</span></div><span class="player-points">12.90 pts</span></div><div class="player-item bench"><div><span class="player-name">Sam Darnold</span><span class="player-position">(QB)</span></div><span class="player-points">8.62 pts</span></div><div class="player-item bench"><div><span class="player-name">Calvin Ridley</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Hassan Haskins</span><span class="player-position">(RB)</span></div><span class="player-points">2.50 pts</span></div></div></div></div></td></tr><tr class="matchup-row winner" onclick="toggleMatchup(1)"><td><strong>melvins room </strong></td><td>113.02</td><td><strong>Team johnjjepic</strong></td><td>117.48</td><td><strong>Team johnjjepic</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-1"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>melvins room  - 113.02 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Daniel Jones</span><span class="player-position">(QB)</span></div><span class="player-points">22.22 pts</span></div><div class="player-item "><div><span class="player-name">Rhamondre Stevenson</span><span class="player-position">(RB)</span></div><span class="player-points">16.80 pts</span></div><div class="player-item "><div><span class="player-name">J.K. Dobbins</span><span class="player-position">(RB)</span></div><span class="player-points">9.00 pts</span></div><div class="player-item "><div><span class="player-name">Xavier Worthy</span><span class="player-position">(WR)</span></div><span class="player-points">7.80 pts</span></div><div class="player-item "><div><span class="player-name">Kayshon Boutte</span><span class="player-position">(WR)</span></div><span class="player-points">13.50 pts</span></div><div class="player-item "><div><span class="player-name">Travis Kelce</span><span class="player-position">(TE)</span></div><span class="player-points">8.40 pts</span></div><div class="player-item "><div><span class="player-name">Kimani Vidal</span><span class="player-position">(RB)</span></div><span class="player-points">7.50 pts</span></div><div class="player-item "><div><span class="player-name">Emeka Egbuka</span><span class="player-position">(WR)</span></div><span class="player-points">9.80 pts</span></div><div class="player-item "><div><span class="player-name">Chase McLaughlin</span><span class="player-position">(K)</span></div><span class="player-points">5.00 pts</span></div><div class="player-item "><div><span class="player-name">KC</span><span class="player-position">(DEF)</span></div><span class="player-points">13.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Brashard Smith</span><span class="player-position">(RB)</span></div><span class="player-points">13.10 pts</span></div><div class="player-item bench"><div><span class="player-name">Tez Johnson</span><span class="player-position">(WR)</span></div><span class="player-points">15.80 pts</span></div><div class="player-item bench"><div><span class="player-name">Omarion Hampton</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Josh Allen</span><span class="player-position">(QB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Tony Pollard</span><span class="player-position">(RB)</span></div><span class="player-points">12.10 pts</span></div><div class="player-item bench"><div><span class="player-name">Khalil Shakir</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div><div class="team-details"><h4>Team johnjjepic - 117.48 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Matthew Stafford</span><span class="player-position">(QB)</span></div><span class="player-points">27.38 pts</span></div><div class="player-item "><div><span class="player-name">Ashton Jeanty</span><span class="player-position">(RB)</span></div><span class="player-points">4.40 pts</span></div><div class="player-item "><div><span class="player-name">Javonte Williams</span><span class="player-position">(RB)</span></div><span class="player-points">18.80 pts</span></div><div class="player-item "><div><span class="player-name">Michael Pittman</span><span class="player-position">(WR)</span></div><span class="player-points">20.80 pts</span></div><div class="player-item "><div><span class="player-name">Marvin Harrison</span><span class="player-position">(WR)</span></div><span class="player-points">7.80 pts</span></div><div class="player-item "><div><span class="player-name">Darren Waller</span><span class="player-position">(TE)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">Kenneth Walker</span><span class="player-position">(RB)</span></div><span class="player-points">6.60 pts</span></div><div class="player-item "><div><span class="player-name">Nico Collins</span><span class="player-position">(WR)</span></div><span class="player-points">6.70 pts</span></div><div class="player-item "><div><span class="player-name">Michael Badgley</span><span class="player-position">(K)</span></div><span class="player-points">5.00 pts</span></div><div class="player-item "><div><span class="player-name">NE</span><span class="player-position">(DEF)</span></div><span class="player-points">20.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Tre Tucker</span><span class="player-position">(WR)</span></div><span class="player-points">8.30 pts</span></div><div class="player-item bench"><div><span class="player-name">Ricky Pearsall</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Aaron Jones</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Christian Kirk</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">T.J. Hockenson</span><span class="player-position">(TE)</span></div><span class="player-points">10.30 pts</span></div><div class="player-item bench"><div><span class="player-name">Kyler Murray</span><span class="player-position">(QB)</span></div><span class="player-points">0.00 pts</span></div></div></div></div></td></tr><tr class="matchup-row winner" onclick="toggleMatchup(2)"><td><strong>Who’sAfraidofLittleOldMe?</strong></td><td>111.38</td><td><strong>Team piamlodos</strong></td><td>151.20</td><td><strong>Team piamlodos</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-2"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>Who’sAfraidofLittleOldMe? - 111.38 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Drake Maye</span><span class="player-position">(QB)</span></div><span class="player-points">23.08 pts</span></div><div class="player-item "><div><span class="player-name">Quinshon Judkins</span><span class="player-position">(RB)</span></div><span class="player-points">26.40 pts</span></div><div class="player-item "><div><span class="player-name">Jacory Croskey-Merritt</span><span class="player-position">(RB)</span></div><span class="player-points">4.20 pts</span></div><div class="player-item "><div><span class="player-name">Tetairoa McMillan</span><span class="player-position">(WR)</span></div><span class="player-points">6.30 pts</span></div><div class="player-item "><div><span class="player-name">CeeDee Lamb</span><span class="player-position">(WR)</span></div><span class="player-points">22.00 pts</span></div><div class="player-item "><div><span class="player-name">Hunter Henry</span><span class="player-position">(TE)</span></div><span class="player-points">7.30 pts</span></div><div class="player-item "><div><span class="player-name">Mike Evans</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">Jauan Jennings</span><span class="player-position">(WR)</span></div><span class="player-points">7.10 pts</span></div><div class="player-item "><div><span class="player-name">Harrison Butker</span><span class="player-position">(K)</span></div><span class="player-points">7.00 pts</span></div><div class="player-item "><div><span class="player-name">GB</span><span class="player-position">(DEF)</span></div><span class="player-points">8.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Bucky Irving</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Keon Coleman</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Bhayshul Tuten</span><span class="player-position">(RB)</span></div><span class="player-points">2.20 pts</span></div><div class="player-item bench"><div><span class="player-name">Dallas Goedert</span><span class="player-position">(TE)</span></div><span class="player-points">4.80 pts</span></div><div class="player-item bench"><div><span class="player-name">Puka Nacua</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div><div class="team-details"><h4>Team piamlodos - 151.20 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Justin Herbert</span><span class="player-position">(QB)</span></div><span class="player-points">27.90 pts</span></div><div class="player-item "><div><span class="player-name">Jordan Mason</span><span class="player-position">(RB)</span></div><span class="player-points">11.70 pts</span></div><div class="player-item "><div><span class="player-name">Jahmyr Gibbs</span><span class="player-position">(RB)</span></div><span class="player-points">36.80 pts</span></div><div class="player-item "><div><span class="player-name">Ladd McConkey</span><span class="player-position">(WR)</span></div><span class="player-points">15.70 pts</span></div><div class="player-item "><div><span class="player-name">Deebo Samuel</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">David Njoku</span><span class="player-position">(TE)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">George Pickens</span><span class="player-position">(WR)</span></div><span class="player-points">12.20 pts</span></div><div class="player-item "><div><span class="player-name">Keenan Allen</span><span class="player-position">(WR)</span></div><span class="player-points">28.90 pts</span></div><div class="player-item "><div><span class="player-name">Chris Boswell</span><span class="player-position">(K)</span></div><span class="player-points">8.00 pts</span></div><div class="player-item "><div><span class="player-name">SEA</span><span class="player-position">(DEF)</span></div><span class="player-points">10.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Braelon Allen</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Kyle Williams</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Evan Engram</span><span class="player-position">(TE)</span></div><span class="player-points">9.20 pts</span></div><div class="player-item bench"><div><span class="player-name">James Cook</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">BAL</span><span class="player-position">(DEF)</span></div><span class="player-points">0.00 pts</span></div></div></div></div></td></tr><tr class="matchup-row winner" onclick="toggleMatchup(3)"><td><strong>Saquon deez nuts </strong></td><td>124.42</td><td><strong>Joe Buck Yourself</strong></td><td>139.14</td><td><strong>Joe Buck Yourself</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-3"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>Saquon deez nuts  - 124.42 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Baker Mayfield</span><span class="player-position">(QB)</span></div><span class="player-points">11.12 pts</span></div><div class="player-item "><div><span class="player-name">Saquon Barkley</span><span class="player-position">(RB)</span></div><span class="player-points">5.20 pts</span></div><div class="player-item "><div><span class="player-name">Isiah Pacheco</span><span class="player-position">(RB)</span></div><span class="player-points">12.40 pts</span></div><div class="player-item "><div><span class="player-name">A.J. Brown</span><span class="player-position">(WR)</span></div><span class="player-points">28.10 pts</span></div><div class="player-item "><div><span class="player-name">DK Metcalf</span><span class="player-position">(WR)</span></div><span class="player-points">8.00 pts</span></div><div class="player-item "><div><span class="player-name">Zach Ertz</span><span class="player-position">(TE)</span></div><span class="player-points">12.70 pts</span></div><div class="player-item "><div><span class="player-name">Nick Chubb</span><span class="player-position">(RB)</span></div><span class="player-points">2.10 pts</span></div><div class="player-item "><div><span class="player-name">Chris Olave</span><span class="player-position">(WR)</span></div><span class="player-points">26.80 pts</span></div><div class="player-item "><div><span class="player-name">Jason Myers</span><span class="player-position">(K)</span></div><span class="player-points">9.00 pts</span></div><div class="player-item "><div><span class="player-name">LAR</span><span class="player-position">(DEF)</span></div><span class="player-points">9.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Dalton Kincaid</span><span class="player-position">(TE)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Blake Corum</span><span class="player-position">(RB)</span></div><span class="player-points">5.30 pts</span></div><div class="player-item bench"><div><span class="player-name">Malik Washington</span><span class="player-position">(WR)</span></div><span class="player-points">8.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Joe Mixon</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Cooper Kupp</span><span class="player-position">(WR)</span></div><span class="player-points">2.20 pts</span></div><div class="player-item bench"><div><span class="player-name">Josh Downs</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div><div class="team-details"><h4>Joe Buck Yourself - 139.14 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Jared Goff</span><span class="player-position">(QB)</span></div><span class="player-points">10.34 pts</span></div><div class="player-item "><div><span class="player-name">Josh Jacobs</span><span class="player-position">(RB)</span></div><span class="player-points">18.80 pts</span></div><div class="player-item "><div><span class="player-name">Alvin Kamara</span><span class="player-position">(RB)</span></div><span class="player-points">5.90 pts</span></div><div class="player-item "><div><span class="player-name">Amon-Ra St. Brown</span><span class="player-position">(WR)</span></div><span class="player-points">20.60 pts</span></div><div class="player-item "><div><span class="player-name">Romeo Doubs</span><span class="player-position">(WR)</span></div><span class="player-points">13.20 pts</span></div><div class="player-item "><div><span class="player-name">Tyler Warren</span><span class="player-position">(TE)</span></div><span class="player-points">16.90 pts</span></div><div class="player-item "><div><span class="player-name">David Montgomery</span><span class="player-position">(RB)</span></div><span class="player-points">5.90 pts</span></div><div class="player-item "><div><span class="player-name">Woody Marks</span><span class="player-position">(RB)</span></div><span class="player-points">12.50 pts</span></div><div class="player-item "><div><span class="player-name">Brandon Aubrey</span><span class="player-position">(K)</span></div><span class="player-points">17.00 pts</span></div><div class="player-item "><div><span class="player-name">HOU</span><span class="player-position">(DEF)</span></div><span class="player-points">18.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Jayden Reed</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Emanuel Wilson</span><span class="player-position">(RB)</span></div><span class="player-points">2.50 pts</span></div><div class="player-item bench"><div><span class="player-name">Travis Hunter</span><span class="player-position">(DB, WR)</span></div><span class="player-points">24.10 pts</span></div><div class="player-item bench"><div><span class="player-name">Eddy Pineiro</span><span class="player-position">(K)</span></div><span class="player-points">11.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Jordan Love</span><span class="player-position">(QB)</span></div><span class="player-points">13.36 pts</span></div><div class="player-item bench"><div><span class="player-name">Garrett Wilson</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div></div></td></tr><tr class="matchup-row winner" onclick="toggleMatchup(4)"><td><strong>Kyle Pitts Truther</strong></td><td>153.46</td><td><strong>Lamarvelous Mrs. Maisel</strong></td><td>65.70</td><td><strong>Kyle Pitts Truther</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-4"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>Kyle Pitts Truther - 153.46 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Bo Nix</span><span class="player-position">(QB)</span></div><span class="player-points">39.96 pts</span></div><div class="player-item "><div><span class="player-name">Chase Brown</span><span class="player-position">(RB)</span></div><span class="player-points">12.00 pts</span></div><div class="player-item "><div><span class="player-name">Travis Etienne</span><span class="player-position">(RB)</span></div><span class="player-points">6.50 pts</span></div><div class="player-item "><div><span class="player-name">Ja&#x27;Marr Chase</span><span class="player-position">(WR)</span></div><span class="player-points">38.10 pts</span></div><div class="player-item "><div><span class="player-name">Isaiah Bond</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">Kyle Pitts</span><span class="player-position">(TE)</span></div><span class="player-points">13.20 pts</span></div><div class="player-item "><div><span class="player-name">DeVonta Smith</span><span class="player-position">(WR)</span></div><span class="player-points">33.30 pts</span></div><div class="player-item "><div><span class="player-name">Kendrick Bourne</span><span class="player-position">(WR)</span></div><span class="player-points">3.40 pts</span></div><div class="player-item "><div><span class="player-name">Jake Elliott</span><span class="player-position">(K)</span></div><span class="player-points">3.00 pts</span></div><div class="player-item "><div><span class="player-name">DEN</span><span class="player-position">(DEF)</span></div><span class="player-points">4.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Brock Bowers</span><span class="player-position">(TE)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Tyrone Tracy</span><span class="player-position">(RB)</span></div><span class="player-points">10.60 pts</span></div><div class="player-item bench"><div><span class="player-name">Jaxson Dart</span><span class="player-position">(QB)</span></div><span class="player-points">28.42 pts</span></div><div class="player-item bench"><div><span class="player-name">Chris Godwin</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Terry McLaurin</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div><div class="team-details"><h4>Lamarvelous Mrs. Maisel - 65.70 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Tua Tagovailoa</span><span class="player-position">(QB)</span></div><span class="player-points">-1.40 pts</span></div><div class="player-item "><div><span class="player-name">Zach Charbonnet</span><span class="player-position">(RB)</span></div><span class="player-points">19.50 pts</span></div><div class="player-item "><div><span class="player-name">Breece Hall</span><span class="player-position">(RB)</span></div><span class="player-points">7.20 pts</span></div><div class="player-item "><div><span class="player-name">Elic Ayomanor</span><span class="player-position">(WR)</span></div><span class="player-points">4.90 pts</span></div><div class="player-item "><div><span class="player-name">Stefon Diggs</span><span class="player-position">(WR)</span></div><span class="player-points">13.90 pts</span></div><div class="player-item "><div><span class="player-name">George Kittle</span><span class="player-position">(TE)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">Jameson Williams</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item "><div><span class="player-name">Rico Dowdle</span><span class="player-position">(RB)</span></div><span class="player-points">10.60 pts</span></div><div class="player-item "><div><span class="player-name">Jake Bates</span><span class="player-position">(K)</span></div><span class="player-points">7.00 pts</span></div><div class="player-item "><div><span class="player-name">IND</span><span class="player-position">(DEF)</span></div><span class="player-points">4.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">Derrick Henry</span><span class="player-position">(RB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Lamar Jackson</span><span class="player-position">(QB)</span></div><span class="player-points">0.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Juwan Johnson</span><span class="player-position">(TE)</span></div><span class="player-points">12.90 pts</span></div><div class="player-item bench"><div><span class="player-name">Tyler Allgeier</span><span class="player-position">(RB)</span></div><span class="player-points">1.60 pts</span></div><div class="player-item bench"><div><span class="player-name">Tyjae Spears</span><span class="player-position">(RB)</span></div><span class="player-points">7.00 pts</span></div><div class="player-item bench"><div><span class="player-name">Zay Flowers</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div></div></td></tr><tr class="matchup-row winner" onclick="toggleMatchup(5)"><td><strong>Team jmiley2791</strong></td><td>100.44</td><td><strong>Drake “Drake Maye” Maye</strong></td><td>125.14</td><td><strong>Drake “Drake Maye” Maye</strong><span class="expand-icon">▶</span></td></tr><tr class="matchup-details" id="matchup-5"><td colspan="5"><div class="matchup-details-content"><div class="team-details"><h4>Team jmiley2791 - 100.44 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Jalen Hurts</span><span class="player-position">(QB)</span></div><span class="player-points">24.04 pts</span></div><div class="player-item "><div><span class="player-name">Kareem Hunt</span><span class="player-position">(RB)</span></div><span class="player-points">1.80 pts</span></div><div class="player-item "><div><span class="player-name">Cam Skattebo</span><span class="player-position">(RB)</span></div><span class="player-points">18.40 pts</span></div><div class="player-item "><div><span class="player-name">Rome Odunze</span><span class="player-position">(WR)</span></div><span class="player-points">5.10 pts</span></div><div class="player-item "><div><span class="player-name">Drake London</span><span class="player-position">(WR)</span></div><span class="player-points">8.20 pts</span></div><div class="player-item "><div><span class="player-name">Sam LaPorta</span><span class="player-position">(TE)</span></div><span class="player-points">4.50 pts</span></div><div class="player-item "><div><span class="player-name">Justin Jefferson</span><span class="player-position">(WR)</span></div><span class="player-points">12.90 pts</span></div><div class="player-item "><div><span class="player-name">Chuba Hubbard</span><span class="player-position">(RB)</span></div><span class="player-points">7.50 pts</span></div><div class="player-item "><div><span class="player-name">Cameron Dicker</span><span class="player-position">(K)</span></div><span class="player-points">7.00 pts</span></div><div class="player-item "><div><span class="player-name">PHI</span><span class="player-position">(DEF)</span></div><span class="player-points">11.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">RJ Harvey</span><span class="player-position">(RB)</span></div><span class="player-points">7.20 pts</span></div><div class="player-item bench"><div><span class="player-name">Matthew Golden</span><span class="player-position">(WR)</span></div><span class="player-points">7.70 pts</span></div><div class="player-item bench"><div><span class="player-name">Marquise Brown</span><span class="player-position">(WR)</span></div><span class="player-points">9.40 pts</span></div><div class="player-item bench"><div><span class="player-name">Darnell Mooney</span><span class="player-position">(WR)</span></div><span class="player-points">9.80 pts</span></div><div class="player-item bench"><div><span class="player-name">Joshua Palmer</span><span class="player-position">(WR)</span></div><span class="player-points">0.00 pts</span></div></div></div><div class="team-details"><h4>Drake “Drake Maye” Maye - 125.14 points</h4><div class="player-section"><h5>Starters</h5><div class="player-item "><div><span class="player-name">Patrick Mahomes</span><span class="player-position">(QB)</span></div><span class="player-points">26.24 pts</span></div><div class="player-item "><div><span class="player-name">De&#x27;Von Achane</span><span class="player-position">(RB)</span></div><span class="player-points">12.80 pts</span></div><div class="player-item "><div><span class="player-name">Jaylen Warren</span><span class="player-position">(RB)</span></div><span class="player-points">19.80 pts</span></div><div class="player-item "><div><span class="player-name">Davante Adams</span><span class="player-position">(WR)</span></div><span class="player-points">26.50 pts</span></div><div class="player-item "><div><span class="player-name">Jaylen Waddle</span><span class="player-position">(WR)</span></div><span class="player-points">2.50 pts</span></div><div class="player-item "><div><span class="player-name">Tucker Kraft</span><span class="player-position">(TE)</span></div><span class="player-points">16.80 pts</span></div><div class="player-item "><div><span class="player-name">Kyren Williams</span><span class="player-position">(RB)</span></div><span class="player-points">8.50 pts</span></div><div class="player-item "><div><span class="player-name">Rashid Shaheed</span><span class="player-position">(WR)</span></div><span class="player-points">8.00 pts</span></div><div class="player-item "><div><span class="player-name">Matt Gay</span><span class="player-position">(K)</span></div><span class="player-points">2.00 pts</span></div><div class="player-item "><div><span class="player-name">MIN</span><span class="player-position">(DEF)</span></div><span class="player-points">2.00 pts</span></div></div><div class="player-section"><h5>Bench</h5><div class="player-item bench"><div><span class="player-name">TreVeyon Henderson</span><span class="player-position">(RB)</span></div><span class="player-points">0.50 pts</span></div><div class="player-item bench"><div><span class="player-name">Tee Higgins</span><span class="player-position">(WR)</span></div><span class="player-points">21.60 pts</span></div><div class="player-item bench"><div><span class="player-name">Wan&#x27;Dale Robinson</span><span class="player-position">(WR)</span></div><span class="player-points">15.50 pts</span></div><div class="player-item bench"><div><span class="player-name">Quentin Johnston</span><span class="player-position">(WR)</span></div><span class="player-points">11.00 pts</span></div></div></div></div></td></tr></tbody></table>
+    <script>
+    function toggleMatchup(index) {
+        const details = document.getElementById('matchup-' + index);
+        const row = details.previousElementSibling;
+        if (details.classList.contains('expanded')) {
+            details.classList.remove('expanded');
+            row.classList.remove('expanded');
+        } else {
+            // Close all other expanded matchups
+            document.querySelectorAll('.matchup-details.expanded').forEach(el => {
+                el.classList.remove('expanded');
+                el.previousElementSibling.classList.remove('expanded');
+            });
+            details.classList.add('expanded');
+            row.classList.add('expanded');
+        }
+    }
+    </script>
+    <h2>Transactions</h2><h3>📋 Waivers</h3><table><thead><tr><th>Team</th><th>Adds</th><th>Drops</th><th>Time</th><th></th></tr></thead><tbody><tr class="transaction-row" onclick=""><td>Supreme Leader White</td><td>Marvin Mims</td><td>Jalen Coker</td><td class="time-cell">10/22 12:57 AM</td><td></td></tr><tr class="transaction-row has-failed-claims" onclick="toggleTransaction(0)"><td>Team ahhowey</td><td>Kyle Monangai</td><td>Chris Rodriguez</td><td class="time-cell">10/21 09:23 AM</td><td><span class="expand-icon">▶</span></td></tr><tr class="transaction-details" id="transaction-0"><td colspan="5"><div class="transaction-details-content"><h4>Failed Claims for This Player</h4><div class="failed-claims-group"><h5>Kyle Monangai</h5><ul class="failed-claims-list"><li><strong>melvins room </strong> (dropped: Daniel Jones)</li></ul></div></div></td></tr><tr class="transaction-row" onclick=""><td>Team piamlodos</td><td>TB</td><td>SEA</td><td class="time-cell">10/21 08:33 AM</td><td></td></tr><tr class="transaction-row has-failed-claims" onclick="toggleTransaction(1)"><td>melvins room </td><td>Oronde Gadsden</td><td>Tez Johnson</td><td class="time-cell">10/20 07:28 PM</td><td><span class="expand-icon">▶</span></td></tr><tr class="transaction-details" id="transaction-1"><td colspan="5"><div class="transaction-details-content"><h4>Failed Claims for This Player</h4><div class="failed-claims-group"><h5>Oronde Gadsden</h5><ul class="failed-claims-list"><li><strong>Joe Buck Yourself</strong></li></ul></div></div></td></tr><tr class="transaction-row" onclick=""><td>Joe Buck Yourself</td><td>Jerry Jeudy</td><td>—</td><td class="time-cell">10/20 01:56 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>melvins room </td><td>Jerry Jeudy</td><td>Kameron Johnson</td><td class="time-cell">10/16 03:31 PM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Who’sAfraidofLittleOldMe?</td><td>Keon Coleman</td><td>Luther Burden</td><td class="time-cell">10/16 01:12 AM</td><td></td></tr></tbody></table><h3>🆓 Free Agents</h3><table><thead><tr><th>Team</th><th>Adds</th><th>Drops</th><th>Time</th></tr></thead><tbody><tr class="transaction-row" onclick=""><td>Joe Buck Yourself</td><td>—</td><td>Eddy Pineiro</td><td class="time-cell">10/20 01:56 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>melvins room </td><td>Tez Johnson</td><td>Jerry Jeudy</td><td class="time-cell">10/19 11:58 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Team ahhowey</td><td>Hassan Haskins</td><td>Emari Demercado</td><td class="time-cell">10/17 09:03 PM</td><td></td></tr><tr class="transaction-row" onclick=""><td>melvins room </td><td>Kameron Johnson</td><td>Jerry Jeudy</td><td class="time-cell">10/16 03:28 PM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Who’sAfraidofLittleOldMe?</td><td>—</td><td>Mark Andrews</td><td class="time-cell">10/16 01:09 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>melvins room </td><td>KC</td><td>LAC</td><td class="time-cell">10/15 03:00 PM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Supreme Leader White</td><td>Jalen Coker</td><td>Michael Carter</td><td class="time-cell">10/15 11:17 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Team piamlodos</td><td>SEA</td><td>Joe Burrow</td><td class="time-cell">10/15 09:57 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Supreme Leader White</td><td>Ka&#x27;imi Fairbairn</td><td>Matt Prater</td><td class="time-cell">10/15 09:04 AM</td><td></td></tr><tr class="transaction-row" onclick=""><td>Team ahhowey</td><td>Sam Darnold</td><td>Justin Fields</td><td class="time-cell">10/15 08:22 AM</td><td></td></tr></tbody></table>
+    <script>
+    function toggleTransaction(index) {
+        const details = document.getElementById('transaction-' + index);
+        const row = details.previousElementSibling;
+        if (details.classList.contains('expanded')) {
+            details.classList.remove('expanded');
+            row.classList.remove('expanded');
+        } else {
+            // Close all other expanded transactions
+            document.querySelectorAll('.transaction-details.expanded').forEach(el => {
+                el.classList.remove('expanded');
+                el.previousElementSibling.classList.remove('expanded');
+            });
+            details.classList.add('expanded');
+            row.classList.add('expanded');
+        }
+    }
+    </script>
+    <h2>Current Standings</h2><table class="standings-table"><thead><tr><th class="rank">Rank</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th></tr></thead><tbody><tr><td class="rank">1</td><td><strong>Team ahhowey</strong></td><td>6-1</td><td>85.7%</td><td>1041.24</td><td>847.24</td></tr><tr><td class="rank">2</td><td><strong>Joe Buck Yourself</strong></td><td>5-2</td><td>71.4%</td><td>980.20</td><td>838.64</td></tr><tr><td class="rank">3</td><td><strong>Supreme Leader White</strong></td><td>4-3</td><td>57.1%</td><td>1009.24</td><td>892.42</td></tr><tr><td class="rank">4</td><td><strong>Drake “Drake Maye” Maye</strong></td><td>4-3</td><td>57.1%</td><td>942.42</td><td>853.28</td></tr><tr><td class="rank">5</td><td><strong>Who’sAfraidofLittleOldMe?</strong></td><td>4-3</td><td>57.1%</td><td>843.06</td><td>901.52</td></tr><tr><td class="rank">6</td><td><strong>Team johnjjepic</strong></td><td>4-3</td><td>57.1%</td><td>810.70</td><td>857.84</td></tr><tr><td class="rank">7</td><td><strong>Team jmiley2791</strong></td><td>3-4</td><td>42.9%</td><td>867.92</td><td>948.90</td></tr><tr><td class="rank">8</td><td><strong>melvins room </strong></td><td>3-4</td><td>42.9%</td><td>845.30</td><td>914.00</td></tr><tr><td class="rank">9</td><td><strong>Kyle Pitts Truther</strong></td><td>3-4</td><td>42.9%</td><td>801.44</td><td>820.64</td></tr><tr><td class="rank">10</td><td><strong>Team piamlodos</strong></td><td>2-5</td><td>28.6%</td><td>824.48</td><td>910.26</td></tr><tr><td class="rank">11</td><td><strong>Saquon deez nuts </strong></td><td>2-5</td><td>28.6%</td><td>793.08</td><td>803.90</td></tr><tr><td class="rank">12</td><td><strong>Lamarvelous Mrs. Maisel</strong></td><td>2-5</td><td>28.6%</td><td>756.80</td><td>927.24</td></tr></tbody></table><h2>Weekly Awards</h2><div class="award-box"><h4>🎯 Most Efficient Manager</h4><p><strong>Supreme Leader White</strong> - Left only 1.50 points on the bench</p></div><div class="award-box"><h4>😅 Least Efficient Manager</h4><p><strong>Drake “Drake Maye” Maye</strong> - Left 29.10 points on the bench</p></div><div class="award-box"><h4>💔 Highest Points in a Loss</h4><p><strong>Supreme Leader White</strong> - Scored 165.44 points and still lost (opponent scored 201.36)</p></div><div class="award-box"><h4>🍀 Lowest Points in a Win</h4><p><strong>Team johnjjepic</strong> - Scored 117.48 points and still won (opponent scored 113.02)</p></div><div class="award-box"><h4>💪 Largest Winning Margin</h4><p><strong>Kyle Pitts Truther</strong> - Won by 87.76 points (153.46 - 65.70)</p></div><div class="award-box"><h4>😬 Smallest Winning Margin</h4><p><strong>Team johnjjepic</strong> - Won by 4.46 points (117.48 - 113.02)</p></div><h2>Team Highlights</h2><div class="team-highlight"><h3>🏆 Highest Scoring Team</h3><p><strong>Team ahhowey</strong> - 201.36 points</p></div><div class="team-highlight"><h3>📉 Lowest Scoring Team</h3><p><strong>Lamarvelous Mrs. Maisel</strong> - 65.70 points</p></div><div class="team-highlight"><h3>⭐ Highest Scoring Starters</h3><p><strong>Unknown</strong> - 320.76 points</p><ul class="player-list"><li><span class="player-name">Bo Nix</span><span class="player-position">(QB)</span><span class="player-points">39.96 pts</span></li><li><span class="player-name">Christian McCaffrey</span><span class="player-position">(RB1)</span><span class="player-points">39.10 pts</span></li><li><span class="player-name">Jahmyr Gibbs</span><span class="player-position">(RB2)</span><span class="player-points">36.80 pts</span></li><li><span class="player-name">Ja&#x27;Marr Chase</span><span class="player-position">(WR1)</span><span class="player-points">38.10 pts</span></li><li><span class="player-name">DeVonta Smith</span><span class="player-position">(WR2)</span><span class="player-points">33.30 pts</span></li><li><span class="player-name">Trey McBride</span><span class="player-position">(TE)</span><span class="player-points">29.40 pts</span></li><li><span class="player-name">Jonathan Taylor</span><span class="player-position">(FLEX1)</span><span class="player-points">34.20 pts</span></li><li><span class="player-name">Keenan Allen</span><span class="player-position">(FLEX2)</span><span class="player-points">28.90 pts</span></li><li><span class="player-name">Brandon Aubrey</span><span class="player-position">(K)</span><span class="player-points">17.00 pts</span></li><li><span class="player-name">CLE</span><span class="player-position">(DEF)</span><span class="player-points">24.00 pts</span></li></ul></div><div class="team-highlight"><h3>💤 Lowest Scoring Starters</h3><p><strong>Unknown</strong> - 12.24 points</p><ul class="player-list"><li><span class="player-name">Jared Goff</span><span class="player-position">(QB)</span><span class="player-points">10.34 pts</span></li><li><span class="player-name">Kareem Hunt</span><span class="player-position">(RB1)</span><span class="player-points">1.80 pts</span></li><li><span class="player-name">Nick Chubb</span><span class="player-position">(RB2)</span><span class="player-points">2.10 pts</span></li><li><span class="player-name">Mike Evans</span><span class="player-position">(WR1)</span><span class="player-points">0.00 pts</span></li><li><span class="player-name">Isaiah Bond</span><span class="player-position">(WR2)</span><span class="player-points">0.00 pts</span></li><li><span class="player-name">David Njoku</span><span class="player-position">(TE)</span><span class="player-points">0.00 pts</span></li><li><span class="player-name">Deebo Samuel</span><span class="player-position">(FLEX1)</span><span class="player-points">0.00 pts</span></li><li><span class="player-name">George Kittle</span><span class="player-position">(FLEX2)</span><span class="player-points">0.00 pts</span></li><li><span class="player-name">Matt Gay</span><span class="player-position">(K)</span><span class="player-points">2.00 pts</span></li><li><span class="player-name">PIT</span><span class="player-position">(DEF)</span><span class="player-points">-4.00 pts</span></li></ul></div><div class="team-highlight"><h3>🔥 Benchwarmers (Best Bench Lineup)</h3><p><strong>Unknown</strong> - 128.46 points</p><ul class="player-list"><li><span class="player-name">Jordan Love</span><span class="player-position">(QB)</span><span class="player-points">13.36 pts</span></li><li><span class="player-name">Brashard Smith</span><span class="player-position">(RB1)</span><span class="player-points">13.10 pts</span></li><li><span class="player-name">Tony Pollard</span><span class="player-position">(RB2)</span><span class="player-points">12.10 pts</span></li><li><span class="player-name">Travis Hunter</span><span class="player-position">(WR1)</span><span class="player-points">24.10 pts</span></li><li><span class="player-name">Tee Higgins</span><span class="player-position">(WR2)</span><span class="player-points">21.60 pts</span></li><li><span class="player-name">Juwan Johnson</span><span class="player-position">(TE)</span><span class="player-points">12.90 pts</span></li><li><span class="player-name">Tez Johnson</span><span class="player-position">(FLEX1)</span><span class="player-points">15.80 pts</span></li><li><span class="player-name">Wan&#x27;Dale Robinson</span><span class="player-position">(FLEX2)</span><span class="player-points">15.50 pts</span></li></ul></div>
+    </div>
+</body>
+</html>

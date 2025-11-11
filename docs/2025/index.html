@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 Season Overview</title>
+    
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f5f5f5;
+        padding: 20px;
+    }
+    
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+    }
+    
+    h2 {
+        color: #34495e;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #ecf0f1;
+        padding-bottom: 8px;
+    }
+    
+    h3 {
+        color: #7f8c8d;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .nav {
+        background: #34495e;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .nav a {
+        color: white;
+        text-decoration: none;
+        margin-right: 15px;
+        padding: 5px 10px;
+        border-radius: 3px;
+        transition: background 0.3s;
+    }
+    
+    .nav a:hover {
+        background: #2c3e50;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    th {
+        background: #3498db;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+    
+    td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .winner {
+        background: #d4edda !important;
+        font-weight: 600;
+    }
+    
+    .loser {
+        background: #f8d7da !important;
+    }
+    
+    .tie {
+        background: #fff3cd !important;
+    }
+    
+    .award-box {
+        background: #f8f9fa;
+        border-left: 4px solid #3498db;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    
+    .award-box h4 {
+        color: #3498db;
+        margin-bottom: 8px;
+    }
+    
+    .team-highlight {
+        background: #e8f4f8;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .player-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .player-list li {
+        padding: 8px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+    
+    .player-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .player-name {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .player-points {
+        color: #27ae60;
+        font-weight: 600;
+        float: right;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+    
+    .standings-table {
+        margin-top: 20px;
+    }
+    
+    .rank {
+        font-weight: 700;
+        color: #3498db;
+        width: 50px;
+    }
+    
+    .week-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0;
+    }
+    
+    .week-link {
+        display: inline-block;
+        padding: 8px 15px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    
+    .week-link:hover {
+        background: #2980b9;
+    }
+    
+    .season-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .season-list li {
+        padding: 15px;
+        margin: 10px 0;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .season-list a {
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.1em;
+    }
+    
+    .season-list a:hover {
+        color: #3498db;
+    }
+    
+    .breadcrumb {
+        color: #7f8c8d;
+        margin-bottom: 20px;
+    }
+    
+    .breadcrumb a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .bracket-container {
+        overflow-x: auto;
+        margin: 30px 0;
+        padding: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        position: relative;
+        min-height: 500px;
+    }
+    
+    .bracket-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        min-width: 1200px;
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .bracket-round {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        flex: 1;
+        position: relative;
+        min-width: 200px;
+    }
+    
+    .bracket-round:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 0;
+        bottom: 0;
+        width: 60px;
+        z-index: 0;
+    }
+    
+    .bracket-matchup {
+        display: flex;
+        flex-direction: column;
+        margin: 15px 0;
+        position: relative;
+        min-height: 80px;
+    }
+    
+    .bracket-matchup:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        width: 30px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1;
+    }
+    
+    .bracket-team {
+        background: rgba(255, 255, 255, 0.95);
+        border: 2px solid #3498db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 4px 0;
+        min-width: 180px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.3s;
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+    
+    .bracket-team:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        background: rgba(255, 255, 255, 1);
+    }
+    
+    .bracket-team.winner {
+        background: #d4edda;
+        border-color: #28a745;
+        font-weight: 600;
+        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+    }
+    
+    .bracket-team.tbd {
+        background: rgba(248, 249, 250, 0.7);
+        border-color: #dee2e6;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .bracket-round-label {
+        text-align: center;
+        color: white;
+        font-weight: 700;
+        margin-bottom: 30px;
+        font-size: 1.2em;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        padding: 8px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 5px;
+    }
+    
+    .bracket-final {
+        background: rgba(255, 215, 0, 0.95) !important;
+        border: 3px solid #ffd700 !important;
+        font-size: 1.15em;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5) !important;
+    }
+    
+    .bracket-round:first-child .bracket-matchup {
+        margin-top: 0;
+    }
+    
+    .bracket-round:last-child {
+        flex: 0.8;
+    }
+    
+    .bracket-round:last-child .bracket-matchup {
+        margin: 0;
+    }
+    
+    .matchup-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .matchup-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .matchup-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .matchup-details.expanded {
+        display: table-row;
+    }
+    
+    .matchup-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .matchup-details-content {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    
+    .team-details {
+        background: white;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .team-details h4 {
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .player-section {
+        margin-bottom: 20px;
+    }
+    
+    .player-section h5 {
+        color: #34495e;
+        margin-bottom: 10px;
+        font-size: 0.95em;
+    }
+    
+    .player-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 10px;
+        margin: 4px 0;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 3px solid #3498db;
+    }
+    
+    .player-item.bench {
+        border-left-color: #95a5a6;
+        background: #ecf0f1;
+    }
+    
+    .player-name {
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .player-position {
+        color: #7f8c8d;
+        font-size: 0.85em;
+        margin-left: 8px;
+    }
+    
+    .player-points {
+        font-weight: 600;
+        color: #27ae60;
+    }
+    
+    .expand-icon {
+        display: inline-block;
+        margin-left: 8px;
+        transition: transform 0.3s;
+    }
+    
+    .matchup-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .draft-container {
+        margin: 30px 0;
+    }
+    
+    .draft-team {
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .draft-team h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    
+    .draft-picks-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .draft-picks-table th {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .draft-picks-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .draft-picks-table tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .transaction-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .transaction-row:hover {
+        background: #f0f8ff !important;
+    }
+    
+    .transaction-row.has-failed-claims {
+        cursor: pointer;
+    }
+    
+    .transaction-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 0;
+    }
+    
+    .transaction-details.expanded {
+        display: table-row;
+    }
+    
+    .transaction-details td {
+        padding: 0;
+        border: none;
+    }
+    
+    .transaction-details-content {
+        padding: 20px;
+        background: white;
+        margin: 10px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .transaction-details-content h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    
+    .failed-claims-group {
+        margin-bottom: 20px;
+    }
+    
+    .failed-claims-group h5 {
+        color: #e74c3c;
+        margin-bottom: 10px;
+        font-size: 1em;
+    }
+    
+    .failed-claims-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .failed-claims-list li {
+        padding: 8px 12px;
+        margin: 5px 0;
+        background: #fff3cd;
+        border-left: 3px solid #ffc107;
+        border-radius: 4px;
+        color: #856404;
+    }
+    
+    .transaction-row.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+    
+    .time-cell {
+        font-size: 0.9em;
+        color: #7f8c8d;
+        white-space: nowrap;
+    }
+    
+    h3 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        font-size: 1.3em;
+    }
+    
+    h3:first-of-type {
+        margin-top: 0;
+    }
+    
+    @media (max-width: 768px) {
+        body {
+            padding: 10px;
+        }
+        
+        .container {
+            padding: 15px;
+        }
+        
+        table {
+            font-size: 0.9em;
+        }
+        
+        th, td {
+            padding: 8px;
+        }
+        
+        .nav {
+            text-align: center;
+        }
+        
+        .nav a {
+            display: inline-block;
+            margin: 5px;
+        }
+        
+        .bracket-container {
+            padding: 10px;
+        }
+        
+        .bracket-wrapper {
+            min-width: 800px;
+        }
+        
+        .bracket-team {
+            min-width: 150px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+    }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <div class="nav"><a href="../index.html">Home</a><a href="../index.html">All Seasons</a><a href="index.html">2025 Season</a></div>
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">2025</a></div><h1>2025 Season</h1><h2>Draft Results</h2><div class="draft-container"><div class="draft-team"><h3>Team ahhowey - Pick #1</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>1</td><td><strong>Bijan Robinson</strong></td><td>RB</td></tr><tr><td>2</td><td>24</td><td><strong>Jaxon Smith-Njigba</strong></td><td>WR</td></tr><tr><td>3</td><td>25</td><td><strong>Jonathan Taylor</strong></td><td>RB</td></tr><tr><td>4</td><td>48</td><td><strong>James Conner</strong></td><td>RB</td></tr><tr><td>5</td><td>49</td><td><strong>DJ Moore</strong></td><td>WR</td></tr><tr><td>6</td><td>72</td><td><strong>Calvin Ridley</strong></td><td>WR</td></tr><tr><td>7</td><td>73</td><td><strong>Kaleb Johnson</strong></td><td>RB</td></tr><tr><td>8</td><td>96</td><td><strong>Jordan Addison</strong></td><td>WR</td></tr><tr><td>9</td><td>97</td><td><strong>Brock Purdy</strong></td><td>QB</td></tr><tr><td>10</td><td>120</td><td><strong>Colston Loveland</strong></td><td>TE</td></tr><tr><td>11</td><td>121</td><td><strong>Justin Fields</strong></td><td>QB</td></tr><tr><td>12</td><td>144</td><td><strong>Dallas Goedert</strong></td><td>TE</td></tr><tr><td>13</td><td>145</td><td><strong>Marvin Mims</strong></td><td>WR</td></tr><tr><td>14</td><td>168</td><td><strong>SF</strong></td><td>DEF</td></tr><tr><td>15</td><td>169</td><td><strong>Evan McPherson</strong></td><td>K</td></tr></tbody></table></div><div class="draft-team"><h3>Kyle Pitts Truther - Pick #2</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>2</td><td><strong>Ja&#x27;Marr Chase</strong></td><td>WR</td></tr><tr><td>2</td><td>23</td><td><strong>Brock Bowers</strong></td><td>TE</td></tr><tr><td>3</td><td>26</td><td><strong>Chase Brown</strong></td><td>RB</td></tr><tr><td>4</td><td>47</td><td><strong>Terry McLaurin</strong></td><td>WR</td></tr><tr><td>5</td><td>50</td><td><strong>DeVonta Smith</strong></td><td>WR</td></tr><tr><td>6</td><td>71</td><td><strong>Bo Nix</strong></td><td>QB</td></tr><tr><td>7</td><td>74</td><td><strong>Tyrone Tracy</strong></td><td>RB</td></tr><tr><td>8</td><td>95</td><td><strong>Travis Etienne</strong></td><td>RB</td></tr><tr><td>9</td><td>98</td><td><strong>Chris Godwin</strong></td><td>WR</td></tr><tr><td>10</td><td>119</td><td><strong>Najee Harris</strong></td><td>RB</td></tr><tr><td>11</td><td>122</td><td><strong>Kyle Pitts</strong></td><td>TE</td></tr><tr><td>12</td><td>143</td><td><strong>DEN</strong></td><td>DEF</td></tr><tr><td>13</td><td>146</td><td><strong>C.J. Stroud</strong></td><td>QB</td></tr><tr><td>14</td><td>167</td><td><strong>Jake Elliott</strong></td><td>K</td></tr><tr><td>15</td><td>170</td><td><strong>Will Shipley</strong></td><td>RB</td></tr></tbody></table></div><div class="draft-team"><h3>Who’sAfraidofLittleOldMe? - Pick #3</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>3</td><td><strong>CeeDee Lamb</strong></td><td>WR</td></tr><tr><td>2</td><td>22</td><td><strong>Bucky Irving</strong></td><td>RB</td></tr><tr><td>3</td><td>27</td><td><strong>Tee Higgins</strong></td><td>WR</td></tr><tr><td>4</td><td>46</td><td><strong>Tetairoa McMillan</strong></td><td>WR</td></tr><tr><td>5</td><td>51</td><td><strong>TreVeyon Henderson</strong></td><td>RB</td></tr><tr><td>6</td><td>70</td><td><strong>Tony Pollard</strong></td><td>RB</td></tr><tr><td>7</td><td>75</td><td><strong>Jaylen Waddle</strong></td><td>WR</td></tr><tr><td>8</td><td>94</td><td><strong>Jauan Jennings</strong></td><td>WR</td></tr><tr><td>9</td><td>99</td><td><strong>Mark Andrews</strong></td><td>TE</td></tr><tr><td>10</td><td>118</td><td><strong>Jacory Croskey-Merritt</strong></td><td>RB</td></tr><tr><td>11</td><td>123</td><td><strong>Drake Maye</strong></td><td>QB</td></tr><tr><td>12</td><td>142</td><td><strong>Bhayshul Tuten</strong></td><td>RB</td></tr><tr><td>13</td><td>147</td><td><strong>Jordan Love</strong></td><td>QB</td></tr><tr><td>14</td><td>166</td><td><strong>Brandon McManus</strong></td><td>K</td></tr><tr><td>15</td><td>171</td><td><strong>Dylan Sampson</strong></td><td>RB</td></tr></tbody></table></div><div class="draft-team"><h3>Saquon deez nuts  - Pick #4</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>4</td><td><strong>Saquon Barkley</strong></td><td>RB</td></tr><tr><td>2</td><td>21</td><td><strong>A.J. Brown</strong></td><td>WR</td></tr><tr><td>3</td><td>28</td><td><strong>Kyren Williams</strong></td><td>RB</td></tr><tr><td>4</td><td>45</td><td><strong>DK Metcalf</strong></td><td>WR</td></tr><tr><td>5</td><td>52</td><td><strong>Baker Mayfield</strong></td><td>QB</td></tr><tr><td>6</td><td>69</td><td><strong>Joe Mixon</strong></td><td>RB</td></tr><tr><td>7</td><td>76</td><td><strong>Jerry Jeudy</strong></td><td>WR</td></tr><tr><td>8</td><td>93</td><td><strong>Dalton Kincaid</strong></td><td>TE</td></tr><tr><td>9</td><td>100</td><td><strong>Cooper Kupp</strong></td><td>WR</td></tr><tr><td>10</td><td>117</td><td><strong>Nick Chubb</strong></td><td>RB</td></tr><tr><td>11</td><td>124</td><td><strong>Adam Thielen</strong></td><td>WR</td></tr><tr><td>12</td><td>141</td><td><strong>Chase McLaughlin</strong></td><td>K</td></tr><tr><td>13</td><td>148</td><td><strong>Cam Ward</strong></td><td>QB</td></tr><tr><td>14</td><td>165</td><td><strong>DET</strong></td><td>DEF</td></tr><tr><td>15</td><td>172</td><td><strong>Hunter Henry</strong></td><td>TE</td></tr></tbody></table></div><div class="draft-team"><h3>Team piamlodos - Pick #5</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>5</td><td><strong>Jahmyr Gibbs</strong></td><td>RB</td></tr><tr><td>2</td><td>20</td><td><strong>Ladd McConkey</strong></td><td>WR</td></tr><tr><td>3</td><td>29</td><td><strong>James Cook</strong></td><td>RB</td></tr><tr><td>4</td><td>44</td><td><strong>Joe Burrow</strong></td><td>QB</td></tr><tr><td>5</td><td>53</td><td><strong>Rashee Rice</strong></td><td>WR</td></tr><tr><td>6</td><td>68</td><td><strong>George Pickens</strong></td><td>WR</td></tr><tr><td>7</td><td>77</td><td><strong>Evan Engram</strong></td><td>TE</td></tr><tr><td>8</td><td>92</td><td><strong>Deebo Samuel</strong></td><td>WR</td></tr><tr><td>9</td><td>101</td><td><strong>David Njoku</strong></td><td>TE</td></tr><tr><td>10</td><td>116</td><td><strong>Justin Herbert</strong></td><td>QB</td></tr><tr><td>11</td><td>125</td><td><strong>BAL</strong></td><td>DEF</td></tr><tr><td>12</td><td>140</td><td><strong>Chris Boswell</strong></td><td>K</td></tr><tr><td>13</td><td>149</td><td><strong>Braelon Allen</strong></td><td>RB</td></tr><tr><td>14</td><td>164</td><td><strong>Keenan Allen</strong></td><td>WR</td></tr><tr><td>15</td><td>173</td><td><strong>Kyle Williams</strong></td><td>WR</td></tr></tbody></table></div><div class="draft-team"><h3>Team jmiley2791 - Pick #6</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>6</td><td><strong>Justin Jefferson</strong></td><td>WR</td></tr><tr><td>2</td><td>19</td><td><strong>Drake London</strong></td><td>WR</td></tr><tr><td>3</td><td>30</td><td><strong>Jalen Hurts</strong></td><td>QB</td></tr><tr><td>4</td><td>43</td><td><strong>Sam LaPorta</strong></td><td>TE</td></tr><tr><td>5</td><td>54</td><td><strong>Chuba Hubbard</strong></td><td>RB</td></tr><tr><td>6</td><td>67</td><td><strong>RJ Harvey</strong></td><td>RB</td></tr><tr><td>7</td><td>78</td><td><strong>Rome Odunze</strong></td><td>WR</td></tr><tr><td>8</td><td>91</td><td><strong>Matthew Golden</strong></td><td>WR</td></tr><tr><td>9</td><td>102</td><td><strong>Cam Skattebo</strong></td><td>RB</td></tr><tr><td>10</td><td>115</td><td><strong>PHI</strong></td><td>DEF</td></tr><tr><td>11</td><td>126</td><td><strong>Darnell Mooney</strong></td><td>WR</td></tr><tr><td>12</td><td>139</td><td><strong>Cameron Dicker</strong></td><td>K</td></tr><tr><td>13</td><td>150</td><td><strong>Luther Burden</strong></td><td>WR</td></tr><tr><td>14</td><td>163</td><td><strong>Ollie Gordon</strong></td><td>RB</td></tr><tr><td>15</td><td>174</td><td><strong>Joshua Palmer</strong></td><td>WR</td></tr></tbody></table></div><div class="draft-team"><h3>Supreme Leader White - Pick #7</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>7</td><td><strong>Christian McCaffrey</strong></td><td>RB</td></tr><tr><td>2</td><td>18</td><td><strong>Brian Thomas</strong></td><td>WR</td></tr><tr><td>3</td><td>31</td><td><strong>Trey McBride</strong></td><td>TE</td></tr><tr><td>4</td><td>42</td><td><strong>Jayden Daniels</strong></td><td>QB</td></tr><tr><td>5</td><td>55</td><td><strong>Courtland Sutton</strong></td><td>WR</td></tr><tr><td>6</td><td>66</td><td><strong>D&#x27;Andre Swift</strong></td><td>RB</td></tr><tr><td>7</td><td>79</td><td><strong>Chris Olave</strong></td><td>WR</td></tr><tr><td>8</td><td>90</td><td><strong>Jakobi Meyers</strong></td><td>WR</td></tr><tr><td>9</td><td>103</td><td><strong>Jordan Mason</strong></td><td>RB</td></tr><tr><td>10</td><td>114</td><td><strong>Keon Coleman</strong></td><td>WR</td></tr><tr><td>11</td><td>127</td><td><strong>Tank Bigsby</strong></td><td>RB</td></tr><tr><td>12</td><td>138</td><td><strong>Caleb Williams</strong></td><td>QB</td></tr><tr><td>13</td><td>151</td><td><strong>MIN</strong></td><td>DEF</td></tr><tr><td>14</td><td>162</td><td><strong>Ka&#x27;imi Fairbairn</strong></td><td>K</td></tr><tr><td>15</td><td>175</td><td><strong>Wan&#x27;Dale Robinson</strong></td><td>WR</td></tr></tbody></table></div><div class="draft-team"><h3>Lamarvelous Mrs. Maisel - Pick #8</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>8</td><td><strong>Derrick Henry</strong></td><td>RB</td></tr><tr><td>2</td><td>17</td><td><strong>Lamar Jackson</strong></td><td>QB</td></tr><tr><td>3</td><td>32</td><td><strong>Breece Hall</strong></td><td>RB</td></tr><tr><td>4</td><td>41</td><td><strong>George Kittle</strong></td><td>TE</td></tr><tr><td>5</td><td>56</td><td><strong>Zay Flowers</strong></td><td>WR</td></tr><tr><td>6</td><td>65</td><td><strong>Jameson Williams</strong></td><td>WR</td></tr><tr><td>7</td><td>80</td><td><strong>Stefon Diggs</strong></td><td>WR</td></tr><tr><td>8</td><td>89</td><td><strong>Quinshon Judkins</strong></td><td>RB</td></tr><tr><td>9</td><td>104</td><td><strong>Zach Charbonnet</strong></td><td>RB</td></tr><tr><td>10</td><td>113</td><td><strong>Brandon Aiyuk</strong></td><td>WR</td></tr><tr><td>11</td><td>128</td><td><strong>Jake Bates</strong></td><td>K</td></tr><tr><td>12</td><td>137</td><td><strong>BUF</strong></td><td>DEF</td></tr><tr><td>13</td><td>152</td><td><strong>Tyjae Spears</strong></td><td>RB</td></tr><tr><td>14</td><td>161</td><td><strong>Rashod Bateman</strong></td><td>WR</td></tr><tr><td>15</td><td>176</td><td><strong>Tua Tagovailoa</strong></td><td>QB</td></tr></tbody></table></div><div class="draft-team"><h3>Joe Buck Yourself - Pick #9</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>9</td><td><strong>Amon-Ra St. Brown</strong></td><td>WR</td></tr><tr><td>2</td><td>16</td><td><strong>Josh Jacobs</strong></td><td>RB</td></tr><tr><td>3</td><td>33</td><td><strong>Alvin Kamara</strong></td><td>RB</td></tr><tr><td>4</td><td>40</td><td><strong>Garrett Wilson</strong></td><td>WR</td></tr><tr><td>5</td><td>57</td><td><strong>David Montgomery</strong></td><td>RB</td></tr><tr><td>6</td><td>64</td><td><strong>Travis Hunter</strong></td><td>WR</td></tr><tr><td>7</td><td>81</td><td><strong>Brandon Aubrey</strong></td><td>K</td></tr><tr><td>8</td><td>88</td><td><strong>Tyler Warren</strong></td><td>TE</td></tr><tr><td>9</td><td>105</td><td><strong>Jared Goff</strong></td><td>QB</td></tr><tr><td>10</td><td>112</td><td><strong>Jayden Reed</strong></td><td>WR</td></tr><tr><td>11</td><td>129</td><td><strong>HOU</strong></td><td>DEF</td></tr><tr><td>12</td><td>136</td><td><strong>Jerome Ford</strong></td><td>RB</td></tr><tr><td>13</td><td>153</td><td><strong>Trevor Lawrence</strong></td><td>QB</td></tr><tr><td>14</td><td>160</td><td><strong>Tre&#x27; Harris</strong></td><td>WR</td></tr><tr><td>15</td><td>177</td><td><strong>Jonnu Smith</strong></td><td>TE</td></tr></tbody></table></div><div class="draft-team"><h3>melvins room  - Pick #10</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>10</td><td><strong>Malik Nabers</strong></td><td>WR</td></tr><tr><td>2</td><td>15</td><td><strong>Josh Allen</strong></td><td>QB</td></tr><tr><td>3</td><td>34</td><td><strong>Mike Evans</strong></td><td>WR</td></tr><tr><td>4</td><td>39</td><td><strong>Omarion Hampton</strong></td><td>RB</td></tr><tr><td>5</td><td>58</td><td><strong>Isiah Pacheco</strong></td><td>RB</td></tr><tr><td>6</td><td>63</td><td><strong>Travis Kelce</strong></td><td>TE</td></tr><tr><td>7</td><td>82</td><td><strong>Brian Robinson</strong></td><td>RB</td></tr><tr><td>8</td><td>87</td><td><strong>Khalil Shakir</strong></td><td>WR</td></tr><tr><td>9</td><td>106</td><td><strong>J.K. Dobbins</strong></td><td>RB</td></tr><tr><td>10</td><td>111</td><td><strong>Josh Downs</strong></td><td>WR</td></tr><tr><td>11</td><td>130</td><td><strong>Dak Prescott</strong></td><td>QB</td></tr><tr><td>12</td><td>135</td><td><strong>PIT</strong></td><td>DEF</td></tr><tr><td>13</td><td>154</td><td><strong>Christian Kirk</strong></td><td>WR</td></tr><tr><td>14</td><td>159</td><td><strong>Tyler Bass</strong></td><td>K</td></tr><tr><td>15</td><td>178</td><td><strong>Rico Dowdle</strong></td><td>RB</td></tr></tbody></table></div><div class="draft-team"><h3>Drake “Drake Maye” Maye - Pick #11</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>11</td><td><strong>Puka Nacua</strong></td><td>WR</td></tr><tr><td>2</td><td>14</td><td><strong>De&#x27;Von Achane</strong></td><td>RB</td></tr><tr><td>3</td><td>35</td><td><strong>Tyreek Hill</strong></td><td>WR</td></tr><tr><td>4</td><td>38</td><td><strong>Davante Adams</strong></td><td>WR</td></tr><tr><td>5</td><td>59</td><td><strong>Patrick Mahomes</strong></td><td>QB</td></tr><tr><td>6</td><td>62</td><td><strong>Xavier Worthy</strong></td><td>WR</td></tr><tr><td>7</td><td>83</td><td><strong>Jaylen Warren</strong></td><td>RB</td></tr><tr><td>8</td><td>86</td><td><strong>Emeka Egbuka</strong></td><td>WR</td></tr><tr><td>9</td><td>107</td><td><strong>Austin Ekeler</strong></td><td>RB</td></tr><tr><td>10</td><td>110</td><td><strong>Rhamondre Stevenson</strong></td><td>RB</td></tr><tr><td>11</td><td>131</td><td><strong>Tucker Kraft</strong></td><td>TE</td></tr><tr><td>12</td><td>134</td><td><strong>Rashid Shaheed</strong></td><td>WR</td></tr><tr><td>13</td><td>155</td><td><strong>J.J. McCarthy</strong></td><td>QB</td></tr><tr><td>14</td><td>158</td><td><strong>KC</strong></td><td>DEF</td></tr><tr><td>15</td><td>179</td><td><strong>Harrison Butker</strong></td><td>K</td></tr></tbody></table></div><div class="draft-team"><h3>Team johnjjepic - Pick #12</h3><table class="draft-picks-table"><thead><tr><th>Round</th><th>Pick</th><th>Player</th><th>Position</th></tr></thead><tbody><tr><td>1</td><td>12</td><td><strong>Ashton Jeanty</strong></td><td>RB</td></tr><tr><td>2</td><td>13</td><td><strong>Nico Collins</strong></td><td>WR</td></tr><tr><td>3</td><td>36</td><td><strong>Marvin Harrison</strong></td><td>WR</td></tr><tr><td>4</td><td>37</td><td><strong>Kenneth Walker</strong></td><td>RB</td></tr><tr><td>5</td><td>60</td><td><strong>T.J. Hockenson</strong></td><td>TE</td></tr><tr><td>6</td><td>61</td><td><strong>Aaron Jones</strong></td><td>RB</td></tr><tr><td>7</td><td>84</td><td><strong>Kyler Murray</strong></td><td>QB</td></tr><tr><td>8</td><td>85</td><td><strong>Ricky Pearsall</strong></td><td>WR</td></tr><tr><td>9</td><td>108</td><td><strong>Javonte Williams</strong></td><td>RB</td></tr><tr><td>10</td><td>109</td><td><strong>Michael Pittman</strong></td><td>WR</td></tr><tr><td>11</td><td>132</td><td><strong>Jaydon Blue</strong></td><td>RB</td></tr><tr><td>12</td><td>133</td><td><strong>Jayden Higgins</strong></td><td>WR</td></tr><tr><td>13</td><td>156</td><td><strong>Rachaad White</strong></td><td>RB</td></tr><tr><td>14</td><td>157</td><td><strong>Michael Penix</strong></td><td>QB</td></tr><tr><td>15</td><td>180</td><td><strong>Younghoe Koo</strong></td><td>K</td></tr></tbody></table></div></div><h2>Final Standings</h2><table class="standings-table"><thead><tr><th class="rank">Rank</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th></tr></thead><tbody><tr><td class="rank">1</td><td><strong>Team ahhowey</strong></td><td>7-3</td><td>70.0%</td><td>1404.76</td><td>1245.06</td></tr><tr><td class="rank">2</td><td><strong>Supreme Leader White</strong></td><td>6-4</td><td>60.0%</td><td>1407.16</td><td>1249.20</td></tr><tr><td class="rank">3</td><td><strong>Drake “Drake Maye” Maye</strong></td><td>6-4</td><td>60.0%</td><td>1356.80</td><td>1193.98</td></tr><tr><td class="rank">4</td><td><strong>Joe Buck Yourself</strong></td><td>6-4</td><td>60.0%</td><td>1321.42</td><td>1240.74</td></tr><tr><td class="rank">5</td><td><strong>Kyle Pitts Truther</strong></td><td>6-4</td><td>60.0%</td><td>1187.84</td><td>1119.54</td></tr><tr><td class="rank">6</td><td><strong>Team johnjjepic</strong></td><td>6-4</td><td>60.0%</td><td>1168.94</td><td>1241.84</td></tr><tr><td class="rank">7</td><td><strong>melvins room </strong></td><td>5-5</td><td>50.0%</td><td>1214.08</td><td>1249.84</td></tr><tr><td class="rank">8</td><td><strong>Team jmiley2791</strong></td><td>4-6</td><td>40.0%</td><td>1240.82</td><td>1311.06</td></tr><tr><td class="rank">9</td><td><strong>Lamarvelous Mrs. Maisel</strong></td><td>4-6</td><td>40.0%</td><td>1180.38</td><td>1306.64</td></tr><tr><td class="rank">10</td><td><strong>Who’sAfraidofLittleOldMe?</strong></td><td>4-6</td><td>40.0%</td><td>1164.10</td><td>1270.14</td></tr><tr><td class="rank">11</td><td><strong>Team piamlodos</strong></td><td>3-7</td><td>30.0%</td><td>1173.16</td><td>1293.28</td></tr><tr><td class="rank">12</td><td><strong>Saquon deez nuts </strong></td><td>3-7</td><td>30.0%</td><td>1099.70</td><td>1197.84</td></tr></tbody></table><h2>Weekly Recaps</h2><div class="week-links"><a href="week_1.html" class="week-link">Week 1</a><a href="week_2.html" class="week-link">Week 2</a><a href="week_3.html" class="week-link">Week 3</a><a href="week_4.html" class="week-link">Week 4</a><a href="week_5.html" class="week-link">Week 5</a><a href="week_6.html" class="week-link">Week 6</a><a href="week_7.html" class="week-link">Week 7</a><a href="week_8.html" class="week-link">Week 8</a><a href="week_9.html" class="week-link">Week 9</a><a href="week_10.html" class="week-link">Week 10</a></div><h2>Postseason</h2><p><a href="postseason.html" class="week-link">View Playoff Bracket</a></p>
+    </div>
+</body>
+</html>

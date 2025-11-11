@@ -1,0 +1,284 @@
+{
+  "winners_bracket": [
+    {
+      "m": 1,
+      "r": 1,
+      "l": null,
+      "w": null,
+      "t1": 9,
+      "t2": 2,
+      "t1_roster_id": 9,
+      "t1_team_name": "Joe Buck Yourself",
+      "t2_roster_id": 2,
+      "t2_team_name": "melvins room ",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 2,
+      "r": 1,
+      "l": null,
+      "w": null,
+      "t1": 6,
+      "t2": 5,
+      "t1_roster_id": 6,
+      "t1_team_name": "Kyle Pitts Truther",
+      "t2_roster_id": 5,
+      "t2_team_name": "Drake \u201cDrake Maye\u201d Maye",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 3,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": 11,
+      "t2": null,
+      "t2_from": {
+        "w": 1
+      },
+      "t1_roster_id": 11,
+      "t1_team_name": "Team ahhowey",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 4,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": 1,
+      "t2": null,
+      "t2_from": {
+        "w": 2
+      },
+      "t1_roster_id": 1,
+      "t1_team_name": "Supreme Leader White",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "p": 5,
+      "m": 5,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "l": 2
+      },
+      "t1_from": {
+        "l": 1
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "p": 1,
+      "m": 6,
+      "r": 3,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "w": 4
+      },
+      "t1_from": {
+        "w": 3
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "p": 3,
+      "m": 7,
+      "r": 3,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "l": 4
+      },
+      "t1_from": {
+        "l": 3
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    }
+  ],
+  "losers_bracket": [
+    {
+      "m": 1,
+      "r": 1,
+      "l": null,
+      "w": null,
+      "t1": 10,
+      "t2": 12,
+      "t1_roster_id": 10,
+      "t1_team_name": "Lamarvelous Mrs. Maisel",
+      "t2_roster_id": 12,
+      "t2_team_name": "Team johnjjepic",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 2,
+      "r": 1,
+      "l": null,
+      "w": null,
+      "t1": 4,
+      "t2": 3,
+      "t1_roster_id": 4,
+      "t1_team_name": "Team jmiley2791",
+      "t2_roster_id": 3,
+      "t2_team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 3,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": 7,
+      "t2": null,
+      "t2_from": {
+        "w": 1
+      },
+      "t1_roster_id": 7,
+      "t1_team_name": "Saquon deez nuts ",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 4,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": 8,
+      "t2": null,
+      "t2_from": {
+        "w": 2
+      },
+      "t1_roster_id": 8,
+      "t1_team_name": "Team piamlodos",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 5,
+      "p": 5,
+      "r": 2,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "l": 2
+      },
+      "t1_from": {
+        "l": 1
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 6,
+      "p": 1,
+      "r": 3,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "w": 4
+      },
+      "t1_from": {
+        "w": 3
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    },
+    {
+      "m": 7,
+      "p": 3,
+      "r": 3,
+      "l": null,
+      "w": null,
+      "t1": null,
+      "t2": null,
+      "t2_from": {
+        "l": 4
+      },
+      "t1_from": {
+        "l": 3
+      },
+      "t1_roster_id": null,
+      "t1_team_name": "Team None",
+      "t2_roster_id": null,
+      "t2_team_name": "Team None",
+      "winner_roster_id": null,
+      "winner_team_name": "Team None",
+      "loser_roster_id": null,
+      "loser_team_name": "Team None"
+    }
+  ]
+}
