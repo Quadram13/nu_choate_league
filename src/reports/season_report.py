@@ -90,10 +90,6 @@ def generate_season_index(
     content_parts = [breadcrumb]
     content_parts.append(f'<h1>{season} Season</h1>')
     
-    # Draft Results (if available)
-    if draft_data:
-        content_parts.append(generate_draft_section(draft_data))
-    
     # Load final standings
     reg_season_path = munged_dir / season / "regular_season" / "reg_season_recap.json"
     if reg_season_path.exists():
@@ -132,6 +128,11 @@ def generate_season_index(
             
             content_parts.append('</tbody>')
             content_parts.append('</table>')
+    
+    # Draft link
+    if draft_data:
+        content_parts.append('<h2>Draft Results</h2>')
+        content_parts.append('<p><a href="draft.html" class="week-link">View Draft Selections</a></p>')
     
     # Week links
     if weeks is None:
@@ -215,3 +216,39 @@ def generate_postseason_html(
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
 
+
+def generate_draft_html(
+    draft_data: Dict,
+    season: str,
+    output_path: Path
+) -> None:
+    """
+    Generate HTML page for draft results.
+    
+    Args:
+        draft_data: Draft data dictionary with team names as keys
+        season: Season year
+        output_path: Path to output HTML file
+    """
+    title = f'{season} Season - Draft Results'
+    
+    # Navigation
+    nav = get_navigation(season=season)
+    breadcrumb = get_breadcrumb(season=season)
+    
+    # Content
+    content_parts = [breadcrumb]
+    content_parts.append(f'<h1>{season} Draft Results</h1>')
+    
+    # Draft section
+    content_parts.append(generate_draft_section(draft_data))
+    
+    content = ''.join(content_parts)
+    
+    # Generate full HTML
+    html = get_html_template(title, nav, content)
+    
+    # Write to file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)

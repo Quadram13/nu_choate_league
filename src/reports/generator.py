@@ -9,7 +9,7 @@ from reports import (
     generate_main_index,
     generate_all_all_time_reports
 )
-from reports.season_report import generate_postseason_html
+from reports.season_report import generate_postseason_html, generate_draft_html
 from utils.json_utils import load_json
 from utils.logging_utils import get_logger
 
@@ -69,6 +69,12 @@ def generate_all_reports() -> None:
         draft_path = season_munged / "draft.json"
         if draft_path.exists():
             draft_data = load_json(draft_path)
+        
+        # Generate draft report
+        if draft_data:
+            draft_output = season_reports / "draft.html"
+            generate_draft_html(draft_data, season, draft_output)
+            logger.info(f"  Generated draft report")
         
         # Generate weekly reports
         for week in weeks:

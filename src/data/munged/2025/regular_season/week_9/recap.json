@@ -302,7 +302,7 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "points": 114.96,
       "matchup_id": 3,
       "starters": [
@@ -744,7 +744,7 @@
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "points": 145.94,
       "matchup_id": 5,
       "starters": [
@@ -1809,7 +1809,7 @@
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "wins": 5,
       "losses": 4,
       "ties": 0,
@@ -1853,7 +1853,7 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "wins": 4,
       "losses": 5,
       "ties": 0,
@@ -1898,7 +1898,7 @@
   ],
   "highest_scoring_team": {
     "roster_id": 6,
-    "team_name": "Kyle Pitts Truther",
+    "team_name": "I <3 Garbage Time Bengals",
     "points": 145.94
   },
   "lowest_scoring_team": {
@@ -2060,7 +2060,7 @@
   "awards": {
     "most_efficient_manager": {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "actual_score": 114.96,
       "optimal_score": 117.86
     },
@@ -2084,7 +2084,7 @@
     },
     "largest_winning_margin": {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "margin": 47.94,
       "points": 145.94,
       "opponent_points": 98.0

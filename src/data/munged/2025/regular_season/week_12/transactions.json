@@ -1,0 +1,468 @@
+[
+  {
+    "transaction_id": "1299283044053549056",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764135726515,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "Mark Andrews": 3
+    },
+    "drops": {
+      "Dalton Schultz": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299281842259656704",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764135439986,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "SF": 3
+    },
+    "drops": {
+      "GB": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299281792456486912",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764135428112,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "LAR": 3
+    },
+    "drops": {
+      "GB": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299281084877406208",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764135259411,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "TB": 3
+    },
+    "drops": {
+      "GB": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299281043362172928",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764135249514,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "LAC": 3
+    },
+    "drops": {
+      "GB": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299246936947191808",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764127117910,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Jayden Higgins": 7
+    },
+    "drops": {
+      "Zach Ertz": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1299245560187863040",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764126789665,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Devin Neal": 7
+    },
+    "drops": {
+      "Cooper Kupp": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1299183577526702080",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764112011847,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Devin Neal": 5
+    },
+    "drops": {
+      "Rhamondre Stevenson": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1299183405925175296",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764111970934,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Chris Rodriguez": 5
+    },
+    "drops": {
+      "Rhamondre Stevenson": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1299025029828198400",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764074211130,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {
+      "Jayden Higgins": 11
+    },
+    "drops": {
+      "Calvin Ridley": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1298721641605394432",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764001877741,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "Devin Neal": 2
+    },
+    "drops": {
+      "Theo Johnson": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1298563386992234496",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1763964146902,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Devin Neal": 10
+    },
+    "drops": {
+      "Elic Ayomanor": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1298525577476587520",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1763955132410,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Devin Neal": 9
+    },
+    "drops": {},
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1298525513303752704",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763955117110,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {},
+    "drops": {
+      "Mark Andrews": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1297683205557587968",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1763754295295,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "Bo Nix": 3
+    },
+    "drops": {
+      "Kimani Vidal": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1297679733240123392",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763753467429,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {
+      "Jacoby Brissett": 6
+    },
+    "drops": {
+      "Chris Rodriguez": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1297679678647070720",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763753454413,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {
+      "DET": 6
+    },
+    "drops": {
+      "Bo Nix": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1297653178224893952",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763747136220,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Rhamondre Stevenson": 5
+    },
+    "drops": {
+      "Colston Loveland": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1297345740552552448",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763673837367,
+    "creator": "1124163023276503040",
+    "creator_team_name": "Team jmiley2791",
+    "adds": {
+      "AJ Barner": 4
+    },
+    "drops": {},
+    "roster_ids": [
+      4
+    ]
+  },
+  {
+    "transaction_id": "1297345440999555072",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763673765949,
+    "creator": "1124163023276503040",
+    "creator_team_name": "Team jmiley2791",
+    "adds": {
+      "Matt Gay": 4
+    },
+    "drops": {
+      "PHI": 4
+    },
+    "roster_ids": [
+      4
+    ]
+  },
+  {
+    "transaction_id": "1297326301824167936",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763669202813,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Cairo Santos": 7
+    },
+    "drops": {
+      "Wil Lutz": 7
+    },
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1297326187487444992",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763669175553,
+    "creator": "1131235237415112704",
+    "creator_team_name": "Saquon deez nuts ",
+    "adds": {
+      "Hunter Henry": 7
+    },
+    "drops": {},
+    "roster_ids": [
+      7
+    ]
+  },
+  {
+    "transaction_id": "1297307673561174016",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763664761489,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Andy Borregales": 5
+    },
+    "drops": {
+      "Daniel Carlson": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1297207618997084160",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763640906622,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {
+      "Zonovan Knight": 6
+    },
+    "drops": {},
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1296925449292627968",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1763573632122,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "Kimani Vidal": 3
+    },
+    "drops": {
+      "Jacory Croskey-Merritt": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1296912305950314496",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763570498505,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "PIT": 2
+    },
+    "drops": {
+      "DET": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1296894114628898816",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763566161356,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "JAX": 10
+    },
+    "drops": {
+      "IND": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1296887334062526464",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1763564544743,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "LV": 5
+    },
+    "drops": {
+      "KC": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  }
+]

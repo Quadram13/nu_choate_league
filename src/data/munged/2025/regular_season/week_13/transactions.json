@@ -1,0 +1,217 @@
+[
+  {
+    "transaction_id": "1301769826808655872",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764728621727,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Devaughn Vele": 12
+    },
+    "drops": {
+      "Michael Badgley": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1301611221933383680",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764690807377,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {
+      "Devaughn Vele": 6
+    },
+    "drops": {
+      "Darius Slayton": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1301609114329190400",
+    "type": "waiver",
+    "status": "failed",
+    "created": 1764690304886,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Devaughn Vele": 5
+    },
+    "drops": {
+      "Rashid Shaheed": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1301550141492187136",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1764676244666,
+    "creator": "1257009537496391680",
+    "creator_team_name": "Team ahhowey",
+    "adds": {
+      "TB": 11
+    },
+    "drops": {
+      "BUF": 11
+    },
+    "roster_ids": [
+      11
+    ]
+  },
+  {
+    "transaction_id": "1300271770053410816",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764371457164,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Kimani Vidal": 1
+    },
+    "drops": {
+      "Brian Robinson": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1299811906223087616",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764261817082,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {},
+    "drops": {
+      "DET": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1299807134778658816",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764260679481,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "IND": 2
+    },
+    "drops": {
+      "PIT": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1299806900749107200",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764260623684,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {},
+    "drops": {
+      "Theo Johnson": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1299719871776448512",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764239874360,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "John Metchie": 9
+    },
+    "drops": {},
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1299500067807318016",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764187469010,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "Harrison Mevis": 3
+    },
+    "drops": {
+      "Harrison Butker": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1299494888433262592",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764186234152,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "Jayden Daniels": 1
+    },
+    "drops": {
+      "Rachaad White": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  },
+  {
+    "transaction_id": "1299376084264976384",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764157909031,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Jake Bates": 5
+    },
+    "drops": {
+      "Andy Borregales": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1299375945051824128",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764157875840,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "LAR": 5
+    },
+    "drops": {
+      "LV": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  }
+]

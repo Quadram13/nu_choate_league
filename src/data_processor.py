@@ -54,7 +54,7 @@ def process_drafts(
         logger.debug("  No draft.json file found, skipping draft processing")
         return
     
-    with open(drafts_path, 'r') as f:
+    with open(drafts_path, 'r', encoding='utf-8') as f:
         drafts = json.load(f)
     
     if not drafts:
@@ -118,7 +118,7 @@ def process_drafts(
     
     # Save processed drafts
     drafts_output_path = season_munged / "draft.json"
-    with open(drafts_output_path, 'w') as f:
+    with open(drafts_output_path, 'w', encoding='utf-8') as f:
         json.dump(teams_draft_data, f, indent=2)
     
     logger.info(f"  Processed draft data for {len(teams_draft_data)} teams")
@@ -158,7 +158,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     league_info_path = season_unmunged / "league_info.json"
     validate_path(league_info_path, must_exist=True, must_be_file=True)
     
-    with open(league_info_path, 'r') as f:
+    with open(league_info_path, 'r', encoding='utf-8') as f:
         league_info = json.load(f)
     
     validate_dict(league_info, name="league_info")
@@ -206,12 +206,12 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         logger.info(f"  Processing week {week}...")
         
         # Load week data
-        with open(matchups_path, 'r') as f:
+        with open(matchups_path, 'r', encoding='utf-8') as f:
             matchups = json.load(f)
         
         transactions = []
         if transactions_path.exists():
-            with open(transactions_path, 'r') as f:
+            with open(transactions_path, 'r', encoding='utf-8') as f:
                 transactions = json.load(f)
         
         # Calculate standings up to this week (incrementally using cache)
@@ -243,12 +243,12 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         # Map and save transactions file separately
         mapped_transactions = map_transactions(transactions, players_map, rosters_map)
         transactions_output = week_output_dir / "transactions.json"
-        with open(transactions_output, 'w') as f:
+        with open(transactions_output, 'w', encoding='utf-8') as f:
             json.dump(mapped_transactions, f, indent=2)
         
         # Save recap file (without transactions)
         recap_output = week_output_dir / "recap.json"
-        with open(recap_output, 'w') as f:
+        with open(recap_output, 'w', encoding='utf-8') as f:
             json.dump(recap, f, indent=2)
     
     # Generate complete regular season recap
@@ -269,7 +269,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     }
     
     reg_season_recap_path = regular_season_dir / "reg_season_recap.json"
-    with open(reg_season_recap_path, 'w') as f:
+    with open(reg_season_recap_path, 'w', encoding='utf-8') as f:
         json.dump(reg_season_recap, f, indent=2)
     
     # Process postseason weeks (only if postseason has started)
@@ -289,12 +289,12 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
             logger.info(f"  Processing week {week}...")
             
             # Load week data
-            with open(matchups_path, 'r') as f:
+            with open(matchups_path, 'r', encoding='utf-8') as f:
                 matchups = json.load(f)
             
             transactions = []
             if transactions_path.exists():
-                with open(transactions_path, 'r') as f:
+                with open(transactions_path, 'r', encoding='utf-8') as f:
                     transactions = json.load(f)
             
             # Generate weekly postseason recap
@@ -310,7 +310,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
             
             # Save recap file
             recap_output = postseason_dir / f"week_{week}_recap.json"
-            with open(recap_output, 'w') as f:
+            with open(recap_output, 'w', encoding='utf-8') as f:
                 json.dump(recap, f, indent=2)
     else:
         logger.info(f"\nPostseason has not started yet (starts at week {playoff_week_start}, currently at week {last_scored_leg})")
@@ -328,7 +328,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         )
         
         postseason_recap_path = postseason_dir / "postseason_recap.json"
-        with open(postseason_recap_path, 'w') as f:
+        with open(postseason_recap_path, 'w', encoding='utf-8') as f:
             json.dump(postseason_recap, f, indent=2)
     else:
         logger.warning("  Postseason bracket files not found (postseason may not have started yet)")

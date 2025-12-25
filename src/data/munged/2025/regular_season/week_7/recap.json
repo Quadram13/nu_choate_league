@@ -302,7 +302,7 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "points": 111.38,
       "matchup_id": 3,
       "starters": [
@@ -720,7 +720,7 @@
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "points": 153.46,
       "matchup_id": 5,
       "starters": [
@@ -1793,7 +1793,7 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "wins": 4,
       "losses": 3,
       "ties": 0,
@@ -1837,7 +1837,7 @@
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "wins": 3,
       "losses": 4,
       "ties": 0,
@@ -2063,7 +2063,7 @@
     },
     "largest_winning_margin": {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "margin": 87.76,
       "points": 153.46,
       "opponent_points": 65.7

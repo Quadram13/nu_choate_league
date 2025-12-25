@@ -302,7 +302,7 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "points": 99.4,
       "matchup_id": 3,
       "starters": [
@@ -742,7 +742,7 @@
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "points": 104.78,
       "matchup_id": 3,
       "starters": [
@@ -1776,7 +1776,7 @@
       "win_pct": 0.6,
       "pf": 1356.8,
       "pa": 1193.98,
-      "transaction_count": 29
+      "transaction_count": 30
     },
     {
       "roster_id": 9,
@@ -1787,11 +1787,11 @@
       "win_pct": 0.6,
       "pf": 1321.42,
       "pa": 1240.74,
-      "transaction_count": 19
+      "transaction_count": 22
     },
     {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "wins": 6,
       "losses": 4,
       "ties": 0,
@@ -1820,7 +1820,7 @@
       "win_pct": 0.5,
       "pf": 1214.08,
       "pa": 1249.84,
-      "transaction_count": 37
+      "transaction_count": 38
     },
     {
       "roster_id": 4,
@@ -1831,7 +1831,7 @@
       "win_pct": 0.4,
       "pf": 1240.82,
       "pa": 1311.06,
-      "transaction_count": 6
+      "transaction_count": 7
     },
     {
       "roster_id": 10,
@@ -1846,14 +1846,14 @@
     },
     {
       "roster_id": 3,
-      "team_name": "Who\u2019sAfraidofLittleOldMe?",
+      "team_name": "A Bridge Too Far  ",
       "wins": 4,
       "losses": 6,
       "ties": 0,
       "win_pct": 0.4,
       "pf": 1164.1,
       "pa": 1270.14,
-      "transaction_count": 39
+      "transaction_count": 41
     },
     {
       "roster_id": 8,
@@ -1885,7 +1885,7 @@
   },
   "lowest_scoring_team": {
     "roster_id": 3,
-    "team_name": "Who\u2019sAfraidofLittleOldMe?",
+    "team_name": "A Bridge Too Far  ",
     "points": 99.4
   },
   "highest_scoring_starters": {
@@ -2055,7 +2055,7 @@
     },
     "lowest_points_in_win": {
       "roster_id": 6,
-      "team_name": "Kyle Pitts Truther",
+      "team_name": "I <3 Garbage Time Bengals",
       "points": 104.78,
       "opponent_points": 99.4
     },

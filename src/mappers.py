@@ -14,7 +14,7 @@ def load_players_data(players_path: Path) -> Dict:
     Returns:
         Raw players data dictionary
     """
-    with open(players_path, 'r') as f:
+    with open(players_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
@@ -80,7 +80,7 @@ def load_users_map(users_path: Path) -> Dict[str, Dict[str, str]]:
     Returns:
         Dictionary mapping user ID (str) to dict with 'team_name' and 'display_name'
     """
-    with open(users_path, 'r') as f:
+    with open(users_path, 'r', encoding='utf-8') as f:
         users_data = json.load(f)
     
     users_map = {}
@@ -118,7 +118,7 @@ def load_rosters_map(rosters_path: Path, users_map: Dict[str, Dict[str, str]]) -
     Returns:
         Dictionary mapping roster_id (int) to user info dict with 'team_name' and 'display_name'
     """
-    with open(rosters_path, 'r') as f:
+    with open(rosters_path, 'r', encoding='utf-8') as f:
         rosters_data = json.load(f)
     
     rosters_map = {}

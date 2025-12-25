@@ -1,0 +1,204 @@
+[
+  {
+    "transaction_id": "1304320320932425728",
+    "type": "waiver",
+    "status": "complete",
+    "created": 1765336706911,
+    "creator": "1132189344153960448",
+    "creator_team_name": "Joe Buck Yourself",
+    "adds": {
+      "Ryan Flournoy": 9
+    },
+    "drops": {
+      "Tyler Lockett": 9
+    },
+    "roster_ids": [
+      9
+    ]
+  },
+  {
+    "transaction_id": "1303468981377576960",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1765133731744,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "Jayden Reed": 12
+    },
+    "drops": {
+      "Michael Badgley": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1303468632956731392",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1765133648674,
+    "creator": "1258511081437933568",
+    "creator_team_name": "Team johnjjepic",
+    "adds": {
+      "GB": 12
+    },
+    "drops": {
+      "Ricky Pearsall": 12
+    },
+    "roster_ids": [
+      12
+    ]
+  },
+  {
+    "transaction_id": "1303358588944674816",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1765107412138,
+    "creator": "1130953980194082816",
+    "creator_team_name": "melvins room ",
+    "adds": {
+      "MIA": 2
+    },
+    "drops": {
+      "IND": 2
+    },
+    "roster_ids": [
+      2
+    ]
+  },
+  {
+    "transaction_id": "1302457627426435072",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764892606173,
+    "creator": "1122419476437340160",
+    "creator_team_name": "A Bridge Too Far  ",
+    "adds": {
+      "PHI": 3
+    },
+    "drops": {
+      "LAC": 3
+    },
+    "roster_ids": [
+      3
+    ]
+  },
+  {
+    "transaction_id": "1302334801222586368",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764863322123,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Isaac TeSlaa": 10
+    },
+    "drops": {
+      "Dylan Sampson": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1302334643315441664",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764863284475,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Jerry Jeudy": 10
+    },
+    "drops": {
+      "Elic Ayomanor": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1302334334400745472",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764863210824,
+    "creator": "860721454776471552",
+    "creator_team_name": "Lamarvelous Mrs. Maisel",
+    "adds": {
+      "Brenton Strange": 10
+    },
+    "drops": {
+      "Joe Flacco": 10
+    },
+    "roster_ids": [
+      10
+    ]
+  },
+  {
+    "transaction_id": "1302323137085448192",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764860541176,
+    "creator": "1131200109846532096",
+    "creator_team_name": "I <3 Garbage Time Bengals",
+    "adds": {
+      "Wil Lutz": 6
+    },
+    "drops": {
+      "Jake Elliott": 6
+    },
+    "roster_ids": [
+      6
+    ]
+  },
+  {
+    "transaction_id": "1302081567425843200",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764802946481,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {
+      "Adonai Mitchell": 5
+    },
+    "drops": {
+      "Tony Pollard": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1301993719074942976",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764782001803,
+    "creator": "1078390653366661120",
+    "creator_team_name": "Drake \u201cDrake Maye\u201d Maye",
+    "adds": {},
+    "drops": {
+      "Rashid Shaheed": 5
+    },
+    "roster_ids": [
+      5
+    ]
+  },
+  {
+    "transaction_id": "1301956666765369344",
+    "type": "free_agent",
+    "status": "complete",
+    "created": 1764773167843,
+    "creator": "1130723298733744128",
+    "creator_team_name": "Supreme Leader White",
+    "adds": {
+      "KC": 1
+    },
+    "drops": {
+      "ATL": 1
+    },
+    "roster_ids": [
+      1
+    ]
+  }
+]
