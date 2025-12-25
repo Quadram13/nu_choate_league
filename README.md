@@ -5,6 +5,8 @@
 # Overview
 Fantasy football data from the Nu Choate League on sleeper, as well as code to retrieve it from the sleeper http api and reformat it. If you're just here for the data, here is the [unformatted](./src/unmunged) and [formatted](./src/munged) data. If you plan on contributing, please create a new branch instead of committing directly to main. Also, sleeper mentions in their [docs](https://docs.sleeper.com/#introduction) that excessive calls might lead to getting ip-blocked, so keep that in mind.
 
+A more user-friendly version of the data is at [this site](https://Quadram13.github.io/nu_choate_league/). Most of the basic data here should be correct, but UI/UX def needs improvement. My plan is also to add functionality so that awards can be manually assigned, customized recaps for each team(automatically generated based on data or manually written?), as well as a couple of paragraphs for each week/season/any other page(can be generated using data or manually entered).
+
 # Setup
 Assuming you have python installed(version>=3.12)
 ```zsh

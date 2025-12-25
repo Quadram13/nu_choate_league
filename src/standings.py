@@ -1,5 +1,6 @@
 """Standings calculator for cumulative weekly standings."""
 import json
+import statistics
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -10,7 +11,8 @@ from utils.json_utils import load_json
 def _process_week_data(
     season_dir: Path,
     week: int,
-    standings: Dict[int, Dict]
+    standings: Dict[int, Dict],
+    league_average_match: int = 0
 ) -> None:
     """
     Process a single week's matchups and transactions, updating standings in place.
@@ -19,6 +21,7 @@ def _process_week_data(
         season_dir: Path to season directory
         week: Week number to process
         standings: Dictionary of standings to update (keyed by roster_id)
+        league_average_match: Whether median scoring is enabled (1 = yes, 0 = no)
     """
     week_dir = season_dir / f"week_{week}"
     matchups_path = week_dir / "matchups.json"
@@ -35,6 +38,9 @@ def _process_week_data(
     # Group matchups by matchup_id
     matchup_groups = group_matchups_by_id(matchups)
     
+    # Collect all scores for median calculation (if needed)
+    all_scores = []
+    
     # Determine wins/losses for each matchup
     for matchup_id, matchup_list in matchup_groups.items():
         if len(matchup_list) == 2:
@@ -47,13 +53,17 @@ def _process_week_data(
             points2 = team2.get('points', 0.0)
             
             if roster_id1 and roster_id2:
+                # Collect scores for median calculation
+                all_scores.append(points1)
+                all_scores.append(points2)
+                
                 # Update points for and against
                 standings[roster_id1]['pf'] += points1
                 standings[roster_id1]['pa'] += points2
                 standings[roster_id2]['pf'] += points2
                 standings[roster_id2]['pa'] += points1
                 
-                # Update W-L record
+                # Update W-L record for head-to-head matchup
                 if points1 > points2:
                     standings[roster_id1]['wins'] += 1
                     standings[roster_id2]['losses'] += 1
@@ -63,6 +73,25 @@ def _process_week_data(
                 else:
                     standings[roster_id1]['ties'] += 1
                     standings[roster_id2]['ties'] += 1
+    
+    # Apply median scoring if enabled
+    if league_average_match == 1 and all_scores:
+        median_score = statistics.median(all_scores)
+        
+        # Award additional win/loss/tie for each team based on median
+        for matchup_id, matchup_list in matchup_groups.items():
+            if len(matchup_list) == 2:
+                for team in matchup_list:
+                    roster_id = team.get('roster_id')
+                    points = team.get('points', 0.0)
+                    
+                    if roster_id and roster_id in standings:
+                        if points > median_score:
+                            standings[roster_id]['wins'] += 1
+                        elif points < median_score:
+                            standings[roster_id]['losses'] += 1
+                        else:
+                            standings[roster_id]['ties'] += 1
     
     # Process transactions to count them
     transactions = load_json(transactions_path)
@@ -142,7 +171,8 @@ def calculate_weekly_standings(
     season_dir: Path,
     week: int,
     rosters_map: Dict[int, Dict[str, str]],
-    previous_standings: Optional[Dict[int, Dict]] = None
+    previous_standings: Optional[Dict[int, Dict]] = None,
+    league_average_match: int = 0
 ) -> List[Dict]:
     """
     Calculate cumulative standings up to and including the specified week.
@@ -153,6 +183,7 @@ def calculate_weekly_standings(
         rosters_map: Roster ID to user info mapping
         previous_standings: Optional previous standings dict to increment from
                           (should contain standings up to week-1)
+        league_average_match: Whether median scoring is enabled (1 = yes, 0 = no)
         
     Returns:
         List of standings dictionaries, sorted by win percentage (desc), then PF (desc)
@@ -163,7 +194,7 @@ def calculate_weekly_standings(
     """
     # Get standings dict (for caching) and convert to list
     standings_dict = calculate_weekly_standings_dict(
-        season_dir, week, rosters_map, previous_standings
+        season_dir, week, rosters_map, previous_standings, league_average_match
     )
     return standings_to_list(standings_dict)
 
@@ -172,7 +203,8 @@ def calculate_weekly_standings_dict(
     season_dir: Path,
     week: int,
     rosters_map: Dict[int, Dict[str, str]],
-    previous_standings: Optional[Dict[int, Dict]] = None
+    previous_standings: Optional[Dict[int, Dict]] = None,
+    league_average_match: int = 0
 ) -> Dict[int, Dict]:
     """
     Calculate cumulative standings up to and including the specified week.
@@ -184,6 +216,7 @@ def calculate_weekly_standings_dict(
         rosters_map: Roster ID to user info mapping
         previous_standings: Optional previous standings dict to increment from
                           (should contain standings up to week-1)
+        league_average_match: Whether median scoring is enabled (1 = yes, 0 = no)
         
     Returns:
         Dictionary of standings keyed by roster_id
@@ -197,7 +230,7 @@ def calculate_weekly_standings_dict(
         standings = _initialize_standings(rosters_map)
         # Process all weeks from 1 to week
         for w in range(1, week + 1):
-            _process_week_data(season_dir, w, standings)
+            _process_week_data(season_dir, w, standings, league_average_match)
     else:
         # Deep copy previous standings to avoid mutating the original
         # Use dict comprehension for better performance
@@ -215,7 +248,7 @@ def calculate_weekly_standings_dict(
             for roster_id, stats in previous_standings.items()
         }
         # Process only the current week (previous_standings already has weeks 1 to week-1)
-        _process_week_data(season_dir, week, standings)
+        _process_week_data(season_dir, week, standings, league_average_match)
     
     return standings
 

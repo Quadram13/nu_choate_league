@@ -1797,10 +1797,10 @@
     {
       "roster_id": 11,
       "team_name": "Team ahhowey",
-      "wins": 9,
-      "losses": 3,
+      "wins": 19,
+      "losses": 5,
       "ties": 0,
-      "win_pct": 0.75,
+      "win_pct": 0.7917,
       "pf": 1724.74,
       "pa": 1502.04,
       "transaction_count": 23
@@ -1808,32 +1808,21 @@
     {
       "roster_id": 1,
       "team_name": "Supreme Leader White",
-      "wins": 8,
-      "losses": 4,
+      "wins": 18,
+      "losses": 6,
       "ties": 0,
-      "win_pct": 0.6667,
+      "win_pct": 0.75,
       "pf": 1661.98,
       "pa": 1451.72,
       "transaction_count": 45
     },
     {
-      "roster_id": 6,
-      "team_name": "I <3 Garbage Time Bengals",
-      "wins": 8,
-      "losses": 4,
-      "ties": 0,
-      "win_pct": 0.6667,
-      "pf": 1436.02,
-      "pa": 1352.62,
-      "transaction_count": 24
-    },
-    {
       "roster_id": 5,
       "team_name": "Drake \u201cDrake Maye\u201d Maye",
-      "wins": 7,
-      "losses": 5,
+      "wins": 16,
+      "losses": 8,
       "ties": 0,
-      "win_pct": 0.5833,
+      "win_pct": 0.6667,
       "pf": 1624.92,
       "pa": 1438.7,
       "transaction_count": 39
@@ -1841,21 +1830,32 @@
     {
       "roster_id": 9,
       "team_name": "Joe Buck Yourself",
-      "wins": 7,
-      "losses": 5,
+      "wins": 16,
+      "losses": 8,
       "ties": 0,
-      "win_pct": 0.5833,
+      "win_pct": 0.6667,
       "pf": 1529.58,
       "pa": 1442.16,
       "transaction_count": 23
     },
     {
+      "roster_id": 6,
+      "team_name": "I <3 Garbage Time Bengals",
+      "wins": 13,
+      "losses": 11,
+      "ties": 0,
+      "win_pct": 0.5417,
+      "pf": 1436.02,
+      "pa": 1352.62,
+      "transaction_count": 24
+    },
+    {
       "roster_id": 12,
       "team_name": "Team johnjjepic",
-      "wins": 7,
-      "losses": 5,
+      "wins": 11,
+      "losses": 13,
       "ties": 0,
-      "win_pct": 0.5833,
+      "win_pct": 0.4583,
       "pf": 1389.1,
       "pa": 1484.7,
       "transaction_count": 20
@@ -1863,8 +1863,8 @@
     {
       "roster_id": 4,
       "team_name": "Team jmiley2791",
-      "wins": 5,
-      "losses": 7,
+      "wins": 10,
+      "losses": 14,
       "ties": 0,
       "win_pct": 0.4167,
       "pf": 1436.48,
@@ -1874,8 +1874,8 @@
     {
       "roster_id": 2,
       "team_name": "melvins room ",
-      "wins": 5,
-      "losses": 7,
+      "wins": 10,
+      "losses": 14,
       "ties": 0,
       "win_pct": 0.4167,
       "pf": 1422.68,
@@ -1885,8 +1885,8 @@
     {
       "roster_id": 10,
       "team_name": "Lamarvelous Mrs. Maisel",
-      "wins": 5,
-      "losses": 7,
+      "wins": 10,
+      "losses": 14,
       "ties": 0,
       "win_pct": 0.4167,
       "pf": 1411.92,
@@ -1896,8 +1896,8 @@
     {
       "roster_id": 3,
       "team_name": "A Bridge Too Far  ",
-      "wins": 4,
-      "losses": 8,
+      "wins": 8,
+      "losses": 16,
       "ties": 0,
       "win_pct": 0.3333,
       "pf": 1427.9,
@@ -1905,26 +1905,26 @@
       "transaction_count": 53
     },
     {
-      "roster_id": 7,
-      "team_name": "Saquon deez nuts ",
-      "wins": 4,
-      "losses": 8,
-      "ties": 0,
-      "win_pct": 0.3333,
-      "pf": 1364.02,
-      "pa": 1465.1,
-      "transaction_count": 30
-    },
-    {
       "roster_id": 8,
       "team_name": "Team piamlodos",
-      "wins": 3,
-      "losses": 9,
+      "wins": 7,
+      "losses": 17,
       "ties": 0,
-      "win_pct": 0.25,
+      "win_pct": 0.2917,
       "pf": 1411.4,
       "pa": 1578.56,
       "transaction_count": 4
+    },
+    {
+      "roster_id": 7,
+      "team_name": "Saquon deez nuts ",
+      "wins": 6,
+      "losses": 18,
+      "ties": 0,
+      "win_pct": 0.25,
+      "pf": 1364.02,
+      "pa": 1465.1,
+      "transaction_count": 30
     }
   ],
   "highest_scoring_team": {
@@ -2011,8 +2011,8 @@
       "points": 0.0
     },
     "WR2": {
-      "player_id": "1479",
-      "player_name": "Keenan Allen",
+      "player_id": "11635",
+      "player_name": "Ladd McConkey",
       "points": 0.0
     },
     "TE": {
@@ -2021,8 +2021,8 @@
       "points": 0.0
     },
     "FLEX1": {
-      "player_id": "11635",
-      "player_name": "Ladd McConkey",
+      "player_id": "1479",
+      "player_name": "Keenan Allen",
       "points": 0.0
     },
     "FLEX2": {

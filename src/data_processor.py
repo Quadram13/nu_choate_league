@@ -165,6 +165,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
     
     playoff_week_start = league_info.get('settings', {}).get('playoff_week_start', DEFAULT_PLAYOFF_WEEK_START)
     last_scored_leg = league_info.get('settings', {}).get('last_scored_leg', DEFAULT_LAST_SCORED_LEG)
+    league_average_match = league_info.get('settings', {}).get('league_average_match', 0)
     roster_positions = league_info.get('roster_positions', [])
     
     if not isinstance(roster_positions, list):
@@ -216,7 +217,7 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         
         # Calculate standings up to this week (incrementally using cache)
         cached_standings = calculate_weekly_standings_dict(
-            season_unmunged, week, rosters_map, cached_standings
+            season_unmunged, week, rosters_map, cached_standings, league_average_match
         )
         # Convert to list for recap generation
         standings = standings_to_list(cached_standings)
@@ -261,7 +262,9 @@ def process_season(year: str, unmunged_dir: Path, munged_dir: Path) -> None:
         final_standings = calculate_weekly_standings(
             season_unmunged,
             playoff_week_start - 1,
-            rosters_map
+            rosters_map,
+            None,
+            league_average_match
         )
     
     reg_season_recap = {

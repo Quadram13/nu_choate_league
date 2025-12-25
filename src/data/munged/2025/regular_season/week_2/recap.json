@@ -1750,7 +1750,7 @@
     {
       "roster_id": 9,
       "team_name": "Joe Buck Yourself",
-      "wins": 2,
+      "wins": 4,
       "losses": 0,
       "ties": 0,
       "win_pct": 1.0,
@@ -1761,10 +1761,10 @@
     {
       "roster_id": 3,
       "team_name": "A Bridge Too Far  ",
-      "wins": 2,
-      "losses": 0,
+      "wins": 3,
+      "losses": 1,
       "ties": 0,
-      "win_pct": 1.0,
+      "win_pct": 0.75,
       "pf": 247.58,
       "pa": 217.26,
       "transaction_count": 11
@@ -1772,10 +1772,10 @@
     {
       "roster_id": 6,
       "team_name": "I <3 Garbage Time Bengals",
-      "wins": 2,
-      "losses": 0,
+      "wins": 3,
+      "losses": 1,
       "ties": 0,
-      "win_pct": 1.0,
+      "win_pct": 0.75,
       "pf": 223.38,
       "pa": 213.54,
       "transaction_count": 0
@@ -1783,8 +1783,8 @@
     {
       "roster_id": 10,
       "team_name": "Lamarvelous Mrs. Maisel",
-      "wins": 1,
-      "losses": 1,
+      "wins": 2,
+      "losses": 2,
       "ties": 0,
       "win_pct": 0.5,
       "pf": 271.86,
@@ -1794,8 +1794,8 @@
     {
       "roster_id": 5,
       "team_name": "Drake \u201cDrake Maye\u201d Maye",
-      "wins": 1,
-      "losses": 1,
+      "wins": 2,
+      "losses": 2,
       "ties": 0,
       "win_pct": 0.5,
       "pf": 253.6,
@@ -1805,8 +1805,8 @@
     {
       "roster_id": 8,
       "team_name": "Team piamlodos",
-      "wins": 1,
-      "losses": 1,
+      "wins": 2,
+      "losses": 2,
       "ties": 0,
       "win_pct": 0.5,
       "pf": 249.06,
@@ -1814,10 +1814,21 @@
       "transaction_count": 1
     },
     {
+      "roster_id": 1,
+      "team_name": "Supreme Leader White",
+      "wins": 2,
+      "losses": 2,
+      "ties": 0,
+      "win_pct": 0.5,
+      "pf": 248.32,
+      "pa": 285.64,
+      "transaction_count": 12
+    },
+    {
       "roster_id": 2,
       "team_name": "melvins room ",
-      "wins": 1,
-      "losses": 1,
+      "wins": 2,
+      "losses": 2,
       "ties": 0,
       "win_pct": 0.5,
       "pf": 245.58,
@@ -1827,8 +1838,8 @@
     {
       "roster_id": 11,
       "team_name": "Team ahhowey",
-      "wins": 1,
-      "losses": 1,
+      "wins": 2,
+      "losses": 2,
       "ties": 0,
       "win_pct": 0.5,
       "pf": 243.56,
@@ -1836,43 +1847,32 @@
       "transaction_count": 5
     },
     {
-      "roster_id": 7,
-      "team_name": "Saquon deez nuts ",
-      "wins": 1,
-      "losses": 1,
-      "ties": 0,
-      "win_pct": 0.5,
-      "pf": 204.38,
-      "pa": 213.38,
-      "transaction_count": 3
-    },
-    {
-      "roster_id": 1,
-      "team_name": "Supreme Leader White",
-      "wins": 0,
-      "losses": 2,
-      "ties": 0,
-      "win_pct": 0.0,
-      "pf": 248.32,
-      "pa": 285.64,
-      "transaction_count": 12
-    },
-    {
       "roster_id": 4,
       "team_name": "Team jmiley2791",
-      "wins": 0,
-      "losses": 2,
+      "wins": 1,
+      "losses": 3,
       "ties": 0,
-      "win_pct": 0.0,
+      "win_pct": 0.25,
       "pf": 228.12,
       "pa": 329.42,
       "transaction_count": 0
     },
     {
+      "roster_id": 7,
+      "team_name": "Saquon deez nuts ",
+      "wins": 1,
+      "losses": 3,
+      "ties": 0,
+      "win_pct": 0.25,
+      "pf": 204.38,
+      "pa": 213.38,
+      "transaction_count": 3
+    },
+    {
       "roster_id": 12,
       "team_name": "Team johnjjepic",
       "wins": 0,
-      "losses": 2,
+      "losses": 4,
       "ties": 0,
       "win_pct": 0.0,
       "pf": 212.92,
