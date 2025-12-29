@@ -125,7 +125,7 @@ def generate_all_reports() -> None:
     all_time_available = all_time_dir.exists() and any(all_time_dir.glob("*.csv"))
     
     main_index_path = reports_dir / "index.html"
-    generate_main_index(seasons, main_index_path, all_time_available=all_time_available)
+    generate_main_index(seasons, main_index_path, all_time_available=all_time_available, munged_dir=munged_dir)
     logger.info("Generated main index page")
     
     # Generate seasons index
