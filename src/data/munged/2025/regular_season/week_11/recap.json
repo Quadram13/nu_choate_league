@@ -1397,10 +1397,12 @@
           ]
         },
         {
-          "player_id": "0",
-          "player_name": "0",
+          "player_id": "IND",
+          "player_name": "IND",
           "points": 0.0,
-          "positions": []
+          "positions": [
+            "DEF"
+          ]
         }
       ],
       "bench": [
@@ -1442,14 +1444,6 @@
           "points": 6.7,
           "positions": [
             "RB"
-          ]
-        },
-        {
-          "player_id": "IND",
-          "player_name": "IND",
-          "points": 0.0,
-          "positions": [
-            "DEF"
           ]
         }
       ],

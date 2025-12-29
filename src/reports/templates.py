@@ -1,6 +1,6 @@
 """HTML templates and CSS styling for reports."""
 
-# Embedded CSS styles
+# Embedded CSS styles - Dark Mode Theme
 CSS_STYLES = """
 <style>
     * {
@@ -12,72 +12,76 @@ CSS_STYLES = """
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         line-height: 1.6;
-        color: #333;
-        background-color: #f5f5f5;
+        color: #e4e4e7;
+        background-color: #0f1419;
         padding: 20px;
     }
     
     .container {
         max-width: 1200px;
         margin: 0 auto;
-        background: white;
+        background: #1a1f2e;
         padding: 30px;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border: 1px solid #2d3748;
     }
     
     h1 {
-        color: #2c3e50;
+        color: #60a5fa;
         margin-bottom: 20px;
-        border-bottom: 3px solid #3498db;
+        border-bottom: 3px solid #3b82f6;
         padding-bottom: 10px;
     }
     
     h2 {
-        color: #34495e;
+        color: #93c5fd;
         margin-top: 30px;
         margin-bottom: 15px;
-        border-bottom: 2px solid #ecf0f1;
+        border-bottom: 2px solid #2d3748;
         padding-bottom: 8px;
     }
     
     h3 {
-        color: #7f8c8d;
+        color: #9ca3af;
         margin-top: 20px;
         margin-bottom: 10px;
     }
     
     .nav {
-        background: #34495e;
+        background: #2d3748;
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 20px;
+        border: 1px solid #374151;
     }
     
     .nav a {
-        color: white;
+        color: #e4e4e7;
         text-decoration: none;
         margin-right: 15px;
         padding: 5px 10px;
         border-radius: 3px;
-        transition: background 0.3s;
+        transition: all 0.3s;
     }
     
     .nav a:hover {
-        background: #2c3e50;
+        background: #374151;
+        color: #60a5fa;
     }
     
     table {
         width: 100%;
         border-collapse: collapse;
         margin: 20px 0;
-        background: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        background: #1e293b;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 1px solid #2d3748;
     }
     
     th {
-        background: #3498db;
-        color: white;
+        background: #1e40af;
+        color: #e4e4e7;
         padding: 12px;
         text-align: left;
         font-weight: 600;
@@ -85,45 +89,49 @@ CSS_STYLES = """
     
     td {
         padding: 10px 12px;
-        border-bottom: 1px solid #ecf0f1;
+        border-bottom: 1px solid #2d3748;
+        color: #d1d5db;
     }
     
     tr:hover {
-        background: #f8f9fa;
+        background: #2d3748;
     }
     
     .winner {
-        background: #d4edda !important;
+        background: #1e3a28 !important;
         font-weight: 600;
+        color: #86efac !important;
     }
     
     .loser {
-        background: #f8d7da !important;
+        background: #3a1e1e !important;
+        color: #fca5a5 !important;
     }
     
     .tie {
-        background: #fff3cd !important;
+        background: #3a3020 !important;
+        color: #fde047 !important;
     }
     
     .award-box {
-        background: #f8f9fa;
-        border-left: 4px solid #3498db;
+        background: #1e293b;
+        border-left: 4px solid #3b82f6;
         padding: 15px;
         margin: 15px 0;
         border-radius: 4px;
     }
     
     .award-box h4 {
-        color: #3498db;
+        color: #60a5fa;
         margin-bottom: 8px;
     }
     
     .team-highlight {
-        background: #e8f4f8;
+        background: #1e3a5f;
         padding: 15px;
         margin: 10px 0;
         border-radius: 5px;
-        border-left: 4px solid #3498db;
+        border-left: 4px solid #3b82f6;
     }
     
     .player-list {
@@ -133,7 +141,7 @@ CSS_STYLES = """
     
     .player-list li {
         padding: 8px;
-        border-bottom: 1px solid #ecf0f1;
+        border-bottom: 1px solid #2d3748;
     }
     
     .player-list li:last-child {
@@ -142,17 +150,17 @@ CSS_STYLES = """
     
     .player-name {
         font-weight: 600;
-        color: #2c3e50;
+        color: #e4e4e7;
     }
     
     .player-points {
-        color: #27ae60;
+        color: #86efac;
         font-weight: 600;
         float: right;
     }
     
     .player-position {
-        color: #7f8c8d;
+        color: #9ca3af;
         font-size: 0.9em;
         margin-left: 10px;
     }
@@ -163,7 +171,7 @@ CSS_STYLES = """
     
     .rank {
         font-weight: 700;
-        color: #3498db;
+        color: #60a5fa;
         width: 50px;
     }
     
@@ -177,15 +185,17 @@ CSS_STYLES = """
     .week-link {
         display: inline-block;
         padding: 8px 15px;
-        background: #3498db;
-        color: white;
+        background: #1e40af;
+        color: #e4e4e7;
         text-decoration: none;
         border-radius: 4px;
-        transition: background 0.3s;
+        transition: all 0.3s;
+        border: 1px solid #2563eb;
     }
     
     .week-link:hover {
-        background: #2980b9;
+        background: #2563eb;
+        transform: translateY(-1px);
     }
     
     .season-list {
@@ -196,44 +206,47 @@ CSS_STYLES = """
     .season-list li {
         padding: 15px;
         margin: 10px 0;
-        background: #f8f9fa;
+        background: #1e293b;
         border-radius: 5px;
-        border-left: 4px solid #3498db;
+        border-left: 4px solid #3b82f6;
+        border: 1px solid #2d3748;
     }
     
     .season-list a {
-        color: #2c3e50;
+        color: #e4e4e7;
         text-decoration: none;
         font-weight: 600;
         font-size: 1.1em;
     }
     
     .season-list a:hover {
-        color: #3498db;
+        color: #60a5fa;
     }
     
     .breadcrumb {
-        color: #7f8c8d;
+        color: #9ca3af;
         margin-bottom: 20px;
     }
     
     .breadcrumb a {
-        color: #3498db;
+        color: #60a5fa;
         text-decoration: none;
     }
     
     .breadcrumb a:hover {
         text-decoration: underline;
+        color: #93c5fd;
     }
     
     .bracket-container {
         overflow-x: auto;
         margin: 30px 0;
         padding: 30px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1e40af 0%, #6366f1 100%);
         border-radius: 8px;
         position: relative;
         min-height: 500px;
+        border: 1px solid #2563eb;
     }
     
     .bracket-wrapper {
@@ -284,36 +297,38 @@ CSS_STYLES = """
     }
     
     .bracket-team {
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #3498db;
+        background: #1e293b;
+        border: 2px solid #3b82f6;
         border-radius: 6px;
         padding: 12px 16px;
         margin: 4px 0;
         min-width: 180px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         transition: all 0.3s;
         position: relative;
         z-index: 2;
         text-align: center;
+        color: #e4e4e7;
     }
     
     .bracket-team:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        background: rgba(255, 255, 255, 1);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+        background: #2d3748;
     }
     
     .bracket-team.winner {
-        background: #d4edda;
-        border-color: #28a745;
+        background: #1e3a28;
+        border-color: #22c55e;
         font-weight: 600;
-        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+        box-shadow: 0 3px 8px rgba(34, 197, 94, 0.4);
+        color: #86efac;
     }
     
     .bracket-team.tbd {
-        background: rgba(248, 249, 250, 0.7);
-        border-color: #dee2e6;
-        color: #6c757d;
+        background: #1a202c;
+        border-color: #4b5563;
+        color: #9ca3af;
         font-style: italic;
     }
     
@@ -323,18 +338,19 @@ CSS_STYLES = """
         font-weight: 700;
         margin-bottom: 30px;
         font-size: 1.2em;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
         padding: 8px;
-        background: rgba(0,0,0,0.2);
+        background: rgba(0,0,0,0.3);
         border-radius: 5px;
     }
     
     .bracket-final {
-        background: rgba(255, 215, 0, 0.95) !important;
-        border: 3px solid #ffd700 !important;
+        background: #422006 !important;
+        border: 3px solid #eab308 !important;
         font-size: 1.15em;
         font-weight: 700;
-        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5) !important;
+        box-shadow: 0 4px 12px rgba(234, 179, 8, 0.5) !important;
+        color: #fde047 !important;
     }
     
     .bracket-round:first-child .bracket-matchup {
@@ -355,12 +371,12 @@ CSS_STYLES = """
     }
     
     .matchup-row:hover {
-        background: #f0f8ff !important;
+        background: #2d3748 !important;
     }
     
     .matchup-details {
         display: none;
-        background: #f8f9fa;
+        background: #0f1419;
         padding: 0;
     }
     
@@ -381,16 +397,17 @@ CSS_STYLES = """
     }
     
     .team-details {
-        background: white;
+        background: #1e293b;
         border-radius: 6px;
         padding: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 1px solid #2d3748;
     }
     
     .team-details h4 {
         margin-bottom: 15px;
-        color: #2c3e50;
-        border-bottom: 2px solid #3498db;
+        color: #60a5fa;
+        border-bottom: 2px solid #3b82f6;
         padding-bottom: 8px;
     }
     
@@ -399,7 +416,7 @@ CSS_STYLES = """
     }
     
     .player-section h5 {
-        color: #34495e;
+        color: #93c5fd;
         margin-bottom: 10px;
         font-size: 0.95em;
     }
@@ -409,30 +426,30 @@ CSS_STYLES = """
         justify-content: space-between;
         padding: 6px 10px;
         margin: 4px 0;
-        background: #f8f9fa;
+        background: #0f1419;
         border-radius: 4px;
-        border-left: 3px solid #3498db;
+        border-left: 3px solid #3b82f6;
     }
     
     .player-item.bench {
-        border-left-color: #95a5a6;
-        background: #ecf0f1;
+        border-left-color: #6b7280;
+        background: #1a202c;
     }
     
     .player-name {
         font-weight: 500;
-        color: #2c3e50;
+        color: #e4e4e7;
     }
     
     .player-position {
-        color: #7f8c8d;
+        color: #9ca3af;
         font-size: 0.85em;
         margin-left: 8px;
     }
     
     .player-points {
         font-weight: 600;
-        color: #27ae60;
+        color: #86efac;
     }
     
     .expand-icon {
@@ -451,17 +468,18 @@ CSS_STYLES = """
     
     .draft-team {
         margin-bottom: 30px;
-        background: white;
+        background: #1e293b;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 1px solid #2d3748;
     }
     
     .draft-team h3 {
         margin-top: 0;
         margin-bottom: 15px;
-        color: #2c3e50;
-        border-bottom: 2px solid #3498db;
+        color: #60a5fa;
+        border-bottom: 2px solid #3b82f6;
         padding-bottom: 8px;
     }
     
@@ -471,20 +489,21 @@ CSS_STYLES = """
     }
     
     .draft-picks-table th {
-        background: #f8f9fa;
+        background: #0f1419;
         padding: 10px;
         text-align: left;
         font-weight: 600;
-        color: #2c3e50;
+        color: #e4e4e7;
+        border: 1px solid #2d3748;
     }
     
     .draft-picks-table td {
         padding: 8px 10px;
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid #2d3748;
     }
     
     .draft-picks-table tr:hover {
-        background: #f8f9fa;
+        background: #2d3748;
     }
     
     .transaction-row {
@@ -493,7 +512,7 @@ CSS_STYLES = """
     }
     
     .transaction-row:hover {
-        background: #f0f8ff !important;
+        background: #2d3748 !important;
     }
     
     .transaction-row.has-failed-claims {
@@ -502,7 +521,7 @@ CSS_STYLES = """
     
     .transaction-details {
         display: none;
-        background: #f8f9fa;
+        background: #0f1419;
         padding: 0;
     }
     
@@ -517,16 +536,17 @@ CSS_STYLES = """
     
     .transaction-details-content {
         padding: 20px;
-        background: white;
+        background: #1e293b;
         margin: 10px;
         border-radius: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 1px solid #2d3748;
     }
     
     .transaction-details-content h4 {
         margin-top: 0;
         margin-bottom: 15px;
-        color: #2c3e50;
+        color: #60a5fa;
     }
     
     .failed-claims-group {
@@ -534,7 +554,7 @@ CSS_STYLES = """
     }
     
     .failed-claims-group h5 {
-        color: #e74c3c;
+        color: #f87171;
         margin-bottom: 10px;
         font-size: 1em;
     }
@@ -548,10 +568,10 @@ CSS_STYLES = """
     .failed-claims-list li {
         padding: 8px 12px;
         margin: 5px 0;
-        background: #fff3cd;
-        border-left: 3px solid #ffc107;
+        background: #422006;
+        border-left: 3px solid #fbbf24;
         border-radius: 4px;
-        color: #856404;
+        color: #fde047;
     }
     
     .transaction-row.expanded .expand-icon {
@@ -560,14 +580,14 @@ CSS_STYLES = """
     
     .time-cell {
         font-size: 0.9em;
-        color: #7f8c8d;
+        color: #9ca3af;
         white-space: nowrap;
     }
     
     h3 {
         margin-top: 30px;
         margin-bottom: 15px;
-        color: #2c3e50;
+        color: #93c5fd;
         font-size: 1.3em;
     }
     

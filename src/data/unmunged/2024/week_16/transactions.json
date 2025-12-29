@@ -16,12 +16,12 @@
         "adds": {
             "MIA": 3
         },
-        "drops": {
-            "ATL": 3
-        },
         "consenter_ids": [
             3
         ],
+        "drops": {
+            "ATL": 3
+        },
         "roster_ids": [
             3
         ],
@@ -41,12 +41,12 @@
         "adds": {
             "6963": 5
         },
-        "drops": {
-            "8110": 5
-        },
         "consenter_ids": [
             5
         ],
+        "drops": {
+            "8110": 5
+        },
         "roster_ids": [
             5
         ],
@@ -66,12 +66,12 @@
         "adds": {
             "9480": 3
         },
-        "drops": {
-            "ARI": 3
-        },
         "consenter_ids": [
             3
         ],
+        "drops": {
+            "ARI": 3
+        },
         "roster_ids": [
             3
         ],
@@ -91,12 +91,12 @@
         "adds": {
             "SEA": 7
         },
-        "drops": {
-            "HOU": 7
-        },
         "consenter_ids": [
             7
         ],
+        "drops": {
+            "HOU": 7
+        },
         "roster_ids": [
             7
         ],
@@ -116,12 +116,12 @@
         "adds": {
             "HOU": 7
         },
-        "drops": {
-            "MIA": 7
-        },
         "consenter_ids": [
             7
         ],
+        "drops": {
+            "MIA": 7
+        },
         "roster_ids": [
             7
         ],
@@ -141,12 +141,12 @@
         "adds": {
             "ATL": 3
         },
-        "drops": {
-            "DEN": 3
-        },
         "consenter_ids": [
             3
         ],
+        "drops": {
+            "DEN": 3
+        },
         "roster_ids": [
             3
         ],
