@@ -661,9 +661,9 @@ Start with **App Platform + MongoDB Atlas** for ease of use. Your $200 credit co
 #### Environment Variables
 ```bash
 # .env file (local development)
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/nu_choate_league
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/nu_choate_league
 SLEEPER_LEAGUE_ID=1251998020954763264
-JWT_SECRET=your-secret-key-here
+JWT_SECRET=<generate-a-secure-random-string-here>
 API_ENV=development
 ```
 
@@ -1039,7 +1039,7 @@ services:
       - key: JWT_SECRET
         scope: RUN_TIME
         type: SECRET
-        value: YOUR_JWT_SECRET_HERE
+        value: <your-jwt-secret-from-env>
       - key: API_ENV
         scope: RUN_TIME
         value: production
