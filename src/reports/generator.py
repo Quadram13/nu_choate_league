@@ -9,6 +9,7 @@ from reports import (
     generate_main_index,
     generate_all_all_time_reports
 )
+from reports.index_generator import generate_seasons_index
 from reports.season_report import generate_postseason_html, generate_draft_html
 from utils.json_utils import load_json
 from utils.logging_utils import get_logger
@@ -126,6 +127,11 @@ def generate_all_reports() -> None:
     main_index_path = reports_dir / "index.html"
     generate_main_index(seasons, main_index_path, all_time_available=all_time_available)
     logger.info("Generated main index page")
+    
+    # Generate seasons index
+    seasons_index_path = reports_dir / "seasons.html"
+    generate_seasons_index(seasons, seasons_index_path)
+    logger.info("Generated seasons index page")
     
     logger.info(f"HTML reports generated successfully in {reports_dir}")
 

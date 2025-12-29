@@ -105,6 +105,48 @@ def generate_all_time_html(
         f.write(html)
 
 
+def generate_all_time_index(reports_dir: Path) -> None:
+    """
+    Generate index page for all-time statistics.
+    
+    Args:
+        reports_dir: Path to reports output directory
+    """
+    title = "Nu Choate League - All-Time Statistics"
+    nav = get_navigation(in_subdirectory=True)
+    
+    content_parts = []
+    content_parts.append('<h1>All-Time Statistics</h1>')
+    content_parts.append('<p>Historical statistics across all seasons of the Nu Choate League.</p>')
+    
+    # List of all-time reports
+    content_parts.append('<div class="season-list">')
+    
+    reports = [
+        ("standings.html", "All-Time Standings", "Overall win-loss records and rankings across all seasons"),
+        ("head_to_head.html", "Head-to-Head Records", "Matchup history between all teams"),
+        ("player_high_scores.html", "Player High Scores", "Top individual player performances"),
+        ("weekly_high_scores.html", "Weekly High Scores", "Highest scoring weeks in league history"),
+    ]
+    
+    for filename, report_title, description in reports:
+        content_parts.append('<li>')
+        content_parts.append(f'<a href="{filename}">{report_title}</a>')
+        content_parts.append(f'<p style="margin: 5px 0 0 0; color: #9ca3af; font-size: 0.9em;">{description}</p>')
+        content_parts.append('</li>')
+    
+    content_parts.append('</div>')
+    
+    content = ''.join(content_parts)
+    html = get_html_template(title, nav, content, in_subdirectory=True)
+    
+    # Write to file
+    output_path = reports_dir / "all_time" / "index.html"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
 def generate_all_all_time_reports(munged_dir: Path, reports_dir: Path) -> None:
     """
     Generate all all-time statistics HTML reports.
@@ -118,6 +160,9 @@ def generate_all_all_time_reports(munged_dir: Path, reports_dir: Path) -> None:
     
     if not all_time_dir.exists():
         return
+    
+    # Generate index page
+    generate_all_time_index(reports_dir)
     
     # Standings
     standings_csv = all_time_dir / "standings.csv"

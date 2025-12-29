@@ -132,6 +132,36 @@ h3 {
     color: #60a5fa;
 }
 
+.sub-nav {
+    background: #1e293b;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border: 1px solid #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.sub-nav a {
+    color: #60a5fa;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    font-size: 0.9em;
+}
+
+.sub-nav a:hover {
+    background: #2d3748;
+}
+
+.current-location {
+    color: #9ca3af;
+    font-size: 0.9em;
+    margin-right: auto;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;

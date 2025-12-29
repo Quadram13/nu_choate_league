@@ -19,15 +19,15 @@ def generate_main_index(
         output_path: Path to output HTML file
         all_time_available: Whether all-time stats are available
     """
-    title = 'Nu Choate League - Reports'
+    title = 'Nu Choate League Hub'
     
     # Navigation
     nav = get_navigation()
     
     # Content
     content_parts = []
-    content_parts.append('<h1>Nu Choate League Reports</h1>')
-    content_parts.append('<p>Welcome to the Nu Choate League statistics and recap reports.</p>')
+    content_parts.append('<h1>Nu Choate League Hub</h1>')
+    content_parts.append('<p>Welcome to the Nu Choate League Hub.</p>')
     
     # All-time stats link
     if all_time_available:
@@ -67,6 +67,50 @@ def generate_main_index(
     content = ''.join(content_parts)
     
     # Generate full HTML (index is at root level)
+    html = get_html_template(title, nav, content, in_subdirectory=False)
+    
+    # Write to file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
+def generate_seasons_index(
+    seasons: List[str],
+    output_path: Path
+) -> None:
+    """
+    Generate seasons index page listing all available seasons.
+    
+    Args:
+        seasons: List of available season years
+        output_path: Path to output HTML file
+    """
+    title = 'Nu Choate League - Seasons'
+    
+    # Navigation
+    nav = get_navigation()
+    
+    # Content
+    content_parts = []
+    content_parts.append('<h1>Seasons</h1>')
+    content_parts.append('<p>Browse reports and statistics by season.</p>')
+    
+    # Seasons list
+    if seasons:
+        content_parts.append('<div class="season-list">')
+        for season in sorted(seasons, reverse=True):
+            content_parts.append('<li>')
+            content_parts.append(f'<a href="{season}/index.html">{season} Season</a>')
+            content_parts.append(f'<p style="margin: 5px 0 0 0; color: #9ca3af; font-size: 0.9em;">Weekly recaps, standings, draft results, and postseason bracket</p>')
+            content_parts.append('</li>')
+        content_parts.append('</div>')
+    else:
+        content_parts.append('<p>No seasons available.</p>')
+    
+    content = ''.join(content_parts)
+    
+    # Generate full HTML (seasons.html is at root level)
     html = get_html_template(title, nav, content, in_subdirectory=False)
     
     # Write to file

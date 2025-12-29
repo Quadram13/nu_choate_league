@@ -52,7 +52,7 @@ def get_html_template(title: str, nav: str, content: str, in_subdirectory: bool 
 
 def get_navigation(season: str = None, week: int = None, prev_week: int = None, next_week: int = None, in_subdirectory: bool = False) -> str:
     """
-    Generate navigation bar HTML with relative paths that work for both local and GitHub Pages.
+    Generate consistent navigation bar HTML with main menu and optional sub-navigation.
     
     Args:
         season: Current season (e.g., "2024")
@@ -62,41 +62,36 @@ def get_navigation(season: str = None, week: int = None, prev_week: int = None, 
         in_subdirectory: Whether the page is in a subdirectory (e.g., all_time/)
         
     Returns:
-        Navigation HTML string
+        Navigation HTML string with main nav and optional sub-nav
     """
-    nav_links = ['<div class="nav">']
+    nav_parts = []
     
-    # Home link - use relative path based on current location
-    if season or in_subdirectory:
-        # From season pages or all_time subdirectory, go up one level
-        home_link = "../index.html"
-    else:
-        # From root index.html, link to itself
-        home_link = "index.html"
-    nav_links.append(f'<a href="{home_link}">Home</a>')
+    # Determine path prefix based on location
+    path_prefix = "../" if (season or in_subdirectory) else ""
     
-    if season:
-        # From season pages, link to root index
-        nav_links.append(f'<a href="../index.html">All Seasons</a>')
-        # Link to season index (same directory)
-        nav_links.append(f'<a href="index.html">{season} Season</a>')
-        
-        if week:
-            # Week navigation (same directory)
-            if prev_week:
-                nav_links.append(f'<a href="week_{prev_week}.html">← Week {prev_week}</a>')
-            if next_week:
-                nav_links.append(f'<a href="week_{next_week}.html">Week {next_week} →</a>')
-    else:
-        # From root index, link to all-time stats
-        if not in_subdirectory:
-            nav_links.append('<a href="all_time/standings.html">All-Time Stats</a>')
-        else:
-            # From all_time subdirectory, link back to root
-            nav_links.append('<a href="../index.html">All Seasons</a>')
+    # Main navigation bar - consistent across all pages
+    nav_parts.append('<div class="nav">')
+    nav_parts.append(f'<a href="{path_prefix}index.html">Home</a>')
+    nav_parts.append(f'<a href="{path_prefix}all_time/index.html">All-Time Stats</a>')
+    nav_parts.append(f'<a href="{path_prefix}seasons.html">Seasons</a>')
+    nav_parts.append('</div>')
     
-    nav_links.append('</div>')
-    return ''.join(nav_links)
+    # Sub-navigation for season pages (week navigation)
+    if season and week:
+        nav_parts.append('<div class="sub-nav">')
+        nav_parts.append(f'<span class="current-location">{season} Season - Week {week}</span>')
+        if prev_week:
+            nav_parts.append(f'<a href="week_{prev_week}.html">← Week {prev_week}</a>')
+        if next_week:
+            nav_parts.append(f'<a href="week_{next_week}.html">Week {next_week} →</a>')
+        nav_parts.append('</div>')
+    elif season:
+        # Season index page
+        nav_parts.append('<div class="sub-nav">')
+        nav_parts.append(f'<span class="current-location">{season} Season</span>')
+        nav_parts.append('</div>')
+    
+    return ''.join(nav_parts)
 
 def get_breadcrumb(season: str = None, week: int = None, in_subdirectory: bool = False) -> str:
     """
