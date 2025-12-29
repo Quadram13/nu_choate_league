@@ -26,9 +26,14 @@ def copy_reports_to_docs():
     # Create docs directory if it doesn't exist
     docs_dir.mkdir(exist_ok=True)
     
-    # Remove existing files in docs (except README.md)
+    # Remove existing files in docs (except README.md, CNAME, style.css, and fonts/)
+    preserve_files = {'README.md', 'CNAME', 'style.css'}
+    preserve_dirs = {'fonts'}
+    
     for item in docs_dir.iterdir():
-        if item.name != 'README.md' and item.is_file():
+        if item.name in preserve_files or item.name in preserve_dirs:
+            continue  # Skip preserved items
+        if item.is_file():
             item.unlink()
         elif item.is_dir():
             shutil.rmtree(item)

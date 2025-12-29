@@ -96,8 +96,8 @@ def generate_all_time_html(
     
     content = ''.join(content_parts)
     
-    # Generate full HTML
-    html = get_html_template(full_title, nav, content)
+    # Generate full HTML (all-time reports are in all_time/ subdirectory)
+    html = get_html_template(full_title, nav, content, in_subdirectory=True)
     
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)

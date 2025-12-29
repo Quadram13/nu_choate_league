@@ -66,8 +66,8 @@ def generate_main_index(
     
     content = ''.join(content_parts)
     
-    # Generate full HTML
-    html = get_html_template(title, nav, content)
+    # Generate full HTML (index is at root level)
+    html = get_html_template(title, nav, content, in_subdirectory=False)
     
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)

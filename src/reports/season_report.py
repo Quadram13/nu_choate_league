@@ -164,8 +164,8 @@ def generate_season_index(
     
     content = ''.join(content_parts)
     
-    # Generate full HTML
-    html = get_html_template(title, nav, content)
+    # Generate full HTML (season index is in subdirectory like 2024/, 2025/)
+    html = get_html_template(title, nav, content, in_subdirectory=True)
     
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -208,8 +208,8 @@ def generate_postseason_html(
     
     content = ''.join(content_parts)
     
-    # Generate full HTML
-    html = get_html_template(title, nav, content)
+    # Generate full HTML (postseason is in subdirectory like 2024/, 2025/)
+    html = get_html_template(title, nav, content, in_subdirectory=True)
     
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -245,8 +245,8 @@ def generate_draft_html(
     
     content = ''.join(content_parts)
     
-    # Generate full HTML
-    html = get_html_template(title, nav, content)
+    # Generate full HTML (draft is in subdirectory like 2024/, 2025/)
+    html = get_html_template(title, nav, content, in_subdirectory=True)
     
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)
