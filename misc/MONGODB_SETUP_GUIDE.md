@@ -96,6 +96,68 @@ passwd
 # Enter new password twice
 ```
 
+### 2.2 Add SSH Key from Windows (If Setup Was Done on Another Machine)
+
+If you set up the droplet on a different machine (e.g., Linux/Mac) and need to access it from Windows:
+
+**Step 1: Generate SSH Key on Windows**
+
+Open PowerShell and run:
+
+```powershell
+# Generate new SSH key
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+
+# Press Enter to accept default location (C:\Users\YourUsername\.ssh\id_rsa)
+# Press Enter twice for no passphrase (or enter a passphrase for extra security)
+```
+
+**Step 2: Display Your Public Key**
+
+```powershell
+# Display the public key
+cat $env:USERPROFILE\.ssh\id_rsa.pub
+
+# Copy the entire output (starts with "ssh-rsa" and ends with your email)
+```
+
+**Step 3: Add Key to Droplet**
+
+You have two options:
+
+**Option A: Using Your Arch Linux Machine (Easiest)**
+
+1. Copy the public key you just displayed
+2. SSH into the droplet from your Arch Linux machine:
+   ```bash
+   ssh root@YOUR_DROPLET_IP
+   ```
+3. On the droplet, add the Windows public key:
+   ```bash
+   # Append the Windows public key to authorized_keys
+   echo "PASTE_YOUR_WINDOWS_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+   
+   # Set correct permissions
+   chmod 600 ~/.ssh/authorized_keys
+   chmod 700 ~/.ssh
+   ```
+
+**Option B: Using DigitalOcean Web Console**
+
+1. Log into DigitalOcean dashboard
+2. Go to your droplet
+3. Click "Access" → "Launch Droplet Console"
+4. Run the same commands as Option A
+
+**Step 4: Test Connection from Windows**
+
+```powershell
+# Test SSH connection
+ssh root@YOUR_DROPLET_IP
+
+# If successful, you'll be logged in without entering a password
+```
+
 ---
 
 ## Part 3: Install MongoDB
