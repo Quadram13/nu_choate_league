@@ -141,8 +141,20 @@ main() {
         sudo pacman -S --noconfirm python-pip
     fi
     
-    print_info "Installing Python packages..."
-    pip3 install --user pymongo requests fastapi uvicorn[standard] motor python-dotenv pydantic pydantic-settings httpx aiohttp python-jose[cryptography] passlib[bcrypt] python-multipart
+    # Create virtual environment
+    print_info "Creating virtual environment..."
+    VENV_DIR="$PROJECT_DIR/venv"
+    if [ ! -d "$VENV_DIR" ]; then
+        $PYTHON3_PATH -m venv "$VENV_DIR"
+        print_info "Virtual environment created at $VENV_DIR"
+    else
+        print_info "Virtual environment already exists"
+    fi
+    
+    # Activate venv and install packages
+    print_info "Installing Python packages in virtual environment..."
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install pymongo requests fastapi "uvicorn[standard]" motor python-dotenv pydantic pydantic-settings httpx aiohttp "python-jose[cryptography]" "passlib[bcrypt]" python-multipart
     
     # Download sync script
     print_info "Downloading sync script..."
@@ -187,7 +199,7 @@ Type=simple
 User=$USERNAME
 WorkingDirectory=$BACKEND_DIR
 EnvironmentFile=/etc/nuchoate-api-staging.env
-ExecStart=$PYTHON3_PATH -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+ExecStart=$VENV_DIR/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=10
 
@@ -218,7 +230,7 @@ Type=simple
 User=$USERNAME
 WorkingDirectory=$BACKEND_DIR
 EnvironmentFile=/etc/nuchoate-api-prod.env
-ExecStart=$PYTHON3_PATH -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=$VENV_DIR/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
@@ -363,7 +375,7 @@ Type=oneshot
 User=$USERNAME
 WorkingDirectory=$HOME_DIR
 EnvironmentFile=/etc/nuchoate-api-prod.env
-ExecStart=$PYTHON3_PATH $HOME_DIR/sync_sleeper_to_mongodb.py --env prod
+ExecStart=$VENV_DIR/bin/python $HOME_DIR/sync_sleeper_to_mongodb.py --env prod
 EOF
     
     # Create sync timer
