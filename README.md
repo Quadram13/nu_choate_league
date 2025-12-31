@@ -1,4 +1,4 @@
-# nu_choate_league
+# Nu Choate League Hub
 
 
 
