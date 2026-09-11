@@ -31,10 +31,10 @@ Open a terminal:
 
 ## First-time setup
 
-**1. Download the project** (this overhaul lives on the `feat/complete-overhaul` branch):
+**1. Download the project** (default branch is `feat/complete-overhaul`):
 
 ```text
-git clone -b feat/complete-overhaul https://github.com/Quadram13/nu_choate_league.git
+git clone https://github.com/Quadram13/nu_choate_league.git
 cd nu_choate_league
 ```
 
@@ -177,3 +177,7 @@ compose.yaml   Postgres 17 on localhost:5433
 ```
 
 Dumps stay raw JSON. Python ingest turns them into rows. Analysis is SQL views, not a second copy of `career.json`.
+
+## Contribute
+
+Open a pull request against `feat/complete-overhaul`. Anyone can fork and propose changes. If you give me the email you use for github, I can add you as a collaborator. `main` and `archive/pre-espn-refactor` are frozen for now.
