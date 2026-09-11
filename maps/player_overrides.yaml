@@ -1,0 +1,4 @@
+# Manual ESPN player id -> Sleeper player id when espn_id and name matching fail.
+# Nicknames (Chig/Chigoziem, Kenny/Kenneth) are handled in code; use this for
+# true mismatches.
+espn_to_sleeper: {}

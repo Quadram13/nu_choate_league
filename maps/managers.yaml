@@ -1,0 +1,102 @@
+# Stable people across ESPN and Sleeper. Team names change every year and
+# do not belong here.
+managers:
+  - id: andrew-howey
+    display_name: Andrew Howey
+    espn_member_ids:
+      - "{0342CD27-634F-416B-82CD-27634F516B92}"
+    sleeper_user_ids:
+      - "1257009537496391680"
+
+  - id: hilal-zoberi
+    display_name: Hilal Zoberi
+    espn_member_ids:
+      - "{1A3D6A2D-8F4C-486D-9D7B-C2FB6FAAED98}"
+    sleeper_user_ids:
+      - "1132737970697609216"
+
+  - id: nate-white
+    display_name: Nate White
+    espn_member_ids:
+      - "{31C376DC-C61A-47CC-A9D7-C64A8FB6CAA8}"
+    sleeper_user_ids:
+      - "1130723298733744128"
+
+  - id: christian-boudreau
+    display_name: Christian Boudreau
+    espn_member_ids:
+      - "{6DD556D9-E7F4-4F0D-9556-D9E7F4FF0D0F}"
+    sleeper_user_ids: []
+
+  - id: jack-miley
+    display_name: Jack Miley
+    espn_member_ids:
+      - "{9671BF7A-ACE0-48EF-9B93-C49F5A82258D}"
+    sleeper_user_ids:
+      - "1124163023276503040"
+
+  - id: will-flamm
+    display_name: Will Flamm
+    espn_member_ids:
+      - "{A8B0DE04-86DB-474A-B18D-E401670D997F}"
+    sleeper_user_ids:
+      - "1122419476437340160"
+
+  - id: tagan-farrell
+    display_name: Tagan Farrell
+    espn_member_ids:
+      - "{C96E9E38-2FDE-4076-AE9E-382FDE20765D}"
+    sleeper_user_ids:
+      - "1078390653366661120"
+
+  - id: sam-curtis
+    display_name: Sam Curtis
+    espn_member_ids:
+      - "{D3B36E84-2A47-4DAC-B36E-842A476DACF0}"
+    sleeper_user_ids:
+      - "1131200109846532096"
+
+  - id: liam-podos
+    display_name: Liam Podos
+    espn_member_ids:
+      - "{E386D16C-3AC5-4A01-905F-1EAA84F088B4}"
+    sleeper_user_ids:
+      - "1132026771949568000"
+
+  - id: richard-bershtein
+    display_name: Richard Bershtein
+    espn_member_ids:
+      - "{EEA7E754-9025-4099-92E5-13E701DC9504}"
+    sleeper_user_ids:
+      - "1130953980194082816"
+
+  - id: jonah-feldman
+    display_name: Jonah Feldman
+    espn_member_ids:
+      - "{F7861A18-D93F-4FE0-861A-18D93FCFE068}"
+    sleeper_user_ids: []
+
+  - id: marcus-du
+    display_name: Marcus Du
+    espn_member_ids:
+      - "{FC4BE0EE-A981-46B6-9E05-83C69C4FEC1F}"
+    sleeper_user_ids:
+      - "1132189344153960448"
+
+  - id: alex-coletti
+    display_name: Alex Coletti
+    espn_member_ids: []
+    sleeper_user_ids:
+      - "1131235237415112704"
+
+  - id: fenn-suter
+    display_name: Fenn Suter
+    espn_member_ids: []
+    sleeper_user_ids:
+      - "860721454776471552"
+
+  - id: john-wilson
+    display_name: John Wilson
+    espn_member_ids: []
+    sleeper_user_ids:
+      - "1258511081437933568"

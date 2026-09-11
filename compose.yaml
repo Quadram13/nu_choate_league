@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17
+    container_name: nu-choate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nu_choate
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: nu_choate
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nu_choate -d nu_choate"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
