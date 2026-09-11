@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 from .paths import project_root
 
-SCHEMA_FILES = ("sql/facts.sql", "sql/analysis.sql")
+FACTS_FILE = "sql/facts.sql"
+ANALYSIS_DIR = "sql/analysis"
 
 
 def load_env() -> None:
@@ -30,10 +31,17 @@ def connect() -> psycopg.Connection:
     return psycopg.connect(database_url())
 
 
-def apply_schema(conn: psycopg.Connection) -> None:
+def schema_files() -> list:
+    """Facts first, then analysis views in numeric-prefix (dependency) order."""
     root = project_root()
-    for name in SCHEMA_FILES:
-        sql = (root / name).read_text(encoding="utf-8")
+    files = [root / FACTS_FILE]
+    files.extend(sorted((root / ANALYSIS_DIR).glob("*.sql")))
+    return files
+
+
+def apply_schema(conn: psycopg.Connection) -> None:
+    for path in schema_files():
+        sql = path.read_text(encoding="utf-8")
         for statement in _statements(sql):
             conn.execute(statement)
 

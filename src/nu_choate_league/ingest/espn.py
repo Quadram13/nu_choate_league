@@ -310,6 +310,7 @@ def _espn_transaction(
         return None
     if kind in {"waiver", "free_agent"} and not adds and not drops:
         return None
+    bid = raw.get("bidAmount")
     return Transaction(
         id=str(raw.get("id")),
         year=season.year,
@@ -317,6 +318,8 @@ def _espn_transaction(
         type=kind,
         status=status,
         at=_espn_timestamp(raw),
+        bid=int(bid) if isinstance(bid, int) else None,
+        note=status_raw if status == "failed" else None,
         adds=adds,
         drops=drops,
     )

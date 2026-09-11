@@ -128,6 +128,10 @@ class Transaction(BaseModel):
     type: str
     status: str
     at: int | None = None
+    seq: int | None = None
+    priority: int | None = None
+    bid: int | None = None
+    note: str | None = None
     adds: list[PlayerMove] = Field(default_factory=list)
     drops: list[PlayerMove] = Field(default_factory=list)
 
@@ -137,6 +141,18 @@ class WeekScore(BaseModel):
     manager_id: str
     points: float
     paired: bool = True
+
+
+class PlayerWeek(BaseModel):
+    year: int
+    week: int
+    player_id: str
+    player_name: str
+    position: str | None = None
+    points: float
+    rostered: bool = False
+    started: bool = False
+    manager_id: str | None = None
 
 
 class PlayoffRound(BaseModel):
@@ -261,3 +277,4 @@ class SeasonBundle(BaseModel):
     through_week: int | None = None
     outcome: SeasonOutcome | None = None
     week_scores: list[WeekScore] = Field(default_factory=list)
+    player_weeks: list[PlayerWeek] = Field(default_factory=list)

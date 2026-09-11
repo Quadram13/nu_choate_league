@@ -42,6 +42,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             lineup_slots,
             transaction_moves,
             week_scores,
+            player_week_scores,
             draft_picks,
             transactions,
             matchups,
@@ -106,6 +107,8 @@ def _upsert_players(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -
         for txn in bundle.transactions:
             for move in (*txn.adds, *txn.drops):
                 _remember_player(rows, index, move.player_id, move.player_name)
+        for row in bundle.player_weeks:
+            _remember_player(rows, index, row.player_id, row.player_name)
     _executemany(
         conn,
         """
@@ -222,11 +225,22 @@ def _insert_season(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
     _executemany(
         conn,
         """
-        INSERT INTO transactions (id, year, week, type, status, at)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO transactions (id, year, week, type, status, at, seq, priority, bid, note)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         [
-            (txn.id, txn.year, txn.week, txn.type, txn.status, txn.at)
+            (
+                txn.id,
+                txn.year,
+                txn.week,
+                txn.type,
+                txn.status,
+                txn.at,
+                txn.seq,
+                txn.priority,
+                txn.bid,
+                txn.note,
+            )
             for txn in bundle.transactions
         ],
     )
@@ -247,6 +261,29 @@ def _insert_season(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
         [
             (season.year, row.week, row.manager_id, row.points, row.paired)
             for row in bundle.week_scores
+        ],
+    )
+    _executemany(
+        conn,
+        """
+        INSERT INTO player_week_scores (
+            year, week, player_id, player_name, position, points, rostered, started, manager_id
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        [
+            (
+                season.year,
+                row.week,
+                row.player_id,
+                row.player_name,
+                row.position,
+                row.points,
+                row.rostered,
+                row.started,
+                row.manager_id,
+            )
+            for row in bundle.player_weeks
         ],
     )
     outcome = bundle.outcome

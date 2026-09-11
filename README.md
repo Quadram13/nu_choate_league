@@ -112,8 +112,14 @@ uv run nu-choate-league load
 uv run nu-choate-league query career
 uv run nu-choate-league query h2h --manager marcus-du
 uv run nu-choate-league query draft --year 2025
+uv run nu-choate-league query draft-value --year 2025
+uv run nu-choate-league query trades --year 2024
+uv run nu-choate-league query waivers --year 2025
+uv run nu-choate-league query vorp --year 2025
 uv run nu-choate-league query moves --year 2024
 uv run nu-choate-league query record-weeks
+uv run nu-choate-league query universes
+uv run nu-choate-league query luck --year 2025
 ```
 
 `load` reads `data/`, writes fact tables, then creates the analysis views. Re-run it after a new dump.
@@ -159,7 +165,9 @@ Never add these to git:
 maps/          identity: managers, seasons, D/ST
 data/          gitignored dumps: espn/{year}/, sleeper/{year}/
 sql/facts.sql  tables
-sql/analysis.sql  views (career, H2H, draft, trades, …)
+sql/analysis/  views, one file per domain, applied in numeric order:
+               10 games · 20 standings · 30 records · 40 luck · 50 draft/moves
+               60 players · 70 universes · 80 assets · 90 waivers
 src/nu_choate_league/  dump, ingest, load, query
 compose.yaml   Postgres 17 on localhost:5433
 ```

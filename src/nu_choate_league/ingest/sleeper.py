@@ -352,6 +352,8 @@ def _sleeper_transaction(
     if not adds and not drops:
         return None
     created = raw.get("created")
+    settings = raw.get("settings") if isinstance(raw.get("settings"), dict) else {}
+    meta = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
     return Transaction(
         id=str(raw.get("transaction_id") or ""),
         year=season.year,
@@ -359,6 +361,10 @@ def _sleeper_transaction(
         type=kind,
         status=status,
         at=int(created) if isinstance(created, int) else None,
+        seq=_optional_int(settings.get("seq")),
+        priority=_optional_int(settings.get("priority")),
+        bid=_optional_int(settings.get("waiver_bid")),
+        note=str(meta["notes"]) if meta.get("notes") is not None else None,
         adds=adds,
         drops=drops,
     )
@@ -381,6 +387,15 @@ def _sleeper_moves(
         canonical_id, name = resolve_player(players, Platform.SLEEPER, player_id)
         moves.append(PlayerMove(player_id=canonical_id, player_name=name, manager_id=manager_id))
     return moves
+
+
+def _optional_int(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _slot(player_id: str, slot: str, points: float, started: bool, players: PlayerIndex) -> LineupSlot:

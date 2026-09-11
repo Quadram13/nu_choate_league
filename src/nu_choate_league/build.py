@@ -237,6 +237,9 @@ def _compare(bundle: SeasonBundle) -> list[str]:
     unpaired = sum(1 for row in bundle.week_scores if not row.paired)
     if bundle.week_scores:
         lines.append(f"  weekly scores {len(bundle.week_scores)} ({unpaired} unpaired)")
+    if bundle.player_weeks:
+        unrostered = sum(1 for row in bundle.player_weeks if not row.rostered)
+        lines.append(f"  player weeks {len(bundle.player_weeks)} ({unrostered} unrostered)")
     alt = alternate_season(bundle)
     if alt is not None:
         for universe in alt.universes:
