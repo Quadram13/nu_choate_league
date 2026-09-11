@@ -10,11 +10,7 @@ You do **not** need to know how to code to get a working copy on your computer. 
 2. A local database (Postgres, running in Docker).
 3. Commands that load those files into the database and print standings, career records, drafts, and trades.
 
-The public website / wiki / newsletters are later. This branch is the data warehouse.
-
 ## What to install first
-
-Install these three things, then restart your computer if Docker asks you to.
 
 | Tool | What it is | Where |
 | --- | --- | --- |
@@ -22,7 +18,7 @@ Install these three things, then restart your computer if Docker asks you to.
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Runs the database in a container | Use the default settings; wait until it says it is running |
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | Installs Python and this project's libraries | Follow the uv install page for your OS |
 
-You need **Python 3.14**. You do not have to install Python by hand. After `uv` works, the setup commands below will fetch 3.14 for you.
+You need **Python 3.14**. You do not have to install Python by hand, as after `uv` works, the setup commands below will fetch 3.14 for you.
 
 Open a terminal:
 
@@ -31,19 +27,11 @@ Open a terminal:
 
 ## First-time setup
 
-**1. Download the project** (default branch is `feat/complete-overhaul`):
+**1. Download the project**
 
 ```text
 git clone https://github.com/Quadram13/nu_choate_league.git
 cd nu_choate_league
-```
-
-If you already cloned the old site, run this inside the folder instead:
-
-```text
-git fetch
-git checkout feat/complete-overhaul
-git pull
 ```
 
 **2. Create your private settings file**
@@ -64,7 +52,7 @@ cp .env.example .env
 
 Open `.env` in a text editor. You can leave the database password as `change-me` for local use. If you change it, change it in **both** `POSTGRES_PASSWORD` and `DATABASE_URL`.
 
-League ids are already filled in. ESPN cookies can stay blank until you dump 2022–2023.
+League ids are already filled in. ESPN cookies can stay blank until you want to dump 2022–2023.
 
 **3. Start the database**
 
@@ -74,7 +62,7 @@ Docker Desktop must be running.
 docker compose up -d
 ```
 
-The first time this downloads Postgres. The database is on your machine at port **5433** (not the usual 5432, so it does not fight a Windows Postgres install).
+This downloads Postgres when you run it for the first time. It listens on port **5433**. If something else is already using that port, change the host port in `compose.yaml` and in `DATABASE_URL` so they match.
 
 **4. Install this project's Python tools**
 
@@ -89,7 +77,7 @@ That creates a local `.venv` folder. You never have to activate it by hand if yo
 
 The dumps are **not** in GitHub. Each person either downloads them again or copies a `data/` folder from someone who already dumped.
 
-Sleeper needs no login. ESPN needs cookies from a browser that can still open those old leagues.
+Sleeper needs no login. ESPN needs cookies from a browser that can still open those old leagues. If you have ids for older seasons, you will probably need to rework the maps and some other code. The easiest way to find old ids is to look for emails with a link that takes you to the league home. The page will probably not work, but the id should be in the URL
 
 **Sleeper (2024, 2025, 2026)** — do this first; it is enough to try `load` if someone else already has ESPN files to share:
 
@@ -97,11 +85,11 @@ Sleeper needs no login. ESPN needs cookies from a browser that can still open th
 uv run sleeper-dumper --fetch-players
 ```
 
-`--fetch-players` also downloads the NFL player catalog (`data/sleeper/players/nfl.json`). That file is required for ingest.
+`--fetch-players` also downloads the NFL player catalog (`data/sleeper/players/nfl.json`). That file is required for ingest. Sleeper docs suggest not using this more than once per day.
 
 **ESPN (2022, 2023)**
 
-1. In Chrome, open [espn.com](https://www.espn.com) while logged into the account that can see the old leagues.
+1. In Chrome, open [espn.com](https://www.espn.com) while logged into the account associated with the old leagues.
 2. Press `F12` (or right-click → Inspect).
 3. Open the **Application** tab → **Cookies** → `https://www.espn.com`.
 4. Copy `espn_s2` into `ESPN_S2` in `.env` (keep the `%` encoding if it is there).
@@ -145,8 +133,8 @@ uv run nu-choate-league load --year 2025
 | What you see | Likely cause |
 | --- | --- |
 | `Missing DATABASE_URL` | No `.env`. Copy `.env.example` to `.env`. |
-| `role "nu_choate" does not exist` | Talking to a different Postgres on 5432. This project uses **5433**. Check `DATABASE_URL`. |
-| `docker compose` cannot start | Docker Desktop is not running, or port 5433 is already in use. |
+| `role "nu_choate" does not exist` | Talking to a different Postgres. Check `DATABASE_URL` matches the Docker port. |
+| `docker compose` cannot start | Docker Desktop is not running, or port 5433 is already in use. Change the host port in `compose.yaml` and `DATABASE_URL`. |
 | `No seasons to load` / missing dump directory | `data/` is empty. Run the dumpers or copy dumps from a teammate. |
 | ESPN dump 401 / 403 | Cookies expired. Copy `espn_s2` and `SWID` again. |
 | ESPN dump 404 for communication / `COMMUNICATION_GROUP_NOT_FOUND` | Expected. There is no league chat to download. Keep going. |
@@ -176,8 +164,6 @@ src/nu_choate_league/  dump, ingest, load, query
 compose.yaml   Postgres 17 on localhost:5433
 ```
 
-Dumps stay raw JSON. Python ingest turns them into rows. Analysis is SQL views, not a second copy of `career.json`.
-
 ## Contribute
 
-Open a pull request against `feat/complete-overhaul`. Anyone can fork and propose changes. If you give me the email you use for github, I can add you as a collaborator. `main` and `archive/pre-espn-refactor` are frozen for now.
+Open a pull request against `main`. Anyone can fork and propose changes. If you give me the email you use for github, I can add you as a collaborator. `archive/pre-espn-refactor` contains the old static pages, and is frozen.
