@@ -83,8 +83,17 @@ CREATE TABLE IF NOT EXISTS transactions (
     week INTEGER NOT NULL,
     type TEXT NOT NULL,
     status TEXT NOT NULL,
-    at BIGINT
+    at BIGINT,
+    seq INTEGER,
+    priority INTEGER,
+    bid INTEGER,
+    note TEXT
 );
+
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS seq INTEGER;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS priority INTEGER;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bid INTEGER;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS note TEXT;
 
 CREATE TABLE IF NOT EXISTS transaction_moves (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -132,3 +141,27 @@ CREATE INDEX IF NOT EXISTS lineup_slots_matchup_idx ON lineup_slots (matchup_id)
 CREATE INDEX IF NOT EXISTS lineup_slots_player_idx ON lineup_slots (player_id);
 CREATE INDEX IF NOT EXISTS transactions_year_week_idx ON transactions (year, week);
 CREATE INDEX IF NOT EXISTS week_scores_year_week_idx ON week_scores (year, week);
+
+CREATE TABLE IF NOT EXISTS player_week_scores (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    position TEXT,
+    points DOUBLE PRECISION NOT NULL,
+    rostered BOOLEAN NOT NULL,
+    started BOOLEAN NOT NULL,
+    manager_id TEXT REFERENCES managers (id),
+    PRIMARY KEY (year, week, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS player_week_scores_pos_idx
+    ON player_week_scores (year, week, position);
+CREATE INDEX IF NOT EXISTS player_week_scores_player_idx
+    ON player_week_scores (player_id, year, week);
+-- v_asset_value joins pool weeks by player + manager + week range (ROS windows).
+CREATE INDEX IF NOT EXISTS player_week_scores_roster_idx
+    ON player_week_scores (player_id, manager_id, year, week);
+-- v_moves / v_trades join transaction_moves back to transactions.
+CREATE INDEX IF NOT EXISTS transaction_moves_transaction_idx
+    ON transaction_moves (transaction_id);

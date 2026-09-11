@@ -6,6 +6,7 @@ from ..models import Platform, Season, SeasonBundle
 from ..players import PlayerIndex
 from ..records import sort_standings
 from .espn import ingest_espn
+from .pool import player_week_pool
 from .sleeper import ingest_sleeper
 
 
@@ -34,6 +35,7 @@ def ingest_season(
         transactions=transactions,
         through_week=through_week,
         week_scores=week_scores,
+        player_weeks=player_week_pool(season, matchups, players, through_week=through_week),
     )
 
 

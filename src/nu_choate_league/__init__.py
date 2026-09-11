@@ -23,9 +23,17 @@ def main(argv: list[str] | None = None) -> None:
     load = sub.add_parser("load", help="Ingest dumps and upsert fact tables in Postgres")
     load.add_argument("--year", type=int, help="Replace this season only")
     query = sub.add_parser("query", help="Print a Postgres analysis view")
-    query.add_argument("name", choices=QUERY_NAMES, help="career, h2h, record-weeks, draft, or moves")
-    query.add_argument("--year", type=int, help="Only this season (draft, moves)")
-    query.add_argument("--manager", help="Only rows involving this manager id (h2h)")
+    query.add_argument(
+        "name",
+        choices=QUERY_NAMES,
+        help="career, h2h, record-weeks, draft, moves, universes, luck, trades, draft-value, waivers, or vorp",
+    )
+    query.add_argument(
+        "--year",
+        type=int,
+        help="Only this season (draft, moves, universes, luck, trades, draft-value, waivers, vorp)",
+    )
+    query.add_argument("--manager", help="Only this manager id (h2h, luck, trades, draft-value, waivers)")
     standings = sub.add_parser("standings", help="Print regular-season standings")
     standings.add_argument("year", type=int)
     draft = sub.add_parser("draft", help="Print the draft board")
