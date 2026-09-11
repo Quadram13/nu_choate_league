@@ -1,0 +1,25 @@
+[project]
+name = "nu-choate-league"
+version = "0.1.0"
+description = "Nu Choate League: dump ESPN/Sleeper JSON and load canonical facts into Postgres"
+readme = "README.md"
+authors = [
+    { name = "Quadram13", email = "marcus.du@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.12.0",
+    "psycopg[binary]>=3.2.0",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+nu-choate-league = "nu_choate_league:main"
+espn-dumper = "nu_choate_league.dumper:main"
+sleeper-dumper = "nu_choate_league.dumper.sleeper:main"
+
+[build-system]
+requires = ["uv_build>=0.12.12,<0.13.0"]
+build-backend = "uv_build"

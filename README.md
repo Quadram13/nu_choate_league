@@ -1,78 +1,169 @@
-# Nu Choate League Hub
+# Nu Choate League
 
+This project keeps fantasy football history in one place after the league moved from ESPN (2022–2023) to Sleeper (2024 onward).
 
+You do **not** need to know how to code to get a working copy on your computer. Ctrl-C and Ctrl-V are all you need to get something out of this.
 
-# Overview
-Fantasy football data from the Nu Choate League on sleeper, as well as code to retrieve it from the sleeper http api and reformat it. If you're just here for the data, here is the [unformatted](./src/unmunged) and [formatted](./src/munged) data. If you plan on contributing, please create a new branch instead of committing directly to main. Also, sleeper mentions in their [docs](https://docs.sleeper.com/#introduction) that excessive calls might lead to getting ip-blocked, so keep that in mind.
+**What you end up with**
 
-A more user-friendly version of the data is at [this site](https://Quadram13.github.io/nu_choate_league/). Most of the basic data here should be correct, but UI/UX def needs improvement. My plan is also to add functionality so that awards can be manually assigned, customized recaps for each team(automatically generated based on data or manually written?), as well as a couple of paragraphs for each week/season/any other page(can be generated using data or manually entered).
+1. Raw season files on your machine (`data/`, not stored in GitHub).
+2. A local database (Postgres, running in Docker).
+3. Commands that load those files into the database and print standings, career records, drafts, and trades.
 
-# Setup
-Assuming you have python installed(version>=3.12)
-```zsh
-# with nu_choate_league as root dir(and pipenv is not installed)
-pip install pipenv
+## What to install first
 
-# install dependencies with pipenv
-pipenv install
+| Tool | What it is | Where |
+| --- | --- | --- |
+| [Git](https://git-scm.com/downloads) | Downloads this project | Any default installer is fine |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Runs the database in a container | Use the default settings; wait until it says it is running |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | Installs Python and this project's libraries | Follow the uv install page for your OS |
 
-# start virtual env
-pipenv shell
+You need **Python 3.14**. You do not have to install Python by hand, as after `uv` works, the setup commands below will fetch 3.14 for you.
 
-# or directly run code
-pipenv run python3 ./src/main.py
+Open a terminal:
 
+- Windows: PowerShell
+- Mac: Terminal
+
+## First-time setup
+
+**1. Download the project**
+
+```text
+git clone https://github.com/Quadram13/nu_choate_league.git
+cd nu_choate_league
 ```
 
-# Deploying Reports to GitHub Pages
+**2. Create your private settings file**
 
-The project includes HTML reports that can be deployed to GitHub Pages for easy viewing.
+Copy the example file to `.env`. Git ignores `.env` so your password and ESPN cookies never go to GitHub.
 
-## Quick Setup
+Windows PowerShell:
 
-1. **Generate the reports:**
-   ```zsh
-   pipenv run python3 ./src/main.py
-   # Select option 5: Generate HTML reports
-   ```
+```powershell
+Copy-Item .env.example .env
+```
 
-2. **Copy reports to docs/ folder:**
-   ```zsh
-   pipenv run python3 ./src/main.py
-   # Select option 6: Copy reports to docs/ for GitHub Pages
-   ```
-   
-   Or manually:
-   ```zsh
-   pipenv run python3 copy_reports_to_docs.py
-   ```
+Mac / Linux:
 
-3. **Commit and push to GitHub:**
-   ```zsh
-   git add docs/
-   git commit -m "Update reports for GitHub Pages"
-   git push origin main
-   ```
+```bash
+cp .env.example .env
+```
 
-4. **Enable GitHub Pages:**
-   - Go to your repository on GitHub
-   - Click **Settings** → **Pages**
-   - Under "Source", select:
-     - **Deploy from a branch**
-     - Branch: `main`
-     - Folder: `/docs`
-   - Click **Save**
+Open `.env` in a text editor. You can leave the database password as `change-me` for local use. If you change it, change it in **both** `POSTGRES_PASSWORD` and `DATABASE_URL`.
 
-5. **Access your site:**
-   - Your reports will be available at: `https://[your-username].github.io/nu_choate_league/`
-   - It may take a few minutes for the site to be available after first deployment
+League ids are already filled in. ESPN cookies can stay blank until you want to dump 2022–2023.
 
-## Automatic Deployment (Optional)
+**3. Start the database**
 
-The repository includes a GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) that can automatically deploy reports when you push changes to the `docs/` folder. To use it:
+Docker Desktop must be running.
 
-1. Enable GitHub Actions in your repository settings
-2. The workflow will automatically run when you push changes to `docs/`
+```text
+docker compose up -d
+```
 
-# Current State/Roadmap
-I think that the api calls here get all the data that we need. I've also managed to wrangle some of the data into a more readable format, but this is just for easier data validation/checking. The transactions in particular are still quite messy. Work on the data handling is still ongoing, and while this might be some time later I should probably think about ways this info can actually be presented.
+This downloads Postgres when you run it for the first time. It listens on port **5433**. If something else is already using that port, change the host port in `compose.yaml` and in `DATABASE_URL` so they match.
+
+**4. Install this project's Python tools**
+
+```text
+uv python install 3.14
+uv sync
+```
+
+That creates a local `.venv` folder. You never have to activate it by hand if you start commands with `uv run`.
+
+## Get the league data
+
+The dumps are **not** in GitHub. Each person either downloads them again or copies a `data/` folder from someone who already dumped.
+
+Sleeper needs no login. ESPN needs cookies from a browser that can still open those old leagues. If you have ids for older seasons, you will probably need to rework the maps and some other code. The easiest way to find old ids is to look for emails with a link that takes you to the league home. The page will probably not work, but the id should be in the URL
+
+**Sleeper (2024, 2025, 2026)** — do this first; it is enough to try `load` if someone else already has ESPN files to share:
+
+```text
+uv run sleeper-dumper --fetch-players
+```
+
+`--fetch-players` also downloads the NFL player catalog (`data/sleeper/players/nfl.json`). That file is required for ingest. Sleeper docs suggest not using this more than once per day.
+
+**ESPN (2022, 2023)**
+
+1. In Chrome, open [espn.com](https://www.espn.com) while logged into the account associated with the old leagues.
+2. Press `F12` (or right-click → Inspect).
+3. Open the **Application** tab → **Cookies** → `https://www.espn.com`.
+4. Copy `espn_s2` into `ESPN_S2` in `.env` (keep the `%` encoding if it is there).
+5. Copy `SWID` into `ESPN_SWID` and **keep the curly braces**.
+6. Run:
+
+```text
+uv run espn-dumper
+```
+
+That writes `data/espn/2022/` and `data/espn/2023/`. You will see a **404** for league communication (`COMMUNICATION_GROUP_NOT_FOUND`). ESPN does not keep a message board for these leagues. The rest of the dump is still good — ignore that one error.
+
+If you already have a complete `data/` folder from someone else, skip dumping. Put it in this project as `data/espn/...` and `data/sleeper/...`.
+
+## Load and look around
+
+```text
+uv run nu-choate-league inspect-managers
+uv run nu-choate-league load
+uv run nu-choate-league query career
+uv run nu-choate-league query h2h --manager marcus-du
+uv run nu-choate-league query draft --year 2025
+uv run nu-choate-league query moves --year 2024
+uv run nu-choate-league query record-weeks
+```
+
+`load` reads `data/`, writes fact tables, then creates the analysis views. Re-run it after a new dump.
+
+`inspect-managers` should say every owner in the dumps is mapped. If it fails, a new Sleeper user is missing from `maps/managers.yaml`.
+
+Other useful commands:
+
+```text
+uv run nu-choate-league standings 2023
+uv run nu-choate-league standings 2025
+uv run nu-choate-league load --year 2025
+```
+
+## If something breaks
+
+| What you see | Likely cause |
+| --- | --- |
+| `Missing DATABASE_URL` | No `.env`. Copy `.env.example` to `.env`. |
+| `role "nu_choate" does not exist` | Talking to a different Postgres. Check `DATABASE_URL` matches the Docker port. |
+| `docker compose` cannot start | Docker Desktop is not running, or port 5433 is already in use. Change the host port in `compose.yaml` and `DATABASE_URL`. |
+| `No seasons to load` / missing dump directory | `data/` is empty. Run the dumpers or copy dumps from a teammate. |
+| ESPN dump 401 / 403 | Cookies expired. Copy `espn_s2` and `SWID` again. |
+| ESPN dump 404 for communication / `COMMUNICATION_GROUP_NOT_FOUND` | Expected. There is no league chat to download. Keep going. |
+| `inspect-managers` fails | New league member. Add them to `maps/managers.yaml`. |
+| Python version error | Run `uv python install 3.14` then `uv sync` again. |
+
+To stop the database later: `docker compose down`. Data stays in a Docker volume until you delete it on purpose.
+
+## What not to commit
+
+Never add these to git:
+
+- `.env` (passwords and ESPN cookies)
+- `data/` (raw dumps)
+- `.venv/` (local Python install)
+
+`uv.lock`, `.env.example`, `maps/`, and `sql/` **should** be committed.
+
+## Layout (for people who want to change code)
+
+```text
+maps/          identity: managers, seasons, D/ST
+data/          gitignored dumps: espn/{year}/, sleeper/{year}/
+sql/facts.sql  tables
+sql/analysis.sql  views (career, H2H, draft, trades, …)
+src/nu_choate_league/  dump, ingest, load, query
+compose.yaml   Postgres 17 on localhost:5433
+```
+
+## Contribute
+
+Open a pull request against `main`. Anyone can fork and propose changes. If you give me the email you use for github, I can add you as a collaborator. `archive/pre-espn-refactor` contains the old static pages, and is frozen.

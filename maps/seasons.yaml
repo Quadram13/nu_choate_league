@@ -1,0 +1,28 @@
+# One row per dumped season. league_id is provenance for Actions later;
+# dumps themselves live at data/{platform}/{year}/.
+seasons:
+  - year: 2022
+    platform: espn
+    league_id: "1543741350"
+    name: My 2022 League
+    vs_median: false
+  - year: 2023
+    platform: espn
+    league_id: "80296044"
+    name: Nu Choate League
+    vs_median: false
+  - year: 2024
+    platform: sleeper
+    league_id: "1130723458041856000"
+    name: Nu Choate League
+    vs_median: false
+  - year: 2025
+    platform: sleeper
+    league_id: "1251998020954763264"
+    name: Nu Choate League
+    vs_median: true
+  - year: 2026
+    platform: sleeper
+    league_id: "1313409735290028032"
+    name: Nu Choate League
+    vs_median: true
