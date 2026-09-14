@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "wire_macros.html" import claims_table, fa_table %}
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
@@ -8,6 +9,7 @@
     {% if gc.next_week %}
     <a href="/seasons/{{ current.year }}/week/{{ gc.next_week }}">week {{ gc.next_week }} →</a>
     {% endif %}
+    {% if gc.wire.claims or gc.wire.fa %}<a href="#wire">Wire</a>{% endif %}
 </p>
 <h1>{{ current.year }} week {{ gc.week }}</h1>
 <p class="jump">
@@ -41,4 +43,23 @@
 </article>
 {% endfor %}
 {% endfor %}
+
+{% if gc.wire.claims or gc.wire.fa %}
+<h2 id="wire">Wire</h2>
+{% if gc.wire.faab %}
+<p class="note">FAAB bids. Ties then waiver order. Times are US Eastern, when the move was recorded.</p>
+{% else %}
+<p class="note">Waiver order. FAAB started in 2026. Times are US Eastern, when the move was recorded.</p>
+{% endif %}
+{% for day in gc.wire.days %}
+<h3 class="wire-day">{{ day.label }}</h3>
+{% if day.claims %}
+{{ claims_table(current.year, day.claims, gc.wire.faab, gc.wire.show_order) }}
+{% endif %}
+{% if day.fa %}
+{% if day.claims %}<p class="note">Free agents</p>{% endif %}
+{{ fa_table(current.year, day.fa) }}
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endblock %}

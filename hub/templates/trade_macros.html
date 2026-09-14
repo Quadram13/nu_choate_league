@@ -25,6 +25,16 @@
 </div>
 {% endmacro %}
 
+{% macro trade_got(side) %}
+{% if side.players %}
+{% for player in side.players %}{% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+{% elif side.received %}
+{{ side.received }}
+{% else %}
+—
+{% endif %}
+{% endmacro %}
+
 {% macro trade_card(row, show_year=False) %}
 <article class="gc-match compact" data-year="{{ row.year }}">
     <p class="note">

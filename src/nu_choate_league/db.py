@@ -39,11 +39,17 @@ def schema_files() -> list:
     return files
 
 
-def apply_schema(conn: psycopg.Connection) -> None:
+def apply_schema(conn: psycopg.Connection, *, refresh: bool = True) -> None:
     for path in schema_files():
         sql = path.read_text(encoding="utf-8")
         for statement in _statements(sql):
             conn.execute(statement)
+    if refresh:
+        refresh_analysis(conn)
+
+
+def refresh_analysis(conn: psycopg.Connection) -> None:
+    conn.execute("REFRESH MATERIALIZED VIEW v_asset_value")
 
 
 def _statements(sql: str) -> list[str]:

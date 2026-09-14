@@ -1,9 +1,9 @@
 (function () {
+    enableSeasonPicker();
     scrollH2hNow();
     document.querySelectorAll("table.js-sort").forEach(enableSort);
     enableFilters();
     enableRankMode();
-    enableSeasonPicker();
     document.querySelectorAll(".bracket-tree").forEach(enableBracket);
 })();
 
@@ -23,9 +23,13 @@ function enableSeasonPicker() {
     if (!select) {
         return;
     }
+    const dest = `/seasons/${select.value}`;
     select.addEventListener("change", () => {
         window.location.href = `/seasons/${select.value}`;
     });
+    if (window.location.pathname !== dest) {
+        window.location.href = dest;
+    }
 }
 
 function enableSort(table) {

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "wire_macros.html" import person, drops, outcome %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#wire">wire</a>
+    <a href="/seasons/{{ current.year }}/week/{{ claim.week }}#wire">week {{ claim.week }}</a>
+    {% if claim.prev %}
+    <a href="/seasons/{{ current.year }}/wire/{{ claim.prev.id }}">← {{ claim.prev.label }}</a>
+    {% endif %}
+    {% if claim.next %}
+    <a href="/seasons/{{ current.year }}/wire/{{ claim.next.id }}">{{ claim.next.label }} →</a>
+    {% endif %}
+</p>
+<h1>{% if claim.player_id %}<a href="/players/{{ claim.player_id }}">{{ claim.player_name }}</a>{% else %}{{ claim.player_name }}{% endif %}</h1>
+<p class="lede">
+    {{ current.year }} week {{ claim.week }}
+    · {{ person(claim.manager_id, claim.manager_name) }}
+    · {{ outcome(claim) }}
+    {% if claim.bid_label %}· {{ claim.bid_label }}{% endif %}
+    {% if claim.at_label %}· {{ claim.day_label }} {{ claim.at_label }} ET{% endif %}
+    {% if claim.position %}<span class="team">{{ claim.position }}</span>{% endif %}
+    {% if claim.type == "free_agent" %}<span class="team">FA</span>{% endif %}
+</p>
+<p class="note">
+    {% if claim.league_vorp is not none %}{{ "%+.1f"|format(claim.league_vorp) }} ROS VORP{% endif %}
+    {% if claim.league_ros is not none %} · {{ "%.1f"|format(claim.league_ros) }} starter PF{% endif %}
+    {% if claim.league_starts %} · {{ claim.league_starts }} start{% if claim.league_starts != 1 %}s{% endif %}{% endif %}
+    {% if claim.tenure_vorp is not none and claim.status == "complete" %} · {{ "%+.1f"|format(claim.tenure_vorp) }} while rostered{% endif %}
+    {% if claim.drops %} · dropped {{ drops(claim.drops) }}{% endif %}
+    {% if claim.note and claim.status != "complete" %} · {{ claim.note }}{% endif %}
+</p>
+
+{% if claim.rivals %}
+<h2>Claims</h2>
+<p class="note">Every waiver claim on this player this week.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Manager</th>
+            {% if claim.faab or claim.rivals|selectattr('bid_label')|list %}
+            <th>{% if claim.faab %}Bid{% else %}Pri{% endif %}</th>
+            {% endif %}
+            <th>Outcome</th>
+            <th>Dropped</th>
+            <th class="num">VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in claim.rivals %}
+        <tr{% if row.transaction_id == claim.transaction_id %} class="this"{% endif %}>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            {% if claim.faab or claim.rivals|selectattr('bid_label')|list %}
+            <td>{% if row.bid_label %}{{ row.bid_label }}{% else %}—{% endif %}</td>
+            {% endif %}
+            <td>{{ outcome(row) }}</td>
+            <td class="wire-drops">{{ drops(row.drops) }}</td>
+            <td class="num{% if row.league_vorp and row.league_vorp > 0 %} plus{% endif %}">{% if row.league_vorp is not none %}{{ "%+.1f"|format(row.league_vorp) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

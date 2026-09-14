@@ -9,8 +9,13 @@ DROP VIEW IF EXISTS
     v_draft_round_avg,
     v_trade_grades,
     v_trade_sides,
-    v_trade_assets,
-    v_asset_value,
+    v_trade_assets
+CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_asset_value CASCADE;
+DROP VIEW IF EXISTS v_asset_value CASCADE;
+
+DROP VIEW IF EXISTS
     v_asset_windows,
     v_acquisitions
 CASCADE;
@@ -71,7 +76,8 @@ SELECT
     ) AS next_week
 FROM v_acquisitions a;
 
-CREATE VIEW v_asset_value AS
+-- Snapshot: page loads filter this by year. Computing it live is ~11s per season.
+CREATE MATERIALIZED VIEW v_asset_value AS
 SELECT
     w.acquisition_id,
     w.transaction_id,
@@ -159,7 +165,11 @@ GROUP BY
     w.round,
     w.keeper,
     w.next_year,
-    w.next_week;
+    w.next_week
+WITH NO DATA;
+
+CREATE INDEX v_asset_value_year ON v_asset_value (year);
+CREATE INDEX v_asset_value_year_type ON v_asset_value (year, type);
 
 CREATE VIEW v_trade_assets AS
 SELECT

@@ -106,6 +106,24 @@ def trade(request: Request, year: int, transaction_id: str) -> HTMLResponse:
     )
 
 
+@app.get("/seasons/{year}/wire/{transaction_id}", response_class=HTMLResponse)
+def wire(request: Request, year: int, transaction_id: str) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    data = queries.wire_page(year, transaction_id)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No wire claim {transaction_id} in {year}.")
+    return page(
+        request,
+        "wire.html",
+        nav="seasons",
+        title=f"{data['player_name']} · {year} W{data['week']}",
+        current=current,
+        claim=data,
+    )
+
+
 @app.get("/seasons/{year}/week/{week}", response_class=HTMLResponse)
 def week(request: Request, year: int, week: int) -> HTMLResponse:
     current = queries.season_row(year)

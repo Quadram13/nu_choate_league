@@ -34,8 +34,9 @@ body {
     margin: 0 auto;
 }
 
-.wrap:has(.gc-layout) {
-    max-width: 1320px;
+.wrap:has(.gc-layout),
+.wrap:has(.mgmt-heat) {
+    max-width: 1440px;
 }
 
 .sr-only {
@@ -150,12 +151,60 @@ ul.index span {
     margin-left: 12px;
 }
 
+.season-page h2 {
+    margin: 16px 0 6px;
+}
+
+.season-page .jump {
+    margin-bottom: 10px;
+}
+
 .season-head {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 12px 16px;
-    margin-bottom: 16px;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+}
+
+.medals-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 10px;
+}
+
+.medals-line .label {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.universe-line,
+.weeks-line {
+    margin: 8px 0 0;
+}
+
+.trade-got {
+    max-width: 18rem;
+}
+
+.trade-table .lost a {
+    color: #9ca3af;
+}
+
+.season-page .won {
+    font-weight: 600;
+}
+
+.season-page span.lost,
+.season-page span.lost a {
+    color: #9ca3af;
+}
+
+@media (min-width: 1100px) {
+    .wire-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
 }
 
 .season-head .lede {
@@ -199,12 +248,18 @@ ul.index span {
     align-items: start;
 }
 
-.season-grid:has(#universes) {
-    grid-template-columns: minmax(0, 1fr) 16.5rem;
+.standings-wrap {
+    overflow-x: auto;
+}
+
+.universe-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
 }
 
 .universe-card {
-    margin: 0 0 12px;
+    margin: 0;
     padding: 10px 12px;
     border: 1px solid #2a3440;
 }
@@ -245,7 +300,7 @@ ul.index span {
 @media (max-width: 800px) {
     .medals,
     .season-grid,
-    .season-grid:has(#universes),
+    .universe-strip,
     .notable-grid {
         grid-template-columns: 1fr;
     }
@@ -950,10 +1005,41 @@ td.plus {
     color: #9ca3af;
 }
 
+.verdict.won {
+    color: #86efac;
+}
+
+.verdict.lost,
+.verdict.failed {
+    color: #9ca3af;
+}
+
+.verdict.order {
+    color: #fcd34d;
+}
+
 .verdict.big-win,
 .verdict.fleece {
     color: #e4e4e7;
     font-weight: 600;
+}
+
+.wire-drops {
+    color: #9ca3af;
+}
+
+.wire-time {
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.wire-day {
+    margin: 16px 0 6px;
+    font-size: 1rem;
+}
+
+tr.this td {
+    background: #1a222c;
 }
 
 .trade-split {
@@ -1063,4 +1149,191 @@ td.plus {
     .gc-score:not(.split) {
         grid-template-columns: 1fr;
     }
+}
+
+.mgmt-heat {
+    font-size: 0.75rem;
+}
+
+.mgmt-heat th,
+.mgmt-heat td {
+    padding: 4px 5px;
+    white-space: nowrap;
+}
+
+.mgmt-heat th.wk {
+    padding: 4px 2px;
+    min-width: 1.7rem;
+    text-align: center;
+}
+
+.mgmt-heat thead th:first-child,
+.mgmt-heat tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #0f1419;
+}
+
+.mgmt-heat thead th:first-child {
+    z-index: 2;
+}
+
+.heat {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    padding: 4px 2px;
+    min-width: 1.7rem;
+    color: #e4e4e7;
+    background: color-mix(in srgb, #14532d calc((1 - var(--heat, 0)) * 100%), #9f1239);
+}
+
+.heat.zero {
+    color: #bbf7d0;
+}
+
+.heat.empty {
+    background: transparent;
+}
+
+.heat a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+}
+
+.heat a:hover {
+    text-decoration: underline;
+}
+
+.heat-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    margin: 8px 0 0;
+}
+
+.heat-scale {
+    display: inline-block;
+    width: 8rem;
+    height: 0.45rem;
+    background: linear-gradient(to right, #14532d, #9f1239);
+}
+
+.chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    margin: 12px 0 4px;
+    max-width: 720px;
+}
+
+.chart-head h3 {
+    margin: 0;
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    margin: 0;
+}
+
+.swatch {
+    display: inline-block;
+    width: 12px;
+    height: 3px;
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+.swatch.high {
+    background: #e4e4e7;
+}
+
+.swatch.avg {
+    background: #93c5fd;
+}
+
+.swatch.median {
+    height: 0;
+    border-top: 2px dashed #86efac;
+    background: none;
+}
+
+.swatch.low {
+    background: #6b7280;
+}
+
+.score-chart {
+    max-width: 720px;
+    margin: 0 0 8px;
+}
+
+.score-chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.score-chart .grid {
+    stroke: #1f2933;
+    stroke-width: 1;
+}
+
+.score-chart .band {
+    fill: #93c5fd;
+    fill-opacity: 0.08;
+}
+
+.score-chart .line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.score-chart .line.high {
+    stroke: #e4e4e7;
+}
+
+.score-chart .line.avg {
+    stroke: #93c5fd;
+}
+
+.score-chart .line.median {
+    stroke: #86efac;
+    stroke-dasharray: 4 3;
+}
+
+.score-chart .line.low {
+    stroke: #6b7280;
+}
+
+.score-chart circle.high {
+    fill: #e4e4e7;
+}
+
+.score-chart circle.avg {
+    fill: #93c5fd;
+}
+
+.score-chart circle.median {
+    fill: #86efac;
+}
+
+.score-chart circle.low {
+    fill: #6b7280;
+}
+
+.score-chart .tick {
+    fill: #9ca3af;
+    font-size: 10px;
 }
