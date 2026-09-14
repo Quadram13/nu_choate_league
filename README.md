@@ -8,7 +8,7 @@ You do **not** need to know how to code to get a working copy on your computer. 
 
 1. Raw season files on your machine (`data/`, not stored in GitHub).
 2. A local database (Postgres, running in Docker).
-3. A local hub in the browser: standings, records, season brackets, weekly scores, and matchup lineups.
+3. A local hub in the browser: standings, records, season brackets, weekly scores, matchup lineups, trades, and the waiver wire.
 4. Commands that load dumps into the database and print the same numbers in the terminal.
 
 ## What to install first
@@ -123,7 +123,7 @@ uv run nu-choate-league query universes
 uv run nu-choate-league query luck --year 2025
 ```
 
-`load` reads `data/`, writes fact tables, then creates the analysis views. Re-run it after a new dump.
+`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes the acquisition VORP snapshot used by trades and the wire. Re-run it after a new dump.
 
 ## View the hub locally
 
@@ -133,7 +133,7 @@ Docker only runs Postgres. After `load`, start a local web process that reads th
 uv run nu-choate-league serve
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). GitHub Pages is later, for people who should not have to clone the repo.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Stop the hub with Ctrl-C in that terminal. GitHub Pages is later, for people who should not have to clone the repo.
 
 What is there today:
 
@@ -141,13 +141,17 @@ What is there today:
 | --- | --- |
 | Home (current standings and champions) | `/` |
 | Seasons | `/seasons` |
-| One season (standings, week list, playoff trees) | `/seasons/2025` |
-| Week scoreboard | `/seasons/2025/week/7` |
+| One season (standings, scoring, playoffs, trades, wire, lineups) | `/seasons/2025` |
+| Week scoreboard (games and wire) | `/seasons/2025/week/7` |
 | One matchup (lineups and bench) | `/seasons/2025/week/7/2025-w07-1` |
+| One trade | `/seasons/2024/trades/{id}` |
+| One waiver or FA claim | `/seasons/2025/wire/{id}` |
 | Members and one career | `/members`, `/members/marcus-du` |
 | Record book | `/records` |
+| Luck | `/luck` |
+| Players | `/players`, `/players/{id}` |
 
-Luck and players pages are stubs until the next hub pass.
+2022–2025 used waiver order. FAAB starts in 2026 (`faab` on that year in `maps/seasons.yaml`).
 
 `inspect-managers` should say every owner in the dumps is mapped. If it fails, a new Sleeper user is missing from `maps/managers.yaml`.
 
@@ -192,7 +196,8 @@ data/          gitignored dumps: espn/{year}/, sleeper/{year}/
 sql/facts.sql  tables
 sql/analysis/  views, one file per domain, applied in numeric order:
                10 games · 20 standings · 30 records · 40 luck · 50 draft/moves
-               60 players · 70 universes · 80 assets · 90 waivers
+               60 players · 70 universes · 80 assets (materialized VORP
+               snapshot, refreshed on load) · 90 waivers
 hub/           local HTML, CSS, and fonts for `serve`
 src/nu_choate_league/  dump, ingest, load, query, web
 compose.yaml   Postgres 17 on localhost:5433
