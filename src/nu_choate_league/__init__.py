@@ -11,6 +11,7 @@ from .inspect_players import format_player_report, inspect_players
 from .ingest import ingest_all
 from .load import load_facts
 from .query import QUERY_NAMES, run_query
+from .web import run_server
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -45,6 +46,10 @@ def main(argv: list[str] | None = None) -> None:
     h2h.add_argument("manager", nargs="?", help="Only rows involving this manager id")
     alt = sub.add_parser("alternate", help="Print H2H-only and always-median what-ifs")
     alt.add_argument("year", type=int)
+    serve = sub.add_parser("serve", help="Open the hub in a browser (reads local Postgres)")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--no-reload", action="store_true", help="Disable auto-reload")
     args = parser.parse_args(argv)
     if args.command == "inspect-managers":
         report = inspect_managers()
@@ -92,6 +97,9 @@ def main(argv: list[str] | None = None) -> None:
         if alt is None:
             raise SystemExit(f"No completed games in {args.year}")
         sys.stdout.write(format_alternate(alt))
+        raise SystemExit(0)
+    if args.command == "serve":
+        run_server(host=args.host, port=args.port, reload=not args.no_reload)
         raise SystemExit(0)
     parser.print_help()
     raise SystemExit(2)

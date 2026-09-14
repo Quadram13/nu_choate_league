@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>{{ current.year }}</h1>
+<p class="lede">
+    {{ current.platform }}
+    {% if current.vs_median %} · official scoring is H2H plus vs weekly median{% else %} · official scoring is H2H only{% endif %}
+</p>
+{% if current.champion %}
+<p class="note">
+    Champion {{ current.champion }}
+    {% if current.runner_up %} · runner-up {{ current.runner_up }}{% endif %}
+    {% if current.regular_season_champion %} · RS {{ current.regular_season_champion }}{% endif %}
+</p>
+{% endif %}
+
+<h2>Official standings</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>Team</th>
+            <th>Record</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in standings %}
+        <tr>
+            <td class="num">{{ row.rank }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ row.team_name }}</td>
+            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Schedule</h2>
+{% for week, kind, games in weeks %}
+<h3>Week {{ week }} · {{ kind }}</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Home</th>
+            <th class="num">PF</th>
+            <th>Away</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for game in games %}
+        <tr>
+            <td>
+                {% if game.home_manager_id %}<a href="/members/{{ game.home_manager_id }}">{{ game.home_name }}</a>{% else %}{{ game.home_team_name }}{% endif %}
+            </td>
+            <td class="num">{{ "%.2f"|format(game.home_points) }}</td>
+            <td>
+                {% if game.away_manager_id %}<a href="/members/{{ game.away_manager_id }}">{{ game.away_name }}</a>{% else %}{{ game.away_team_name }}{% endif %}
+            </td>
+            <td class="num">{{ "%.2f"|format(game.away_points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+{% endblock %}

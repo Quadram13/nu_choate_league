@@ -1,0 +1,113 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+    line-height: 1.55;
+    color: #e4e4e7;
+    background: #0f1419;
+    padding: 24px;
+}
+
+.wrap {
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2a3440;
+}
+
+nav a {
+    color: #9ca3af;
+    text-decoration: none;
+}
+
+nav a:hover,
+nav a.on {
+    color: #e4e4e7;
+}
+
+h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 32px 0 12px;
+}
+
+h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 24px 0 8px;
+    color: #d4d4d8;
+}
+
+.lede {
+    color: #a1a1aa;
+    margin-bottom: 20px;
+}
+
+.note {
+    color: #a1a1aa;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+a {
+    color: #93c5fd;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #1f2933;
+}
+
+th {
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+th.num,
+td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+ul.index {
+    list-style: none;
+}
+
+ul.index li {
+    padding: 10px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+ul.index span {
+    color: #9ca3af;
+    margin-left: 12px;
+}
+
+code {
+    font-size: 0.9em;
+}

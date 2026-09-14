@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Nu Choate League</h1>
+<p class="lede">ESPN 2022–2023 and Sleeper 2024 onward, read live from the local warehouse.</p>
+
+{% if year %}
+<h2>{{ year }} official standings</h2>
+{% if current and current.vs_median %}
+<p class="note">Official scoring this year is head-to-head plus a game vs the weekly median.</p>
+{% endif %}
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>Team</th>
+            <th>Record</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in standings %}
+        <tr>
+            <td class="num">{{ row.rank }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ row.team_name }}</td>
+            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<p><a href="/seasons/{{ year }}">{{ year }} season details</a></p>
+{% else %}
+<p class="note">No scored standings yet. Run <code>uv run nu-choate-league load</code> after a dump.</p>
+{% endif %}
+
+<h2>Champions</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Year</th>
+            <th>Platform</th>
+            <th>Champion</th>
+            <th>Runner-up</th>
+            <th>RS champ</th>
+            <th>Most PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{{ row.platform }}</td>
+            <td>{% if row.champion_id %}<a href="/members/{{ row.champion_id }}">{{ row.champion }}</a>{% else %}—{% endif %}</td>
+            <td>{{ row.runner_up or "—" }}</td>
+            <td>{{ row.regular_season_champion or "—" }}</td>
+            <td>{{ row.most_points or "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/hub.css">
+</head>
+<body>
+    <div class="wrap">
+        <nav>
+            <a href="/" {% if nav == "home" %}class="on"{% endif %}>Home</a>
+            <a href="/seasons" {% if nav == "seasons" %}class="on"{% endif %}>Seasons</a>
+            <a href="/members" {% if nav == "members" %}class="on"{% endif %}>Members</a>
+            <a href="/records" {% if nav == "records" %}class="on"{% endif %}>Records</a>
+            <a href="/luck" {% if nav == "luck" %}class="on"{% endif %}>Luck</a>
+            <a href="/players" {% if nav == "players" %}class="on"{% endif %}>Players</a>
+        </nav>
+        {% block body %}{% endblock %}
+    </div>
+</body>
+</html>

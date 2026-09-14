@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>{{ person.display_name }}</h1>
+<p class="lede">
+    {{ person.wins|int }}-{{ person.losses|int }}-{{ person.ties|int }}
+    · {{ "%.2f"|format(person.points_for) }} PF
+    · {{ person.titles|int }} title{{ "s" if person.titles != 1 else "" }}
+    · {{ person.playoff_appearances|int }} playoff appearances
+</p>
+
+<h2>Seasons</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Year</th>
+            <th class="num">#</th>
+            <th>Team</th>
+            <th>Record</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in finishes %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td class="num">{{ row.rank }}</td>
+            <td>{{ row.team_name }}</td>
+            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Head-to-head</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Opponent</th>
+            <th>Regular</th>
+            <th>Playoff</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in h2h %}
+        <tr>
+            <td><a href="/members/{{ row.opponent_id }}">{{ row.opponent }}</a></td>
+            <td>
+                {{ (row.regular_wins or 0)|int }}-{{ (row.regular_losses or 0)|int }}-{{ (row.regular_ties or 0)|int }}
+                · {{ "%.1f"|format(row.regular_points_for or 0) }}-{{ "%.1f"|format(row.regular_points_against or 0) }}
+            </td>
+            <td>
+                {% if row.playoff_games %}
+                {{ (row.playoff_wins or 0)|int }}-{{ (row.playoff_losses or 0)|int }}-{{ (row.playoff_ties or 0)|int }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

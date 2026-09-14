@@ -124,6 +124,16 @@ uv run nu-choate-league query luck --year 2025
 
 `load` reads `data/`, writes fact tables, then creates the analysis views. Re-run it after a new dump.
 
+## View the hub locally
+
+Docker only runs Postgres. After `load`, start a local web process that reads those views:
+
+```text
+uv run nu-choate-league serve
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). GitHub Pages is later, for people who should not have to clone the repo.
+
 `inspect-managers` should say every owner in the dumps is mapped. If it fails, a new Sleeper user is missing from `maps/managers.yaml`.
 
 Other useful commands:
@@ -168,7 +178,8 @@ sql/facts.sql  tables
 sql/analysis/  views, one file per domain, applied in numeric order:
                10 games · 20 standings · 30 records · 40 luck · 50 draft/moves
                60 players · 70 universes · 80 assets · 90 waivers
-src/nu_choate_league/  dump, ingest, load, query
+hub/           local HTML templates and CSS for `serve`
+src/nu_choate_league/  dump, ingest, load, query, web
 compose.yaml   Postgres 17 on localhost:5433
 ```
 

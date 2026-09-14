@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Seasons</h1>
+<p class="lede">Official outcomes across ESPN and Sleeper years.</p>
+<ul class="index">
+    {% for row in seasons %}
+    <li>
+        <a href="/seasons/{{ row.year }}">{{ row.year }}</a>
+        <span>{{ row.platform }}{% if row.vs_median %} · vs-median{% endif %}</span>
+        {% if row.champion %}<span>champ {{ row.champion }}</span>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}
