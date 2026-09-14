@@ -27,12 +27,12 @@ def main(argv: list[str] | None = None) -> None:
     query.add_argument(
         "name",
         choices=QUERY_NAMES,
-        help="career, h2h, record-weeks, draft, moves, universes, luck, trades, draft-value, waivers, or vorp",
+        help="career, h2h, record-weeks, draft, moves, universes, luck, trades, draft-value, waivers, vorp, or management",
     )
     query.add_argument(
         "--year",
         type=int,
-        help="Only this season (draft, moves, universes, luck, trades, draft-value, waivers, vorp)",
+        help="Only this season (draft, moves, universes, luck, trades, draft-value, waivers, vorp, management)",
     )
     query.add_argument("--manager", help="Only this manager id (h2h, luck, trades, draft-value, waivers)")
     standings = sub.add_parser("standings", help="Print regular-season standings")

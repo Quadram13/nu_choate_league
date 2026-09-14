@@ -62,7 +62,7 @@ def sleeper_tree(
 
 
 def espn_winners_tree(games: list[dict[str, Any]]) -> dict[str, Any] | None:
-    playoff = [game for game in games if game["kind"] == "playoff"]
+    playoff = _collapse_espn_series([game for game in games if game["kind"] == "playoff"])
     if not playoff:
         return None
     by_week: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -85,7 +85,9 @@ def espn_winners_tree(games: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def espn_consolation_ladder(games: list[dict[str, Any]]) -> dict[str, Any] | None:
-    consolation = [game for game in games if game["kind"] == "consolation"]
+    consolation = _collapse_espn_series(
+        [game for game in games if game["kind"] == "consolation"]
+    )
     if not consolation:
         return None
     by_week: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -101,6 +103,20 @@ def espn_consolation_ladder(games: list[dict[str, Any]]) -> dict[str, Any] | Non
         ],
         "placements": [],
     }
+
+
+def _collapse_espn_series(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for game in games:
+        grouped[str(game.get("id") or "").rsplit("-", 1)[-1]].append(game)
+    collapsed: list[dict[str, Any]] = []
+    for series in grouped.values():
+        series.sort(key=lambda game: int(game["week"]))
+        first = dict(series[0])
+        first["home_points"] = sum(float(game["home_points"] or 0) for game in series)
+        first["away_points"] = sum(float(game["away_points"] or 0) for game in series)
+        collapsed.append(first)
+    return collapsed
 
 
 def load_sleeper_bracket(year: int, name: str) -> list[dict[str, Any]]:

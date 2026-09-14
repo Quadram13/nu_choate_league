@@ -9,23 +9,23 @@
 </p>
 
 <h2>Seasons</h2>
-<table>
+<table class="js-sort">
     <thead>
         <tr>
-            <th>Year</th>
+            <th class="num">Year</th>
             <th class="num">#</th>
             <th>Team</th>
-            <th>Record</th>
+            <th data-type="num">Record</th>
             <th class="num">PF</th>
         </tr>
     </thead>
     <tbody>
         {% for row in finishes %}
         <tr>
-            <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
             <td class="num">{{ row.rank }}</td>
             <td>{{ row.team_name | flavor_team(person.display_name) or "—" }}</td>
-            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
         </tr>
         {% endfor %}
@@ -33,23 +33,24 @@
 </table>
 
 <h2>Head-to-head</h2>
-<table>
+<table class="js-sort">
     <thead>
         <tr>
             <th>Opponent</th>
-            <th>Regular</th>
-            <th>Playoff</th>
+            <th data-type="num">Regular</th>
+            <th data-type="num">Playoff</th>
         </tr>
     </thead>
     <tbody>
         {% for row in h2h %}
+        {% set reg_games = (row.regular_wins or 0) + (row.regular_losses or 0) + (row.regular_ties or 0) %}
         <tr>
             <td><a href="/members/{{ row.opponent_id }}">{{ row.opponent }}</a></td>
-            <td>
+            <td data-value="{% if reg_games %}{{ ((row.regular_wins or 0) + 0.5 * (row.regular_ties or 0)) / reg_games }}{% endif %}">
                 {{ (row.regular_wins or 0)|int }}-{{ (row.regular_losses or 0)|int }}-{{ (row.regular_ties or 0)|int }}
                 · {{ "%.1f"|format(row.regular_points_for or 0) }}-{{ "%.1f"|format(row.regular_points_against or 0) }}
             </td>
-            <td>
+            <td data-value="{% if row.playoff_games %}{{ ((row.playoff_wins or 0) + 0.5 * (row.playoff_ties or 0)) / row.playoff_games }}{% endif %}">
                 {% if row.playoff_games %}
                 {{ (row.playoff_wins or 0)|int }}-{{ (row.playoff_losses or 0)|int }}-{{ (row.playoff_ties or 0)|int }}
                 {% else %}

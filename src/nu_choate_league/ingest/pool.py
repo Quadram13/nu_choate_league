@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..catalog import IdentityIndex, load_managers
 from ..dumps import ESPN_POSITIONS, SKIP_SLEEPER_IDS, load_json, season_dir
 from ..models import Matchup, Platform, PlayerWeek, Season
 from ..players import PlayerIndex
@@ -19,6 +20,7 @@ def player_week_pool(
 ) -> list[PlayerWeek]:
     if season.platform is Platform.SLEEPER:
         rows = _sleeper_pool(season, players, through_week=through_week)
+        _overlay_sleeper_rosters(rows, season, players, through_week=through_week)
     else:
         rows = _espn_pool(season, matchups, players)
     _overlay_lineups(rows, matchups, players)
@@ -127,6 +129,88 @@ def _espn_weekly_actuals(player: dict[str, Any]) -> dict[int, float]:
         if current is None or rank >= current[0]:
             weekly[week] = (rank, points)
     return {week: pts for week, (_rank, pts) in weekly.items()}
+
+
+def _overlay_sleeper_rosters(
+    rows: dict[tuple[int, int, str], PlayerWeek],
+    season: Season,
+    players: PlayerIndex,
+    *,
+    through_week: int | None,
+) -> None:
+    folder = season_dir(season)
+    weeks = folder / "weeks"
+    if not weeks.is_dir():
+        return
+    roster_owners = _sleeper_roster_owners(folder)
+    if not roster_owners:
+        return
+    for week_dir in sorted(weeks.iterdir()):
+        if not week_dir.is_dir():
+            continue
+        week = int(week_dir.name)
+        if through_week is not None and week > through_week:
+            continue
+        path = week_dir / "matchups.json"
+        if not path.is_file():
+            continue
+        payload = load_json(path)
+        if not isinstance(payload, list):
+            continue
+        for raw in payload:
+            if not isinstance(raw, dict):
+                continue
+            roster_id = int(raw.get("roster_id") or 0)
+            manager_id = roster_owners.get(roster_id)
+            if manager_id is None:
+                continue
+            starters = {
+                str(pid) for pid in (raw.get("starters") or []) if str(pid) not in SKIP_SLEEPER_IDS
+            }
+            held = [str(pid) for pid in (raw.get("players") or []) if str(pid) not in SKIP_SLEEPER_IDS]
+            player_points = {
+                str(key): round_points(value) for key, value in (raw.get("players_points") or {}).items()
+            }
+            for player_id in held:
+                canonical_id, name = resolve_player(players, Platform.SLEEPER, player_id)
+                key = (season.year, week, canonical_id)
+                current = rows.get(key)
+                if current and current.rostered:
+                    continue
+                meta = players.from_sleeper(player_id)
+                rows[key] = PlayerWeek(
+                    year=season.year,
+                    week=week,
+                    player_id=canonical_id,
+                    player_name=(current.player_name if current else None)
+                    or (meta.display_name if meta else None)
+                    or name,
+                    position=(current.position if current else None)
+                    or (meta.position if meta else None),
+                    points=current.points if current else player_points.get(player_id, 0.0),
+                    rostered=True,
+                    started=player_id in starters,
+                    manager_id=manager_id,
+                )
+
+
+def _sleeper_roster_owners(folder) -> dict[int, str]:
+    path = folder / "rosters.json"
+    if not path.is_file():
+        return {}
+    payload = load_json(path)
+    if not isinstance(payload, list):
+        return {}
+    managers = IdentityIndex(load_managers())
+    owners: dict[int, str] = {}
+    for roster in payload:
+        if not isinstance(roster, dict):
+            continue
+        manager = managers.resolve(Platform.SLEEPER, str(roster.get("owner_id") or ""))
+        if manager is None:
+            continue
+        owners[int(roster["roster_id"])] = manager.id
+    return owners
 
 
 def _overlay_lineups(

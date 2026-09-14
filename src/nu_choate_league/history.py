@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 
@@ -193,7 +194,9 @@ def _espn_format(bundle: SeasonBundle, playoff_managers: list[str]) -> PlayoffFo
     games = [matchup for matchup in bundle.matchups if matchup.kind == "playoff" and scored(matchup)]
     if not games:
         return None
-    weeks = sorted({game.week for game in games})
+    weeks = sorted(
+        {min(game.week for game in series) for series in _espn_series(games).values()}
+    )
     rounds: list[PlayoffRound] = []
     for index, week in enumerate(weeks):
         name = "championship" if index == len(weeks) - 1 else "semifinal"
@@ -277,14 +280,40 @@ def _espn_playoff(bundle: SeasonBundle) -> tuple[str | None, str | None, list[st
     if not games:
         return None, None, []
     last_week = max(game.week for game in games)
-    finals = [game for game in games if game.week == last_week]
+    finals = [
+        series
+        for series in _espn_series(games).values()
+        if any(game.week == last_week for game in series)
+    ]
     if len(finals) != 1:
         raise ValueError(
             f"{bundle.season.year} ESPN playoff final week {last_week} has {len(finals)} games; "
             "set maps/champions.yaml"
         )
-    champion, runner_up = _winner_loser(finals[0])
+    champion, runner_up = _series_winner_loser(finals[0])
     return champion, runner_up, managers
+
+
+def _espn_series(games: list[Matchup]) -> dict[str, list[Matchup]]:
+    grouped: dict[str, list[Matchup]] = defaultdict(list)
+    for game in games:
+        grouped[game.id.rsplit("-", 1)[-1]].append(game)
+    for series in grouped.values():
+        series.sort(key=lambda game: game.week)
+    return grouped
+
+
+def _series_winner_loser(series: list[Matchup]) -> tuple[str | None, str | None]:
+    first = series[0]
+    home_id = first.home.manager_id
+    away_id = first.away.manager_id
+    home_pts = sum(game.home.points for game in series)
+    away_pts = sum(game.away.points for game in series)
+    if home_pts > away_pts:
+        return home_id, away_id
+    if away_pts > home_pts:
+        return away_id, home_id
+    return None, None
 
 
 def _sleeper_playoff(bundle: SeasonBundle) -> tuple[str | None, str | None, list[str]]:

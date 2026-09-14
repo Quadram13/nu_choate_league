@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% macro seed(manager_id, name, team, points, winner_id) %}
-<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}">
+<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
     <span class="who">
         {% if manager_id %}<a href="/members/{{ manager_id }}">{{ name }}</a>{% else %}{{ name or "Bye" }}{% endif %}
         {% if team %}<span class="team">{{ team }}</span>{% endif %}
@@ -9,7 +9,7 @@
 </div>
 {% endmacro %}
 {% macro match_card(match, year) %}
-<article class="bracket-match">
+<article class="bracket-match" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}">
     {{ seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id) }}
     {{ seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id) }}
     {% if match.id %}
@@ -23,6 +23,7 @@
     <h2>{{ heading }}</h2>
     {% if note %}<p class="note">{{ note }}</p>{% endif %}
     <div class="bracket-tree {{ tree.kind }}">
+        <svg class="bracket-lines" aria-hidden="true"></svg>
         {% for round in tree.rounds %}
         <div class="bracket-round">
             <h3 id="week-{{ round.week }}-{{ fragment }}">{{ round.label }} · week {{ round.week }}</h3>
@@ -62,13 +63,13 @@
 {% endif %}
 
 <h2>Official standings</h2>
-<table>
+<table class="js-sort">
     <thead>
         <tr>
             <th class="num">#</th>
             <th>Manager</th>
             <th>Team</th>
-            <th>Record</th>
+            <th data-type="num">Record</th>
             <th class="num">PF</th>
         </tr>
     </thead>
@@ -78,7 +79,7 @@
             <td class="num">{{ row.rank }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
-            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
         </tr>
         {% endfor %}

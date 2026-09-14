@@ -2,6 +2,9 @@
 -- Facts/tables live in sql/facts.sql.
 
 DROP VIEW IF EXISTS
+    v_player_index,
+    v_player_season,
+    v_ownership_season,
     v_all_league,
     v_player_career,
     v_bench,
@@ -121,6 +124,7 @@ SELECT
     count(*) FILTER (WHERE started) AS starts,
     count(*) FILTER (WHERE NOT rostered) AS fa_weeks,
     coalesce(sum(points), 0) AS points,
+    coalesce(sum(points) FILTER (WHERE started), 0) AS started_points,
     coalesce(sum(vorp), 0) AS vorp,
     coalesce(sum(vorp) FILTER (WHERE started), 0) AS started_vorp,
     coalesce(sum(vorp) FILTER (WHERE NOT rostered), 0) AS fa_vorp
@@ -264,3 +268,87 @@ SELECT
     manager_name,
     points
 FROM bench;
+
+-- Who rostered a player, by season. A player can have several owners.
+CREATE VIEW v_ownership_season AS
+SELECT
+    p.year,
+    p.player_id,
+    p.manager_id,
+    m.display_name AS manager_name,
+    count(*) AS weeks,
+    count(*) FILTER (WHERE p.started) AS starts,
+    coalesce(sum(p.points), 0) AS points
+FROM v_pool_weeks p
+JOIN managers m ON m.id = p.manager_id
+WHERE p.rostered
+GROUP BY p.year, p.player_id, p.manager_id, m.display_name;
+
+-- Rostered players in a season, with the manager who held them longest.
+CREATE VIEW v_player_season AS
+SELECT
+    v.year,
+    v.player_id,
+    v.player_name,
+    v.position,
+    v.weeks,
+    v.rostered_weeks,
+    v.starts,
+    v.fa_weeks,
+    v.points,
+    v.started_points,
+    v.vorp,
+    CASE
+        WHEN v.weeks = 0 THEN NULL
+        ELSE v.rostered_weeks::double precision / v.weeks
+    END AS own_pct,
+    o.manager_id,
+    o.manager_name AS owner_name,
+    o.weeks AS owned_weeks
+FROM v_vorp_season v
+LEFT JOIN LATERAL (
+    SELECT manager_id, manager_name, weeks
+    FROM v_ownership_season o
+    WHERE o.player_id = v.player_id
+        AND o.year = v.year
+    ORDER BY weeks DESC, manager_id
+    LIMIT 1
+) o ON true
+WHERE v.rostered_weeks > 0;
+
+CREATE VIEW v_player_index AS
+SELECT
+    c.player_id,
+    c.player_name,
+    c.position,
+    c.seasons,
+    c.first_year,
+    c.last_year,
+    c.starts,
+    c.bench_weeks,
+    c.starter_points,
+    c.times_drafted,
+    c.times_added,
+    c.times_dropped,
+    c.times_traded,
+    v.weeks,
+    v.rostered_weeks,
+    v.fa_weeks,
+    v.vorp,
+    CASE
+        WHEN coalesce(v.weeks, 0) = 0 THEN NULL
+        ELSE v.rostered_weeks::double precision / v.weeks
+    END AS own_pct
+FROM v_player_career c
+LEFT JOIN (
+    SELECT
+        player_id,
+        sum(weeks) AS weeks,
+        sum(rostered_weeks) AS rostered_weeks,
+        sum(fa_weeks) AS fa_weeks,
+        sum(vorp) AS vorp
+    FROM v_vorp_season
+    GROUP BY player_id
+) v ON v.player_id = c.player_id
+WHERE c.player_id IS NOT NULL
+    AND (c.starts > 0 OR coalesce(v.rostered_weeks, 0) > 0);

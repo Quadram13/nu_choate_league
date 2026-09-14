@@ -30,7 +30,7 @@ ESPN_SLOTS = {
     17: "K",
     20: "BN",
     21: "IR",
-    23: "IR",
+    23: "FLEX",
 }
 ESPN_BENCH = {"BN", "IR"}
 ESPN_KIND = {
@@ -60,7 +60,8 @@ def ingest_espn(
     teams, official, team_names = _teams(season, league, managers)
     owner_by_team = {int(team.platform_team_id): team.manager_id for team in teams}
     player_info = _espn_player_info(folder)
-    matchups = _matchups(season, folder, owner_by_team, team_names, players)
+    period_weeks = _matchup_period_weeks(league)
+    matchups = _matchups(season, folder, owner_by_team, team_names, players, period_weeks)
     draft_picks = _draft(season, folder, owner_by_team, managers, players, player_info)
     transactions = _transactions(season, folder, owner_by_team, players, player_info)
     apply_records(teams, matchups)
@@ -105,12 +106,22 @@ def _teams(
     return teams, official, names
 
 
+def _matchup_period_weeks(league: dict[str, Any]) -> dict[int, list[int]]:
+    settings = (league.get("settings") or {}).get("scheduleSettings") or {}
+    raw = settings.get("matchupPeriods") or {}
+    mapping: dict[int, list[int]] = {}
+    for period, weeks in raw.items():
+        mapping[int(period)] = [int(week) for week in weeks]
+    return mapping
+
+
 def _matchups(
     season: Season,
     folder,
     owner_by_team: dict[int, str],
     team_names: dict[int, str],
     players: PlayerIndex,
+    period_weeks: dict[int, list[int]],
 ) -> list[Matchup]:
     matchups: list[Matchup] = []
     weeks = folder / "weeks"
@@ -125,15 +136,17 @@ def _matchups(
             continue
         payload = load_json(path)
         for raw in payload.get("schedule") or []:
-            if int(raw.get("matchupPeriodId") or 0) != week:
+            period = int(raw.get("matchupPeriodId") or 0)
+            scoring_weeks = period_weeks.get(period) or [period]
+            if week not in scoring_weeks:
                 continue
             home_raw = raw.get("home")
             away_raw = raw.get("away")
             if not isinstance(home_raw, dict) or not isinstance(away_raw, dict):
                 continue
             kind = ESPN_KIND.get(str(raw.get("playoffTierType") or "NONE"), "regular")
-            home = _side(home_raw, owner_by_team, team_names, players)
-            away = _side(away_raw, owner_by_team, team_names, players)
+            home = _side(home_raw, owner_by_team, team_names, players, week, len(scoring_weeks))
+            away = _side(away_raw, owner_by_team, team_names, players, week, len(scoring_weeks))
             matchups.append(
                 Matchup(
                     id=f"{season.year}-w{week:02d}-{raw.get('id')}",
@@ -384,6 +397,8 @@ def _side(
     owner_by_team: dict[int, str],
     team_names: dict[int, str],
     players: PlayerIndex,
+    scoring_week: int,
+    period_length: int,
 ) -> MatchupSide:
     team_id = int(raw.get("teamId") or 0)
     manager_id = owner_by_team.get(team_id)
@@ -394,9 +409,21 @@ def _side(
         manager_id=manager_id,
         team_name=team_names.get(team_id) or manager_id,
         platform_team_id=str(team_id),
-        points=round_points(raw.get("totalPoints")),
+        points=_scoring_week_points(raw, scoring_week, period_length),
         lineup=_lineup(roster.get("entries") or [], players),
     )
+
+
+def _scoring_week_points(raw: dict[str, Any], scoring_week: int, period_length: int) -> float:
+    pbs = raw.get("pointsByScoringPeriod") or {}
+    weekly = pbs.get(str(scoring_week))
+    if weekly is None:
+        weekly = pbs.get(scoring_week)
+    if weekly is not None:
+        return round_points(weekly)
+    if period_length == 1:
+        return round_points(raw.get("totalPoints"))
+    return 0.0
 
 
 def _lineup(entries: list[Any], players: PlayerIndex) -> list[LineupSlot]:
@@ -413,7 +440,9 @@ def _lineup(entries: list[Any], players: PlayerIndex) -> list[LineupSlot]:
                 player_id = nested
         if not isinstance(player_id, int) or player_id == 0:
             continue
-        slot = ESPN_SLOTS.get(int(entry.get("lineupSlotId") or 20), "BN")
+        raw_slot = entry.get("lineupSlotId")
+        slot_id = 20 if raw_slot is None else int(raw_slot)
+        slot = ESPN_SLOTS.get(slot_id, "BN")
         name = str(player.get("fullName") or "")
         position = ESPN_POSITIONS.get(int(player.get("defaultPositionId") or 0))
         resolved = players.resolve_espn(player_id, name=name, position=position)

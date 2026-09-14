@@ -14,6 +14,7 @@
     <a href="#losses">Loss streaks</a>
     <a href="#current">Current streaks</a>
 </p>
+<p class="jump js-year-filter" hidden></p>
 
 <h2 id="high">Highest weeks</h2>
 <table>
@@ -27,7 +28,7 @@
     </thead>
     <tbody>
         {% for row in high_weeks %}
-        <tr>
+        <tr data-year="{{ row.year }}">
             <td class="num">{{ loop.index }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
@@ -49,7 +50,7 @@
     </thead>
     <tbody>
         {% for row in low_weeks %}
-        <tr>
+        <tr data-year="{{ row.year }}">
             <td class="num">{{ loop.index }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
@@ -71,7 +72,7 @@
     </thead>
     <tbody>
         {% for row in blowouts %}
-        <tr>
+        <tr data-year="{{ row.year }}">
             <td class="num">{{ row.blowout_rank }}</td>
             <td>
                 {% if row.points >= row.opp_points %}
@@ -107,7 +108,7 @@
     </thead>
     <tbody>
         {% for row in closest %}
-        <tr>
+        <tr data-year="{{ row.year }}">
             <td class="num">{{ row.closest_rank }}</td>
             <td>
                 {% if row.points >= row.opp_points %}
@@ -143,7 +144,7 @@
     </thead>
     <tbody>
         {% for row in win_streaks %}
-        <tr>
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
             <td class="num">{{ loop.index }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
@@ -169,7 +170,7 @@
     </thead>
     <tbody>
         {% for row in loss_streaks %}
-        <tr>
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
             <td class="num">{{ loop.index }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
@@ -194,7 +195,7 @@
     </thead>
     <tbody>
         {% for row in current_streaks %}
-        <tr>
+        <tr data-year-start="{{ row.start_year }}">
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td>{{ row.length }} {{ row.result }}{% if row.length != 1 %}s{% endif %}</td>
             <td>

@@ -57,10 +57,11 @@ SELECT
     CASE
         WHEN o.champion IS NULL OR o.playoff_teams IS NULL THEN NULL
         WHEN o.playoff_teams = 6 AND o.playoff_start_week IS NOT NULL THEN 'six'
-        WHEN o.playoff_teams = 4 AND pw.playoff_weeks = 2 THEN 'four'
+        WHEN o.playoff_teams = 4 AND pw.playoff_weeks IN (2, 4) THEN 'four'
         ELSE NULL
     END AS shape,
     pw.semi_week,
+    pw.semi_week + ((pw.final_week - pw.semi_week + 1) / 2) - 1 AS semi_last_week,
     pw.final_week
 FROM season_outcomes o
 LEFT JOIN (
@@ -148,10 +149,20 @@ four_semi AS (
         END AS tiebreak
     FROM pair p
     JOIN v_universe_playoff_shape sh ON sh.year = p.year AND sh.shape = 'four'
-    LEFT JOIN week_scores hs
-        ON hs.year = p.year AND hs.week = sh.semi_week AND hs.manager_id = p.home_id
-    LEFT JOIN week_scores aws
-        ON aws.year = p.year AND aws.week = sh.semi_week AND aws.manager_id = p.away_id
+    LEFT JOIN LATERAL (
+        SELECT sum(points) AS points
+        FROM week_scores
+        WHERE year = p.year
+            AND manager_id = p.home_id
+            AND week BETWEEN sh.semi_week AND sh.semi_last_week
+    ) hs ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT sum(points) AS points
+        FROM week_scores
+        WHERE year = p.year
+            AND manager_id = p.away_id
+            AND week BETWEEN sh.semi_week AND sh.semi_last_week
+    ) aws ON TRUE
     WHERE (p.home_seed, p.away_seed) IN ((1, 4), (2, 3))
 ),
 four_final AS (
@@ -184,14 +195,25 @@ four_final_scored AS (
         CASE WHEN s1.seed <= s2.seed THEN f.away_id ELSE f.home_id END AS away_id,
         CASE WHEN s1.seed <= s2.seed THEN aws.points ELSE hs.points END AS away_points
     FROM four_final f
+    JOIN v_universe_playoff_shape sh ON sh.year = f.year AND sh.shape = 'four'
     JOIN v_universe_seeds s1
         ON s1.universe = f.universe AND s1.year = f.year AND s1.manager_id = f.home_id
     JOIN v_universe_seeds s2
         ON s2.universe = f.universe AND s2.year = f.year AND s2.manager_id = f.away_id
-    LEFT JOIN week_scores hs
-        ON hs.year = f.year AND hs.week = f.week AND hs.manager_id = f.home_id
-    LEFT JOIN week_scores aws
-        ON aws.year = f.year AND aws.week = f.week AND aws.manager_id = f.away_id
+    LEFT JOIN LATERAL (
+        SELECT sum(points) AS points
+        FROM week_scores
+        WHERE year = f.year
+            AND manager_id = f.home_id
+            AND week BETWEEN sh.semi_last_week + 1 AND sh.final_week
+    ) hs ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT sum(points) AS points
+        FROM week_scores
+        WHERE year = f.year
+            AND manager_id = f.away_id
+            AND week BETWEEN sh.semi_last_week + 1 AND sh.final_week
+    ) aws ON TRUE
 ),
 four_final_out AS (
     SELECT

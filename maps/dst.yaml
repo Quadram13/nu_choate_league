@@ -1,5 +1,6 @@
 # ESPN proTeamId -> Sleeper DEF player_id (team abbreviation).
 # ESPN D/ST player ids are -(16000 + proTeamId), e.g. Eagles = -16021.
+# Quote NO (Saints); YAML 1.1 would otherwise read it as boolean false.
 teams:
   1: ATL
   2: BUF
@@ -18,7 +19,7 @@ teams:
   15: MIA
   16: MIN
   17: NE
-  18: NO
+  18: "NO"
   19: NYG
   20: NYJ
   21: PHI

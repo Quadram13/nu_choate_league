@@ -169,21 +169,40 @@ def records(request: Request) -> HTMLResponse:
 def luck(request: Request) -> HTMLResponse:
     return page(
         request,
-        "coming.html",
+        "luck.html",
         nav="luck",
-        title="Universes & luck",
-        heading="Universes & luck",
-        note="Always-H2H, always-median, all-play, and lucky weeks are already queryable. This page is Phase 2.",
+        title="Luck",
+        career=queries.luck_career(),
+        seasons=queries.luck_seasons(),
+        flagged=queries.luck_flagged_weeks(),
+        universes=queries.universe_titles(),
     )
 
 
 @app.get("/players", response_class=HTMLResponse)
 def players(request: Request) -> HTMLResponse:
+    data = queries.players_index()
     return page(
         request,
-        "coming.html",
+        "players.html",
         nav="players",
         title="Players",
-        heading="Players",
-        note="League career PF and VORP are already in v_player_career and v_vorp_season. This page is Phase 2.",
+        career=data["career"],
+        seasons=data["seasons"],
+        all_pro=data["all_pro"],
+    )
+
+
+@app.get("/players/{player_id}", response_class=HTMLResponse)
+def player(request: Request, player_id: str) -> HTMLResponse:
+    data = queries.player_page(player_id)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No player {player_id}.")
+    person = data["player"]
+    return page(
+        request,
+        "player.html",
+        nav="players",
+        title=person["player_name"],
+        **data,
     )

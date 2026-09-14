@@ -1,20 +1,50 @@
 {% extends "base.html" %}
-{% macro lineup(side) %}
+{% macro call_tag(row) -%}
+{% if row and row.call == "sit" %}<span class="call">sit</span>{% endif %}
+{% if row and row.call == "start" %}<span class="call">start {{ row.opt_slot }}</span>{% endif %}
+{%- endmacro %}
+{% macro player_name(row) -%}
+{% if row and row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name or "—" }}</a>{% elif row %}{{ row.player_name or "—" }}{% else %}—{% endif %}{{ call_tag(row) }}
+{%- endmacro %}
+{% macro who(side, face, winner_id) -%}
+<div class="who {{ face }}{% if winner_id and side.id == winner_id %} won{% elif winner_id %} lost{% endif %}">
+    {% if side.id %}<a href="/members/{{ side.id }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %}
+    {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+</div>
+{%- endmacro %}
+{% macro pts(row) -%}
+{% if row and row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}
+{%- endmacro %}
+{% macro board_row(row, mid, extra="") -%}
+<div class="gc-row{{ extra }}">
+    <div class="home{% if row.winner == 'home' %} won{% elif row.winner == 'away' %} lost{% endif %}{% if row.home and row.home.call %} {{ row.home.call }}{% endif %}">{{ player_name(row.home) }}</div>
+    <span class="num">{{ pts(row.home) }}</span>
+    <div class="mid">
+        <span class="slot">{{ mid }}</span>
+        {% if row.delta is not none %}<span class="delta">{{ "%+.2f"|format(row.delta) }}</span>{% endif %}
+    </div>
+    <span class="num">{{ pts(row.away) }}</span>
+    <div class="away{% if row.winner == 'away' %} won{% elif row.winner == 'home' %} lost{% endif %}{% if row.away and row.away.call %} {{ row.away.call }}{% endif %}">{{ player_name(row.away) }}</div>
+</div>
+{%- endmacro %}
+{% macro lineup(side, show_starters=true) %}
 <div class="gc-lineup">
     <h3>
         {% if side.id %}<a href="/members/{{ side.id }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %}
         {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
     </h3>
-    {% if side.starters or side.bench %}
+    {% if (show_starters and side.starters) or side.bench %}
     <table>
         <tbody>
+            {% if show_starters %}
             {% for row in side.starters %}
             <tr>
                 <td class="slot">{{ row.slot }}</td>
-                <td>{{ row.player_name or "—" }}</td>
+                <td class="{% if row.call %}{{ row.call }}{% endif %}">{{ player_name(row) }}</td>
                 <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
             </tr>
             {% endfor %}
+            {% endif %}
             {% if side.bench %}
             <tr class="bench-head">
                 <td colspan="2">Bench</td>
@@ -23,17 +53,61 @@
             {% for row in side.bench %}
             <tr class="bench">
                 <td class="slot">{{ row.slot }}</td>
-                <td>{{ row.player_name or "—" }}</td>
+                <td class="{% if row.call %}{{ row.call }}{% endif %}">{{ player_name(row) }}</td>
                 <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
             </tr>
             {% endfor %}
             {% endif %}
         </tbody>
     </table>
-    {% else %}
+    {% elif show_starters %}
     <p class="note">No lineup recorded.</p>
     {% endif %}
 </div>
+{% endmacro %}
+{% macro luck_flags(side) %}
+{% if side.lucky_win %}<span>lucky win</span>{% endif %}
+{% if side.unlucky_loss %}<span>unlucky loss</span>{% endif %}
+{% if side.underdog_win %}<span>underdog</span>{% endif %}
+{% if side.favorite_loss %}<span>favorite loss</span>{% endif %}
+{% endmacro %}
+{% macro side_panel(side, luck, coach, face) %}
+<aside class="gc-side {{ face }}">
+    {% if side.pf_rank %}
+    <div class="stat">
+        <span class="label">PF rank</span>
+        <span class="value">{{ side.pf_ordinal }} of {{ side.teams }}</span>
+    </div>
+    <div class="stat">
+        <span class="label">all-play</span>
+        <span class="value">{{ side.all_play }}</span>
+    </div>
+    {% endif %}
+    {% if luck %}
+    <div class="stat">
+        <span class="label"><a href="/luck">luck</a></span>
+        {% if luck.expected_win is not none %}<span class="value">xW {{ "%.0f"|format(luck.expected_win * 100) }}%</span>{% endif %}
+        {% if luck.lucky_win or luck.unlucky_loss or luck.underdog_win or luck.favorite_loss %}
+        <span class="flags">{{ luck_flags(luck) }}</span>
+        {% endif %}
+        {% if luck.net_luck is not none %}
+        <span class="team">season {{ "%+d"|format(luck.net_luck|int) }} net{% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vsExp{% endif %}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if coach and coach.management_pct is not none %}
+    <div class="stat">
+        <span class="label">coach</span>
+        <span class="value">{{ "%.0f"|format(coach.management_pct * 100) }}%</span>
+        <div class="bar" style="--pct: {{ coach.management_pct }}"><i></i></div>
+        {% if coach.left_on_bench and coach.left_on_bench > 0 %}
+        <span class="team">{{ "%.2f"|format(coach.left_on_bench) }} left{% if coach.optimal_points is not none %} of {{ "%.2f"|format(coach.optimal_points) }}{% endif %}</span>
+        {% elif coach.management_pct >= 1 %}
+        <span class="team">optimal</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</aside>
 {% endmacro %}
 {% block body %}
 <p class="jump">
@@ -58,26 +132,96 @@
     <a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ sib.id }}"{% if sib.id == gc.game.id %} class="on"{% endif %}>{{ sib.home.name }} vs {{ sib.away.name }}</a>
     {% endfor %}
 </p>
-<article class="gc-match">
-    <header class="gc-score">
-        <div class="side{% if gc.game.winner_id and gc.game.winner_id == gc.game.home.id %} won{% elif gc.game.winner_id %} lost{% endif %}">
-            <div class="who">
-                {% if gc.game.home.id %}<a href="/members/{{ gc.game.home.id }}">{{ gc.game.home.name }}</a>{% else %}{{ gc.game.home.name }}{% endif %}
-                {% if gc.game.home.team %}<span class="team">{{ gc.game.home.team }}</span>{% endif %}
+<div class="gc-layout">
+    {{ side_panel(gc.game.home, gc.luck.home if gc.luck else none, gc.coach.home if gc.coach else none, "home") }}
+    <article class="gc-match">
+        <div class="gc-board">
+            <header class="gc-row score">
+                {{ who(gc.game.home, "home", gc.game.winner_id) }}
+                <span class="num">{% if gc.game.home.points is not none %}{{ "%.2f"|format(gc.game.home.points) }}{% endif %}</span>
+                <div class="mid">{% if gc.game.margin is not none %}<span class="delta">{{ "%+.2f"|format(gc.game.margin) }}</span>{% endif %}</div>
+                <span class="num">{% if gc.game.away.points is not none %}{{ "%.2f"|format(gc.game.away.points) }}{% endif %}</span>
+                {{ who(gc.game.away, "away", gc.game.winner_id) }}
+            </header>
+            {% if gc.battle %}
+            {% for row in gc.battle.rows %}
+            {{ board_row(row, row.slot) }}
+            {% endfor %}
+            {% endif %}
+            {% if gc.bench %}
+            <div class="gc-row bench-head">
+                <div class="home">Bench</div>
+                <span class="num">{% if gc.game.home.bench_points is not none %}{{ "%.2f"|format(gc.game.home.bench_points) }}{% endif %}</span>
+                <div class="mid"></div>
+                <span class="num">{% if gc.game.away.bench_points is not none %}{{ "%.2f"|format(gc.game.away.bench_points) }}{% endif %}</span>
+                <div class="away">Bench</div>
             </div>
-            <span class="num">{% if gc.game.home.points is not none %}{{ "%.2f"|format(gc.game.home.points) }}{% endif %}</span>
-        </div>
-        <div class="side{% if gc.game.winner_id and gc.game.winner_id == gc.game.away.id %} won{% elif gc.game.winner_id %} lost{% endif %}">
-            <div class="who">
-                {% if gc.game.away.id %}<a href="/members/{{ gc.game.away.id }}">{{ gc.game.away.name }}</a>{% else %}{{ gc.game.away.name }}{% endif %}
-                {% if gc.game.away.team %}<span class="team">{{ gc.game.away.team }}</span>{% endif %}
+            {% for row in gc.bench.rows %}
+            {{ board_row(row, row.slot, " bench") }}
+            {% endfor %}
+            {% endif %}
+            {% if gc.coach and gc.coach.battle %}
+            <div class="gc-row opt-head">
+                <div class="home">Optimal</div>
+                <span class="num">{% if gc.coach.home.optimal_points is not none %}{{ "%.2f"|format(gc.coach.home.optimal_points) }}{% endif %}</span>
+                <div class="mid">{% if gc.coach.flipped %}<span class="delta">flip</span>{% endif %}</div>
+                <span class="num">{% if gc.coach.away.optimal_points is not none %}{{ "%.2f"|format(gc.coach.away.optimal_points) }}{% endif %}</span>
+                <div class="away">Optimal</div>
             </div>
-            <span class="num">{% if gc.game.away.points is not none %}{{ "%.2f"|format(gc.game.away.points) }}{% endif %}</span>
+            {% for row in gc.coach.battle.rows %}
+            {{ board_row(row, row.slot) }}
+            {% endfor %}
+            {% endif %}
         </div>
-    </header>
-    <div class="gc-lineups">
-        {{ lineup(gc.game.home) }}
-        {{ lineup(gc.game.away) }}
-    </div>
-</article>
+        {% if not gc.battle and not gc.bench %}
+        <div class="gc-lineups">
+            {{ lineup(gc.game.home) }}
+            {{ lineup(gc.game.away) }}
+        </div>
+        {% endif %}
+        {% if gc.battle %}
+        <p class="note">Starters · {{ gc.game.home.name }} {{ gc.battle.home_won }} slots · {{ gc.game.away.name }} {{ gc.battle.away_won }}.</p>
+        {% endif %}
+    </article>
+    {{ side_panel(gc.game.away, gc.luck.away if gc.luck else none, gc.coach.away if gc.coach else none, "away") }}
+</div>
+
+{% if gc.history %}
+<h2>Head-to-head</h2>
+{% if gc.history.h2h %}
+<p class="note">
+    Regular {{ (gc.history.h2h.regular_wins or 0)|int }}-{{ (gc.history.h2h.regular_losses or 0)|int }}-{{ (gc.history.h2h.regular_ties or 0)|int }}
+    {% if gc.history.h2h.playoff_games %}
+    · playoff {{ (gc.history.h2h.playoff_wins or 0)|int }}-{{ (gc.history.h2h.playoff_losses or 0)|int }}{% if gc.history.h2h.playoff_ties %}-{{ (gc.history.h2h.playoff_ties or 0)|int }}{% endif %}
+    {% endif %}
+    for {{ gc.game.home.name }}.
+</p>
+{% endif %}
+{% if gc.history.meetings %}
+<div class="h2h">
+    <ol class="h2h-timeline">
+        <li class="h2h-names">
+            <span class="score home">{{ gc.game.home.name }}</span>
+            <span class="rail" aria-hidden="true"></span>
+            <span class="score away">{{ gc.game.away.name }}</span>
+            <span class="meta"></span>
+        </li>
+        {% for row in gc.history.meetings %}
+        <li class="h2h-meet {{ row.result }}{% if row.current %} now{% endif %}">
+            <a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">
+                <span class="score home{% if row.result == 'win' %} won{% elif row.result == 'loss' %} lost{% endif %}">{{ "%.2f"|format(row.points) }}</span>
+                <span class="rail" aria-hidden="true"><span class="dot"></span></span>
+                <span class="score away{% if row.result == 'loss' %} won{% elif row.result == 'win' %} lost{% endif %}">{{ "%.2f"|format(row.opp_points) }}</span>
+                <span class="meta">
+                    {{ row.year }} W{{ row.week }}
+                    {% if row.kind != 'regular' %} · {{ row.kind_label }}{% endif %}
+                    {% if row.current %} · now{% endif %}
+                </span>
+            </a>
+        </li>
+        {% endfor %}
+    </ol>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}

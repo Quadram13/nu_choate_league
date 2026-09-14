@@ -8,13 +8,13 @@
 {% if current and current.vs_median %}
 <p class="note">Official scoring this year is head-to-head plus a game vs the weekly median.</p>
 {% endif %}
-<table>
+<table class="js-sort">
     <thead>
         <tr>
             <th class="num">#</th>
             <th>Manager</th>
             <th>Team</th>
-            <th>Record</th>
+            <th data-type="num">Record</th>
             <th class="num">PF</th>
         </tr>
     </thead>
@@ -24,7 +24,7 @@
             <td class="num">{{ row.rank }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
-            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
         </tr>
         {% endfor %}

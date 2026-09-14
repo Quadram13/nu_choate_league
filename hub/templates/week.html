@@ -27,14 +27,14 @@
                 {% if game.home.id %}<a href="/members/{{ game.home.id }}">{{ game.home.name }}</a>{% else %}{{ game.home.name }}{% endif %}
                 {% if game.home.team %}<span class="team">{{ game.home.team }}</span>{% endif %}
             </div>
-            <span class="num">{% if game.home.points is not none %}{{ "%.2f"|format(game.home.points) }}{% endif %}</span>
+            <span class="num">{% if game.home.points is not none %}{{ "%.2f"|format(game.home.points) }}{% endif %}{% if game.home.pf_rank %}<span class="week-stat" title="{{ game.home.pf_ordinal }} of {{ game.home.teams }} in weekly points · {{ game.home.all_play }} all-play"><span class="rank">{{ game.home.pf_ordinal }}</span> · {{ game.home.all_play }}</span>{% endif %}</span>
         </div>
         <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
             <div class="who">
                 {% if game.away.id %}<a href="/members/{{ game.away.id }}">{{ game.away.name }}</a>{% else %}{{ game.away.name }}{% endif %}
                 {% if game.away.team %}<span class="team">{{ game.away.team }}</span>{% endif %}
             </div>
-            <span class="num">{% if game.away.points is not none %}{{ "%.2f"|format(game.away.points) }}{% endif %}</span>
+            <span class="num">{% if game.away.points is not none %}{{ "%.2f"|format(game.away.points) }}{% endif %}{% if game.away.pf_rank %}<span class="week-stat" title="{{ game.away.pf_ordinal }} of {{ game.away.teams }} in weekly points · {{ game.away.all_play }} all-play"><span class="rank">{{ game.away.pf_ordinal }}</span> · {{ game.away.all_play }}</span>{% endif %}</span>
         </div>
     </header>
     <p class="open-gc"><a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ game.id }}">lineups</a></p>
