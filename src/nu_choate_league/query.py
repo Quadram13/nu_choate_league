@@ -135,8 +135,15 @@ QUERIES: dict[str, str] = {
             points, vorp, started_vorp, fa_vorp
         FROM v_vorp_season
         WHERE %(year)s::integer IS NULL OR year = %(year)s
-        ORDER BY year, vorp DESC, points DESC, player_name
-        LIMIT 80
+        ORDER BY year, vorp DESC, player_name
+    """,
+    "management": """
+        SELECT
+            year, manager_name, weeks, actual_points, optimal_points,
+            left_on_bench, management_pct, coach_rank
+        FROM v_management_season
+        WHERE %(year)s::integer IS NULL OR year = %(year)s
+        ORDER BY year, coach_rank, manager_id
     """,
 }
 

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro pack_class(side, trade) -%}
+{% if trade.verdict.kind != 'even' and trade.winner_id %}{% if side.id == trade.winner_id %} won{% else %} lost{% endif %}{% endif %}
+{%- endmacro %}
+{% macro player_row(player, year) %}
+{% set src = headshot_url(player.player_id, player.position) %}
+<div class="trade-player">
+    <div class="who">
+        <div class="player-name">
+            {% if src %}<img class="headshot" src="{{ src }}" alt="" width="24" height="24" loading="lazy" onerror="this.remove()">{% endif %}
+            {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+        </div>
+        <span class="team">
+            {{ player.position or "" }}
+            {% if player.flip %}
+            · flipped
+            <a href="/seasons/{{ player.flip.year }}/trades/{{ player.flip.id }}">{% if player.flip.year != year %}{{ player.flip.year }} {% endif %}W{{ player.flip.week }}</a>
+            {% if player.flip.after is not none %} · {{ "%+.1f"|format(player.flip.after) }} after{% endif %}
+            {% endif %}
+        </span>
+    </div>
+    <span class="num">{% if player.ros_vorp is not none %}{{ "%+.1f"|format(player.ros_vorp) }}{% endif %}</span>
+</div>
+{% endmacro %}
+{% macro pack(side, face, trade) %}
+<div class="trade-pack {{ face }}{{ pack_class(side, trade) }}">
+    <div class="trade-pack-head">
+        <div class="who">
+            {{ person(side.id, side.name) }}
+            {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+        </div>
+        <span class="num">{% if side.vorp is not none %}{{ "%+.1f"|format(side.vorp) }}{% endif %}</span>
+    </div>
+    {% for player in side.players %}
+    {{ player_row(player, trade.year) }}
+    {% endfor %}
+</div>
+{% endmacro %}
+{% macro side_panel(side, face) %}
+<aside class="gc-side {{ face }}">
+    <div class="stat">
+        <span class="label">ROS VORP</span>
+        <span class="value">{% if side.vorp is not none %}{{ "%+.1f"|format(side.vorp) }}{% endif %}</span>
+    </div>
+    <div class="stat">
+        <span class="label">starter PF</span>
+        <span class="value">{% if side.ros is not none %}{{ "%.1f"|format(side.ros) }}{% endif %}</span>
+        <span class="team">{{ side.starts|int }} starts · {{ side.players|length }} player{% if side.players|length != 1 %}s{% endif %}</span>
+    </div>
+</aside>
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#trades">trades</a>
+    {% if trade.prev %}
+    <a href="/seasons/{{ current.year }}/trades/{{ trade.prev.id }}">← {{ trade.prev.label }}</a>
+    {% endif %}
+    {% if trade.next %}
+    <a href="/seasons/{{ current.year }}/trades/{{ trade.next.id }}">{{ trade.next.label }} →</a>
+    {% endif %}
+</p>
+<h1>{{ trade.left.name }} vs {{ trade.right.name }}</h1>
+<p class="lede">
+    {{ current.year }} week {{ trade.week }}
+    · <span class="verdict {{ trade.verdict.kind }}">{{ trade.verdict.label }}</span>
+    · {{ "%.1f"|format(trade.verdict.gap) }} ROS VORP gap
+</p>
+<div class="gc-layout">
+    {{ side_panel(trade.left, "home") }}
+    <article class="gc-match">
+        <div class="trade-split">
+            {{ pack(trade.left, "home", trade) }}
+            {{ pack(trade.right, "away", trade) }}
+        </div>
+        <p class="note">What each side received, by rest-of-season starter VORP. Grade stops at the next acquisition of that player.</p>
+    </article>
+    {{ side_panel(trade.right, "away") }}
+</div>
+
+{% if trade.flips %}
+<h2>Flips</h2>
+<p class="note">Same manager later traded a player from this deal. The score above still stops at that flip. After is what they then did for the next owner.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th>Sent</th>
+            <th>Next</th>
+            <th>Got back</th>
+            <th class="num">After</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trade.flips %}
+        <tr>
+            <td>{{ person(row.holder_id, row.holder_name) }}</td>
+            <td>
+                {% for player in row.sent %}
+                {% if not loop.first %}, {% endif %}
+                {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+                {% endfor %}
+            </td>
+            <td>
+                <a href="/seasons/{{ row.year }}/trades/{{ row.id }}">{% if row.year != trade.year %}{{ row.year }} {% endif %}W{{ row.week }}</a>
+                vs {{ person(row.opponent_id, row.opponent_name) }}
+            </td>
+            <td>
+                {% for player in row.got %}
+                {% if not loop.first %}, {% endif %}
+                {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+                {% if player.ros_vorp is not none %} {{ "%+.1f"|format(player.ros_vorp) }}{% endif %}
+                {% endfor %}
+                {% if not row.got %}—{% endif %}
+            </td>
+            <td class="num">
+                {% for player in row.sent %}
+                {% if player.after is not none %}
+                <span class="{% if player.after > 0 %}plus{% elif player.after < 0 %}minus{% endif %}">{{ "%+.1f"|format(player.after) }}{% if not loop.last %} {% endif %}</span>
+                {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if trade.weeks %}
+<h2>Starter weeks after the trade</h2>
+<p class="note">Points while on the new roster. Muted is benched.</p>
+<div class="trade-weeks">
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                {% for week in trade.weeks %}
+                <th class="num">{{ week }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for side in [trade.left, trade.right] %}
+            <tr>
+                <th colspan="{{ 1 + trade.weeks|length }}">{{ side.name }}</th>
+            </tr>
+            {% for player in side.players %}
+            <tr>
+                <td>{% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}</td>
+                {% for cell in player.weeks %}
+                <td class="num{% if cell and not cell.started %} muted{% endif %}">
+                    {% if cell and cell.points is not none %}{{ "%.1f"|format(cell.points) }}{% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

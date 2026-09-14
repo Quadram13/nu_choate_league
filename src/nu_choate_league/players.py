@@ -73,7 +73,16 @@ def load_sleeper_catalog() -> dict[str, dict[str, Any]]:
 def load_dst_map(path: Path | None = None) -> dict[int, str]:
     data = load_yaml(path or maps_dir() / "dst.yaml")
     teams = data.get("teams") or {}
-    return {int(espn_id): str(sleeper_id) for espn_id, sleeper_id in teams.items()}
+    return {int(espn_id): _dst_sleeper_id(sleeper_id) for espn_id, sleeper_id in teams.items()}
+
+
+def _dst_sleeper_id(value: object) -> str:
+    # YAML 1.1 parses NO/YES/ON/OFF as booleans. Saints are "NO".
+    if value is False:
+        return "NO"
+    if value is True:
+        return "YES"
+    return str(value)
 
 
 def load_player_overrides(path: Path | None = None) -> dict[int, str]:

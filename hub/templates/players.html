@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro player(id, name) %}
+{% if id and name %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro pct(value) %}
+{% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
+{% endmacro %}
+{% macro avg(value) %}
+{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}
+{% endmacro %}
+{% macro all_pro_team(title, rows) %}
+<div class="allpro-team">
+    <h3>{{ title }}</h3>
+    <table>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="slot">{{ row.position }}</td>
+                <td>
+                    {{ player(row.player_id, row.player_name) }}
+                    {% if row.owner_name %}<span class="team">{{ person(row.manager_id, row.owner_name) }}</span>{% endif %}
+                </td>
+                <td class="num">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+{% block body %}
+<h1>Players</h1>
+<p class="lede">
+    All-pro is the top two starter-PF at QB, RB, WR, TE, K, and DEF.
+    Rankings are starter PF; average is per start. Ownership is weeks held
+    over weeks in the scoring pool. Highest single weeks stay on
+    <a href="/records">Records</a>.
+</p>
+<p class="jump js-year-filter" data-default="latest" hidden></p>
+
+{% if all_pro %}
+<h2 id="allpro">All-pro</h2>
+{% for year in all_pro %}
+<div class="allpro js-year-block" data-year="{{ year.year }}">
+    <p class="allpro-year">{{ year.year }}</p>
+    <div class="allpro-teams">
+        {{ all_pro_team("1st team", year.first) }}
+        {{ all_pro_team("2nd team", year.second) }}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2 id="rankings">Rankings</h2>
+<p class="jump js-rank-mode">
+    <button type="button" data-mode="season" class="on">Season</button>
+    <button type="button" data-mode="career">Career</button>
+</p>
+<p class="jump js-pos-filter" hidden></p>
+
+<div class="js-rank" data-mode="season">
+<table class="js-sort js-fold" data-fold="20">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th>Owner</th>
+            <th class="num">Rstr</th>
+            <th class="num">Starts</th>
+            <th class="num">PF</th>
+            <th class="num">Avg</th>
+            <th class="num">VORP</th>
+            <th class="num">Own</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr data-year="{{ row.year }}" data-pos="{{ row.position or '' }}">
+            <td class="num">{{ row.year }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td>{{ person(row.manager_id, row.owner_name) }}</td>
+            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
+            <td class="num">{{ (row.starts or 0)|int }}</td>
+            <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
+            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<div class="js-rank" data-mode="career" hidden>
+<table class="js-sort js-fold" data-fold="20">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Yrs</th>
+            <th class="num">Starts</th>
+            <th class="num">PF</th>
+            <th class="num">Avg</th>
+            <th class="num">VORP</th>
+            <th class="num">Own</th>
+            <th class="num">Draft</th>
+            <th class="num">Adds</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in career %}
+        <tr data-pos="{{ row.position or '' }}">
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ row.seasons|int }}</td>
+            <td class="num">{{ (row.starts or 0)|int }}</td>
+            <td class="num" data-value="{{ row.starter_points }}">{% if row.starter_points is not none %}{{ "%.1f"|format(row.starter_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
+            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
+            <td class="num">{{ (row.times_drafted or 0)|int }}</td>
+            <td class="num">{{ (row.times_added or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

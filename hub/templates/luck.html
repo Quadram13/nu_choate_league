@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro universe_side(champ_id, champ, rs_id, rs, same) %}
+<div class="who">
+    {{ person(champ_id, champ) }}
+    <span class="team">RS {{ person(rs_id, rs) }}{% if same is false %} · differs{% endif %}</span>
+</div>
+{% endmacro %}
+{% block body %}
+<h1>Luck</h1>
+<p class="lede">
+    Regular-season head-to-head only. A lucky win is a win from the bottom half
+    of that week’s PF ranks; an unlucky loss is a loss from the top half.
+    Expected wins are all-play that week (random opponent). Underdog and
+    favorite use season-average PF, not this week’s score.
+</p>
+<p class="jump">
+    <a href="#career">Career</a>
+    <a href="#seasons">By season</a>
+    <a href="#weeks">Lucky / unlucky weeks</a>
+    <a href="#universes">Universes</a>
+</p>
+
+<h2 id="career">Career</h2>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Yrs</th>
+            <th data-type="num">H2H</th>
+            <th class="num">Lucky</th>
+            <th class="num">Unluck</th>
+            <th class="num">Net</th>
+            <th class="num">Undog</th>
+            <th class="num">FavL</th>
+            <th class="num">ExpW</th>
+            <th class="num">vsExp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in career %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.seasons|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ (row.wins or 0)|int }}-{{ (row.losses or 0)|int }}-{{ (row.ties or 0)|int }}</td>
+            <td class="num">{{ (row.lucky_wins or 0)|int }}</td>
+            <td class="num">{{ (row.unlucky_losses or 0)|int }}</td>
+            <td class="num{% if row.net_luck > 0 %} plus{% elif row.net_luck < 0 %} minus{% endif %}">{{ "%+d"|format(row.net_luck|int) }}</td>
+            <td class="num">{{ (row.underdog_wins or 0)|int }}</td>
+            <td class="num">{{ (row.favorite_losses or 0)|int }}</td>
+            <td class="num">{% if row.expected_wins is not none %}{{ "%.1f"|format(row.expected_wins) }}{% endif %}</td>
+            <td class="num{% if row.wins_vs_expected > 0 %} plus{% elif row.wins_vs_expected < 0 %} minus{% endif %}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="jump js-year-filter" hidden></p>
+
+<h2 id="seasons">By season</h2>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            <th data-type="num">H2H</th>
+            <th class="num">Lucky</th>
+            <th class="num">Unluck</th>
+            <th class="num">Net</th>
+            <th class="num">Undog</th>
+            <th class="num">FavL</th>
+            <th class="num">ExpW</th>
+            <th class="num">vsExp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ (row.wins or 0)|int }}-{{ (row.losses or 0)|int }}-{{ (row.ties or 0)|int }}</td>
+            <td class="num">{{ (row.lucky_wins or 0)|int }}</td>
+            <td class="num">{{ (row.unlucky_losses or 0)|int }}</td>
+            <td class="num{% if row.net_luck > 0 %} plus{% elif row.net_luck < 0 %} minus{% endif %}">{{ "%+d"|format(row.net_luck|int) }}</td>
+            <td class="num">{{ (row.underdog_wins or 0)|int }}</td>
+            <td class="num">{{ (row.favorite_losses or 0)|int }}</td>
+            <td class="num">{% if row.expected_wins is not none %}{{ "%.1f"|format(row.expected_wins) }}{% endif %}</td>
+            <td class="num{% if row.wins_vs_expected > 0 %} plus{% elif row.wins_vs_expected < 0 %} minus{% endif %}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="weeks">Lucky / unlucky weeks</h2>
+<p class="note">Wins from the bottom half of weekly PF, and losses from the top half.</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>Flag</th>
+            <th>Manager</th>
+            <th>Opponent</th>
+            <th class="num">PF</th>
+            <th class="num">Rank</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in flagged %}
+        <tr data-year="{{ row.year }}">
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>{{ row.flag }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td>{{ person(row.opponent_id, row.opponent_name) }}</td>
+            <td class="num" data-value="{{ row.points }}">{{ "%.2f"|format(row.points) }}–{{ "%.2f"|format(row.opp_points) }}</td>
+            <td class="num" data-value="{{ row.pf_rank }}">{{ row.pf_rank }} of {{ row.teams }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="universes">Universes</h2>
+<p class="note">
+    Always H2H ignores vs-median games. Always median adds a game vs that week’s
+    median even in years that did not play it. Playoff titles reuse actual weekly
+    scores with those seeds.
+</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Official</th>
+            <th>Always H2H</th>
+            <th>Always median</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in universes %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{{ universe_side(row.official_champ_id, row.official_champ, row.official_rs_id, row.official_rs, none) }}</td>
+            <td>{{ universe_side(row.h2h_champ_id, row.h2h_champ, row.h2h_rs_id, row.h2h_rs, row.h2h_same) }}</td>
+            <td>{{ universe_side(row.median_champ_id, row.median_champ, row.median_rs_id, row.median_rs, row.median_same) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% from "trade_macros.html" import trade_card %}
+{% block body %}
+<h1>Record book</h1>
+<p class="lede">
+    Regular-season head-to-head. Weekly highs and lows skip playoff and
+    consolation weeks (ESPN two-week finals would otherwise own the list).
+</p>
+<p class="jump">
+    <a href="#high">Highest weeks</a>
+    <a href="#low">Lowest weeks</a>
+    <a href="#blowouts">Blowouts</a>
+    <a href="#closest">Nail-biters</a>
+    <a href="#trades">Trades</a>
+    <a href="#wins">Win streaks</a>
+    <a href="#losses">Loss streaks</a>
+    <a href="#current">Current streaks</a>
+</p>
+<p class="jump js-year-filter" hidden></p>
+
+<h2 id="high">Highest weeks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>When</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in high_weeks %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="low">Lowest weeks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>When</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in low_weeks %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="blowouts">Biggest blowouts</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Matchup</th>
+            <th>When</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in blowouts %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.blowout_rank }}</td>
+            <td>
+                {% if row.points >= row.opp_points %}
+                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ "%.1f"|format(row.points) }}
+                –
+                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ "%.1f"|format(row.opp_points) }}
+                {% else %}
+                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ "%.1f"|format(row.opp_points) }}
+                –
+                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ "%.1f"|format(row.points) }}
+                {% endif %}
+            </td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="closest">Closest games</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Matchup</th>
+            <th>When</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in closest %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.closest_rank }}</td>
+            <td>
+                {% if row.points >= row.opp_points %}
+                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ "%.1f"|format(row.points) }}
+                –
+                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ "%.1f"|format(row.opp_points) }}
+                {% else %}
+                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ "%.1f"|format(row.opp_points) }}
+                –
+                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ "%.1f"|format(row.points) }}
+                {% endif %}
+            </td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="trades">Most lopsided trades</h2>
+<p class="note">Rest-of-season starter VORP of what each side received. Winner listed first. Big win is 50+ with both sides at +15 or more. Fleece is 50+ with the other side under +15.</p>
+<div class="trade-list">
+    {% for row in trades %}
+    {{ trade_card(row, show_year=True) }}
+    {% endfor %}
+</div>
+
+<h2 id="wins">Longest win streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th class="num">Games</th>
+            <th>Span</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in win_streaks %}
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+                –
+                <a href="/seasons/{{ row.end_year }}/week/{{ row.end_week }}">{{ row.end_year }} W{{ row.end_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="losses">Longest loss streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th class="num">Games</th>
+            <th>Span</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in loss_streaks %}
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+                –
+                <a href="/seasons/{{ row.end_year }}/week/{{ row.end_week }}">{{ row.end_year }} W{{ row.end_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="current">Current streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Since</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in current_streaks %}
+        <tr data-year-start="{{ row.start_year }}">
+            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ row.length }} {{ row.result }}{% if row.length != 1 %}s{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

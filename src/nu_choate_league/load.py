@@ -6,7 +6,7 @@ import psycopg
 
 from .build import _compare
 from .catalog import load_managers
-from .db import apply_schema, connect
+from .db import apply_schema, connect, refresh_analysis
 from .ingest import ingest_all
 from .models import Matchup, SeasonBundle, Transaction
 from .players import PlayerIndex
@@ -17,7 +17,7 @@ def load_facts(*, year: int | None = None) -> list[str]:
     if not bundles:
         raise SystemExit("No seasons to load.")
     with connect() as conn:
-        apply_schema(conn)
+        apply_schema(conn, refresh=False)
         if year is None:
             _truncate_facts(conn)
         else:
@@ -27,6 +27,7 @@ def load_facts(*, year: int | None = None) -> list[str]:
         _upsert_players(conn, bundles)
         for bundle in bundles:
             _insert_season(conn, bundle)
+        refresh_analysis(conn)
         conn.commit()
     lines: list[str] = []
     for bundle in bundles:

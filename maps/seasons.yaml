@@ -1,5 +1,6 @@
 # One row per dumped season. league_id is provenance for Actions later;
 # dumps themselves live at data/{platform}/{year}/.
+# 2022–2023 ESPN and 2024–2025 Sleeper used waiver order. FAAB starts in 2026.
 seasons:
   - year: 2022
     platform: espn
@@ -26,3 +27,4 @@ seasons:
     league_id: "1313409735290028032"
     name: Nu Choate League
     vs_median: true
+    faab: true
