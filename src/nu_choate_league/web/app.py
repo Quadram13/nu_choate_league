@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -57,30 +57,50 @@ def home(request: Request) -> HTMLResponse:
     )
 
 
-@app.get("/seasons", response_class=HTMLResponse)
-def seasons(request: Request) -> HTMLResponse:
-    return page(
-        request,
-        "seasons.html",
-        nav="seasons",
-        title="Seasons",
-        seasons=queries.list_seasons(),
-    )
+@app.get("/seasons", response_model=None)
+def seasons(request: Request) -> HTMLResponse | RedirectResponse:
+    years = queries.list_seasons()
+    if not years:
+        return page(
+            request,
+            "seasons.html",
+            nav="seasons",
+            title="Seasons",
+            seasons=[],
+        )
+    year = queries.latest_scored_year() or years[0]["year"]
+    return RedirectResponse(url=f"/seasons/{year}", status_code=302)
 
 
 @app.get("/seasons/{year}", response_class=HTMLResponse)
 def season(request: Request, year: int) -> HTMLResponse:
-    current = queries.season_row(year)
-    if current is None:
+    data = queries.season_page(year)
+    if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
     return page(
         request,
         "season.html",
         nav="seasons",
         title=f"{year} season",
+        **data,
+    )
+
+
+@app.get("/seasons/{year}/trades/{transaction_id}", response_class=HTMLResponse)
+def trade(request: Request, year: int, transaction_id: str) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    data = queries.trade_page(year, transaction_id)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No trade {transaction_id} in {year}.")
+    return page(
+        request,
+        "trade.html",
+        nav="seasons",
+        title=f"{data['left']['name']} vs {data['right']['name']}",
         current=current,
-        standings=queries.standings(year),
-        schedule=queries.season_schedule(year),
+        trade=data,
     )
 
 

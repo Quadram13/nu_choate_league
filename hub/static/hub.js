@@ -3,6 +3,7 @@
     document.querySelectorAll("table.js-sort").forEach(enableSort);
     enableFilters();
     enableRankMode();
+    enableSeasonPicker();
     document.querySelectorAll(".bracket-tree").forEach(enableBracket);
 })();
 
@@ -15,6 +16,16 @@ function scrollH2hNow() {
     const nowBox = now.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
     scroller.scrollLeft += nowBox.left - box.left - (box.width - nowBox.width) / 2;
+}
+
+function enableSeasonPicker() {
+    const select = document.querySelector(".js-season-pick");
+    if (!select) {
+        return;
+    }
+    select.addEventListener("change", () => {
+        window.location.href = `/seasons/${select.value}`;
+    });
 }
 
 function enableSort(table) {

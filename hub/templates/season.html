@@ -1,4 +1,58 @@
 {% extends "base.html" %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro medal(label, id, name) %}
+<div class="medal">
+    <span class="label">{{ label }}</span>
+    <span class="value">{{ person(id, name) }}</span>
+</div>
+{% endmacro %}
+{% macro universe_card(title, champ_id, champ, rs_id, rs, same) %}
+<div class="universe-card">
+    <h3>{{ title }}</h3>
+    <p>{{ person(champ_id, champ) }}</p>
+    <p class="team">RS {{ person(rs_id, rs) }}{% if same is false %} · differs{% elif same %} · same{% endif %}</p>
+</div>
+{% endmacro %}
+{% macro compact_match(game, year) %}
+{% if game %}
+<article class="gc-match compact">
+    <p class="note">{{ game.label }} · week {{ game.week }}</p>
+    <header class="gc-score">
+        <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {{ person(game.home.id, game.home.name) }}
+                {% if game.home.team %}<span class="team">{{ game.home.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if game.home.points is not none %}{{ "%.2f"|format(game.home.points) }}{% endif %}</span>
+        </div>
+        <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {{ person(game.away.id, game.away.name) }}
+                {% if game.away.team %}<span class="team">{{ game.away.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if game.away.points is not none %}{{ "%.2f"|format(game.away.points) }}{% endif %}</span>
+        </div>
+    </header>
+    {% if game.id %}
+    <p class="open-gc"><a href="/seasons/{{ year }}/week/{{ game.week }}/{{ game.id }}">lineups</a></p>
+    {% endif %}
+</article>
+{% endif %}
+{% endmacro %}
+{% macro luck_line(row) %}
+{% if row %}
+<p class="note">
+    {{ row.flag }} ·
+    <a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">W{{ row.week }}</a>
+    · {{ person(row.manager_id, row.display_name) }}
+    {{ "%.1f"|format(row.points) }}–{{ "%.1f"|format(row.opp_points) }}
+    vs {{ person(row.opponent_id, row.opponent_name) }}
+    · {{ row.pf_rank }} of {{ row.teams }}
+</p>
+{% endif %}
+{% endmacro %}
 {% macro seed(manager_id, name, team, points, winner_id) %}
 <div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
     <span class="who">
@@ -49,55 +103,277 @@
 {% endif %}
 {% endmacro %}
 {% block body %}
-<h1>{{ current.year }}</h1>
-<p class="lede">
-    {{ current.platform }}
-    {% if current.vs_median %} · official scoring is H2H plus vs weekly median{% else %} · official scoring is H2H only{% endif %}
+<p class="season-head">
+    <label class="season-pick">
+        <span class="sr-only">Season</span>
+        <select class="js-season-pick">
+            {% for row in seasons %}
+            <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <span class="lede">
+        {{ current.platform }}
+        {% if current.vs_median %} · H2H plus vs weekly median{% else %} · H2H only{% endif %}
+        {% if teams %} · {{ teams }} teams{% endif %}
+    </span>
 </p>
-{% if current.champion %}
-<p class="note">
-    Champion {{ current.champion }}
-    {% if current.runner_up %} · runner-up {{ current.runner_up }}{% endif %}
-    {% if current.regular_season_champion %} · RS {{ current.regular_season_champion }}{% endif %}
+
+<div class="medals">
+    {{ medal("Champion", current.champion_id, current.champion) }}
+    {{ medal("Runner-up", current.runner_up_id, current.runner_up) }}
+    {{ medal("RS champ", current.regular_season_champion_id, current.regular_season_champion) }}
+    {{ medal("Most PF", current.most_points_id, current.most_points) }}
+</div>
+
+<p class="jump">
+    <a href="#standings">Standings</a>
+    {% if schedule.weeks %}<a href="#weeks">Weeks</a>{% endif %}
+    {% if schedule.winners_tree or schedule.consolation_tree %}<a href="#playoffs">Playoffs</a>{% endif %}
+    {% if universes %}<a href="#universes">Universes</a>{% endif %}
+    {% if notables.high or notables.low or notables.blowout or notables.closest or notables.lucky or notables.unlucky %}<a href="#matchups">Matchups</a>{% endif %}
+    {% if trades %}<a href="#trades">Trades</a>{% endif %}
+    {% if wire.adds or wire.misses or wire.dodges %}<a href="#wire">Wire</a>{% endif %}
+    {% if draft_hits or draft_misses %}<a href="#draft">Draft</a>{% endif %}
+</p>
+
+<div class="season-grid">
+    <section id="standings">
+        <h2>Official standings</h2>
+        {% if standings %}
+        <table class="js-sort">
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Manager</th>
+                    <th>Team</th>
+                    <th data-type="num">Record</th>
+                    <th class="num">PF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in standings %}
+                <tr>
+                    <td class="num">{{ row.rank }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
+                    <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+                    <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="note">No standings yet.</p>
+        {% endif %}
+    </section>
+    {% if universes %}
+    <section id="universes">
+        <h2>Universes</h2>
+        <p class="note">Playoff titles reuse actual weekly scores with those seeds. Full table on <a href="/luck#universes">Luck</a>.</p>
+        {{ universe_card("Official", universes.official_champ_id, universes.official_champ, universes.official_rs_id, universes.official_rs, none) }}
+        {{ universe_card("Always H2H", universes.h2h_champ_id, universes.h2h_champ, universes.h2h_rs_id, universes.h2h_rs, universes.h2h_same) }}
+        {{ universe_card("Always median", universes.median_champ_id, universes.median_champ, universes.median_rs_id, universes.median_rs, universes.median_same) }}
+    </section>
+    {% endif %}
+</div>
+
+{% if schedule.weeks %}
+<h2 id="weeks">Weeks</h2>
+<p class="jump">
+    {% for week in schedule.weeks %}
+    <a href="/seasons/{{ current.year }}/week/{{ week }}"{% if now_week and week == now_week %} class="on"{% endif %}>{{ week }}</a>
+    {% endfor %}
 </p>
 {% endif %}
 
-<h2>Official standings</h2>
-<table class="js-sort">
+{% if schedule.winners_tree or schedule.consolation_tree %}
+<div class="brackets" id="playoffs">
+    {{ bracket(schedule.winners_tree, "Winners bracket", none, "playoff", current.year) }}
+    {{ bracket(schedule.consolation_tree, "Consolation", none, "consolation", current.year) }}
+</div>
+{% endif %}
+
+{% if notables.high or notables.low or notables.blowout or notables.closest or notables.lucky or notables.unlucky %}
+<h2 id="matchups">Notable matchups</h2>
+<div class="notable-grid">
+    {{ compact_match(notables.high, current.year) }}
+    {{ compact_match(notables.low, current.year) }}
+    {{ compact_match(notables.blowout, current.year) }}
+    {{ compact_match(notables.closest, current.year) }}
+</div>
+{{ luck_line(notables.lucky) }}
+{{ luck_line(notables.unlucky) }}
+<p class="note"><a href="/records">Record book</a> · <a href="/luck#weeks">Luck weeks</a></p>
+{% endif %}
+
+{% if trades %}
+<h2 id="trades">Trades</h2>
+<p class="note">Graded by rest-of-season VORP of what each side received.</p>
+<table>
     <thead>
         <tr>
-            <th class="num">#</th>
-            <th>Manager</th>
-            <th>Team</th>
-            <th data-type="num">Record</th>
-            <th class="num">PF</th>
+            <th class="num">Wk</th>
+            <th>Side</th>
+            <th>Received</th>
+            <th class="num">VORP</th>
         </tr>
     </thead>
     <tbody>
-        {% for row in standings %}
+        {% for row in trades %}
         <tr>
-            <td class="num">{{ row.rank }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
-            <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
-            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
-            <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+            <td class="num" rowspan="2"><a href="/seasons/{{ current.year }}/trades/{{ row.transaction_id }}">{{ row.week }}</a></td>
+            <td>{{ person(row.left_id, row.left_name) }}{% if row.winner_id == row.left_id %} <span class="plus">won</span>{% endif %}</td>
+            <td>{{ row.left_received or "—" }}</td>
+            <td class="num{% if row.winner_id == row.left_id %} plus{% elif row.winner_id == row.right_id %} minus{% endif %}">{% if row.left_vorp is not none %}{{ "%+.1f"|format(row.left_vorp) }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td>{{ person(row.right_id, row.right_name) }}{% if row.winner_id == row.right_id %} <span class="plus">won</span>{% endif %}</td>
+            <td>{{ row.right_received or "—" }}</td>
+            <td class="num{% if row.winner_id == row.right_id %} plus{% elif row.winner_id == row.left_id %} minus{% endif %}">{% if row.right_vorp is not none %}{{ "%+.1f"|format(row.right_vorp) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
 
-<h2>Weeks</h2>
-<p class="note">Weekly scores, then a matchup page for lineups.</p>
-<p class="jump">
-    {% for week in schedule.weeks %}
-    <a href="/seasons/{{ current.year }}/week/{{ week }}">{{ week }}</a>
-    {% endfor %}
-</p>
+{% if wire.adds or wire.misses or wire.dodges %}
+<h2 id="wire">Wire</h2>
+<p class="note">League rest-of-season VORP from the add week, whoever started the player. Failed bids vs what you actually got.</p>
+<div class="notable-grid">
+    {% if wire.adds %}
+    <section>
+        <h3>Best adds</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Wk</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.adds %}
+                <tr>
+                    <td class="num">{{ row.week }}</td>
+                    <td>
+                        {% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                        <span class="team">{{ row.kind }}{% if row.bid %} ${{ row.bid }}{% endif %}</span>
+                    </td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.league_vorp is not none %}{{ "%+.1f"|format(row.league_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if wire.misses %}
+    <section>
+        <h3>Costliest misses</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Wk</th>
+                    <th>Manager</th>
+                    <th>Missed</th>
+                    <th>Got</th>
+                    <th class="num">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.misses %}
+                <tr>
+                    <td class="num">{{ row.week }}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }} <span class="team">{{ row.flag }}</span></td>
+                    <td>{% if row.missed_player_id %}<a href="/players/{{ row.missed_player_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}</td>
+                    <td>{% if row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
+                    <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% if wire.dodges %}
+<h3>Lucky dodges</h3>
+<p class="note">A higher claim was taken; the later one you processed scored more.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Wk</th>
+            <th>Manager</th>
+            <th>Lost</th>
+            <th>Got</th>
+            <th class="num">Gap</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire.dodges %}
+        <tr>
+            <td class="num">{{ row.week }}</td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td>{% if row.lost_player_id %}<a href="/players/{{ row.lost_player_id }}">{{ row.lost_player }}</a>{% else %}{{ row.lost_player }}{% endif %}</td>
+            <td>{% if row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player }}{% endif %}</td>
+            <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
 
-{% if schedule.winners_tree or schedule.consolation_tree %}
-<div class="brackets">
-    {{ bracket(schedule.winners_tree, "Winners bracket", none, "playoff", current.year) }}
-    {{ bracket(schedule.consolation_tree, "Consolation", none, "consolation", current.year) }}
+{% if draft_hits or draft_misses %}
+<h2 id="draft">Draft</h2>
+<div class="notable-grid">
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Pick</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_hits %}
+                <tr>
+                    <td class="num">{{ row.overall }}</td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Pick</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_misses %}
+                <tr>
+                    <td class="num">{{ row.overall }}</td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
 </div>
 {% endif %}
 {% endblock %}
