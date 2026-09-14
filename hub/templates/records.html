@@ -10,6 +10,7 @@
     <a href="#low">Lowest weeks</a>
     <a href="#blowouts">Blowouts</a>
     <a href="#closest">Nail-biters</a>
+    <a href="#trades">Trades</a>
     <a href="#wins">Win streaks</a>
     <a href="#losses">Loss streaks</a>
     <a href="#current">Current streaks</a>
@@ -127,6 +128,36 @@
             </td>
             <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
             <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="trades">Most lopsided trades</h2>
+<p class="note">Rest-of-season starter VORP of what each side received. Fleece is a gap of 50+ with the other side under +15.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Trade</th>
+            <th>When</th>
+            <th class="num">Gap</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trades %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.rank }}</td>
+            <td>
+                <a href="/members/{{ row.won_id }}">{{ row.won_name }}</a>
+                {% if row.won_vorp is not none %}{{ "%+.1f"|format(row.won_vorp) }}{% endif %}
+                –
+                <a href="/members/{{ row.lost_id }}">{{ row.lost_name }}</a>
+                {% if row.lost_vorp is not none %}{{ "%+.1f"|format(row.lost_vorp) }}{% endif %}
+                <span class="team">{{ row.verdict.label }}</span>
+            </td>
+            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{% if row.gap is not none %}{{ "%.1f"|format(row.gap) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>

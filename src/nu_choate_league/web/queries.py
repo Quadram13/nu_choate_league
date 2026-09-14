@@ -29,6 +29,10 @@ KIND_LABELS = {
     "consolation": "Consolation",
 }
 
+TRADE_EVEN_GAP = 15
+TRADE_FLEECE_GAP = 50
+TRADE_FLEECE_LOSER = 15
+
 
 def connect() -> psycopg.Connection:
     return psycopg.connect(database_url(), row_factory=dict_row)
@@ -390,7 +394,7 @@ def _matchup_row(where: str, params: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _season_trades(year: int) -> list[dict[str, Any]]:
-    return fetchall(
+    rows = fetchall(
         """
         SELECT
             transaction_id, year, week, left_id, left_name, left_received, left_vorp,
@@ -402,6 +406,23 @@ def _season_trades(year: int) -> list[dict[str, Any]]:
         """,
         {"year": year},
     )
+    for row in rows:
+        row["verdict"] = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
+    return rows
+
+
+def _trade_verdict(left_vorp: Any, right_vorp: Any) -> dict[str, Any]:
+    left = float(left_vorp or 0)
+    right = float(right_vorp or 0)
+    gap = round(abs(left - right), 1)
+    loser = min(left, right)
+    if gap < TRADE_EVEN_GAP:
+        kind = "even"
+    elif gap >= TRADE_FLEECE_GAP and loser < TRADE_FLEECE_LOSER:
+        kind = "fleece"
+    else:
+        kind = "win"
+    return {"kind": kind, "label": kind, "gap": gap}
 
 
 def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
@@ -410,19 +431,22 @@ def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
     if idx is None:
         return None
     row = trades[idx]
-    assets = fetchall(
+    onward = _trade_onward(transaction_id)
+    asset_ids = [transaction_id, *{item["next_id"] for item in onward}]
+    all_assets = fetchall(
         """
         SELECT
-            player_id, player_name, position,
+            transaction_id, player_id, player_name, position,
             from_manager_id, from_manager_name,
             to_manager_id, to_manager_name,
             ros_starter, ros_starts, ros_vorp, tenure_starter, tenure_vorp
         FROM v_trade_assets
-        WHERE transaction_id = %(id)s
+        WHERE transaction_id = ANY(%(ids)s)
         ORDER BY ros_vorp DESC NULLS LAST, player_name
         """,
-        {"id": transaction_id},
+        {"ids": asset_ids},
     )
+    assets = [item for item in all_assets if item["transaction_id"] == transaction_id]
     teams = {
         item["manager_id"]: flavor_team(item["display_name"], item["team_name"])
         for item in fetchall(
@@ -483,6 +507,7 @@ def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
                         }
                     )
             player["weeks"] = cells
+    flips = _attach_trade_flips(left, right, onward, all_assets)
     left_v = float(left["vorp"] or 0)
     right_v = float(right["vorp"] or 0)
     return {
@@ -492,8 +517,10 @@ def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
         "left": left,
         "right": right,
         "winner_id": row["winner_id"],
+        "verdict": row["verdict"],
         "margin": round(left_v - right_v, 1),
         "board": _trade_board(left["players"], right["players"]),
+        "flips": flips,
         "weeks": week_nums,
         "prev": _trade_brief(trades[idx - 1]) if idx else None,
         "next": _trade_brief(trades[idx + 1]) if idx + 1 < len(trades) else None,
@@ -547,6 +574,100 @@ def _trade_brief(row: dict[str, Any]) -> dict[str, Any]:
         "week": row["week"],
         "label": f"{row['left_name']} vs {row['right_name']}",
     }
+
+
+def _trade_onward(transaction_id: str) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        WITH ranked AS (
+            SELECT
+                a.player_id,
+                a.to_manager_id AS holder_id,
+                a.to_manager_name AS holder_name,
+                n.transaction_id AS next_id,
+                n.year AS next_year,
+                n.week AS next_week,
+                n.to_manager_id AS next_to_id,
+                n.to_manager_name AS next_to_name,
+                row_number() OVER (
+                    PARTITION BY a.player_id
+                    ORDER BY n.year, n.week, coalesce(tn.at, 0), n.transaction_id
+                ) AS rn
+            FROM v_trades a
+            JOIN transactions ta ON ta.id = a.transaction_id
+            JOIN v_trades n
+                ON n.player_id = a.player_id
+                AND n.from_manager_id = a.to_manager_id
+                AND n.transaction_id <> a.transaction_id
+            JOIN transactions tn
+                ON tn.id = n.transaction_id AND tn.status = 'complete'
+            WHERE a.transaction_id = %(id)s
+                AND (n.year, n.week, coalesce(tn.at, 0), n.transaction_id)
+                    > (a.year, a.week, coalesce(ta.at, 0), a.transaction_id)
+        )
+        SELECT
+            player_id, holder_id, holder_name, next_id, next_year, next_week,
+            next_to_id, next_to_name
+        FROM ranked
+        WHERE rn = 1
+        """,
+        {"id": transaction_id},
+    )
+
+
+def _attach_trade_flips(
+    left: dict[str, Any],
+    right: dict[str, Any],
+    onward: list[dict[str, Any]],
+    all_assets: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    by_player = {item["player_id"]: item for item in onward}
+    by_trade: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in all_assets:
+        by_trade[item["transaction_id"]].append(item)
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for side in (left, right):
+        for player in side["players"]:
+            nxt = by_player.get(player["player_id"])
+            if nxt is None:
+                continue
+            extra = by_trade.get(nxt["next_id"], [])
+            got = [item for item in extra if item["to_manager_id"] == nxt["holder_id"]]
+            residual = next(
+                (item for item in extra if item["player_id"] == player["player_id"]),
+                None,
+            )
+            after = None if residual is None else residual.get("ros_vorp")
+            player["flip"] = {
+                "id": nxt["next_id"],
+                "year": nxt["next_year"],
+                "week": nxt["next_week"],
+                "after": after,
+            }
+            key = (nxt["next_id"], nxt["holder_id"])
+            packed = grouped.get(key)
+            if packed is None:
+                packed = {
+                    "id": nxt["next_id"],
+                    "year": nxt["next_year"],
+                    "week": nxt["next_week"],
+                    "holder_id": nxt["holder_id"],
+                    "holder_name": nxt["holder_name"],
+                    "opponent_id": nxt["next_to_id"],
+                    "opponent_name": nxt["next_to_name"],
+                    "sent": [],
+                    "got": got,
+                    "got_vorp": sum(float(item["ros_vorp"] or 0) for item in got),
+                }
+                grouped[key] = packed
+            packed["sent"].append(
+                {
+                    "player_id": player["player_id"],
+                    "player_name": player["player_name"],
+                    "after": after,
+                }
+            )
+    return list(grouped.values())
 
 
 def _season_wire(year: int) -> dict[str, list[dict[str, Any]]]:
@@ -1289,6 +1410,42 @@ def closest_games(limit: int = 10) -> list[dict[str, Any]]:
         """,
         {"limit": limit},
     )
+
+
+def lopsided_trades(limit: int = 10) -> list[dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id, year, week, winner_id,
+            left_id, left_name, left_vorp,
+            right_id, right_name, right_vorp, vorp_gap
+        FROM v_trade_grades
+        ORDER BY vorp_gap DESC, year, week, transaction_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    packed = []
+    for index, row in enumerate(rows, 1):
+        verdict = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
+        winner_first = row["winner_id"] == row["right_id"]
+        packed.append(
+            {
+                "rank": index,
+                "transaction_id": row["transaction_id"],
+                "year": row["year"],
+                "week": row["week"],
+                "verdict": verdict,
+                "gap": row["vorp_gap"],
+                "won_id": row["right_id"] if winner_first else row["left_id"],
+                "won_name": row["right_name"] if winner_first else row["left_name"],
+                "won_vorp": row["right_vorp"] if winner_first else row["left_vorp"],
+                "lost_id": row["left_id"] if winner_first else row["right_id"],
+                "lost_name": row["left_name"] if winner_first else row["right_name"],
+                "lost_vorp": row["left_vorp"] if winner_first else row["right_vorp"],
+            }
+        )
+    return packed
 
 
 def longest_streaks(result: str, limit: int = 10) -> list[dict[str, Any]]:

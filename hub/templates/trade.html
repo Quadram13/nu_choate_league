@@ -2,14 +2,21 @@
 {% macro person(id, name) %}
 {% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
 {% endmacro %}
-{% macro player_cell(row) %}
+{% macro player_cell(row, year) %}
 {% if row %}
     {% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
     <span class="team">{{ row.position or "" }}{% if row.from_manager_name %} · from {{ row.from_manager_name }}{% endif %}</span>
+    {% if row.flip %}
+    <span class="team">
+        flipped
+        <a href="/seasons/{{ row.flip.year }}/trades/{{ row.flip.id }}">{% if row.flip.year != year %}{{ row.flip.year }} {% endif %}W{{ row.flip.week }}</a>
+        {% if row.flip.after is not none %} · {{ "%+.1f"|format(row.flip.after) }} after{% endif %}
+    </span>
+    {% endif %}
 {% endif %}
 {% endmacro %}
-{% macro who(side, face, winner_id) %}
-<div class="who {{ face }}{% if winner_id and side.id == winner_id %} won{% elif winner_id %} lost{% endif %}">
+{% macro who(side, face, winner_id, kind) %}
+<div class="who {{ face }}{% if kind != 'even' and winner_id and side.id == winner_id %} won{% elif kind != 'even' and winner_id %} lost{% endif %}">
     {{ person(side.id, side.name) }}
     {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
 </div>
@@ -39,7 +46,7 @@
     {% endif %}
 </p>
 <h1>{{ trade.left.name }} vs {{ trade.right.name }}</h1>
-<p class="lede">{{ current.year }} week {{ trade.week }} · rest-of-season starter VORP on the new roster</p>
+<p class="lede">{{ current.year }} week {{ trade.week }} · {{ trade.verdict.label }} · {{ "%.1f"|format(trade.verdict.gap) }} ROS VORP gap</p>
 <p class="jump">
     {% for sib in trade.siblings %}
     <a href="/seasons/{{ current.year }}/trades/{{ sib.id }}"{% if sib.id == trade.id %} class="on"{% endif %}>W{{ sib.week }} {{ sib.label }}</a>
@@ -50,22 +57,25 @@
     <article class="gc-match">
         <div class="gc-board">
             <header class="gc-row score">
-                {{ who(trade.left, "home", trade.winner_id) }}
+                {{ who(trade.left, "home", trade.winner_id, trade.verdict.kind) }}
                 <span class="num">{% if trade.left.vorp is not none %}{{ "%+.1f"|format(trade.left.vorp) }}{% endif %}</span>
-                <div class="mid">{% if trade.margin is not none %}<span class="delta">{{ "%+.1f"|format(trade.margin) }}</span>{% endif %}</div>
+                <div class="mid">
+                    <span class="slot">{{ trade.verdict.label }}</span>
+                    {% if trade.margin is not none %}<span class="delta">{{ "%+.1f"|format(trade.margin) }}</span>{% endif %}
+                </div>
                 <span class="num">{% if trade.right.vorp is not none %}{{ "%+.1f"|format(trade.right.vorp) }}{% endif %}</span>
-                {{ who(trade.right, "away", trade.winner_id) }}
+                {{ who(trade.right, "away", trade.winner_id, trade.verdict.kind) }}
             </header>
             {% for row in trade.board %}
             <div class="gc-row">
-                <div class="home{% if row.winner == 'home' %} won{% elif row.winner == 'away' %} lost{% endif %}">{{ player_cell(row.home) }}</div>
+                <div class="home{% if row.winner == 'home' %} won{% elif row.winner == 'away' %} lost{% endif %}">{{ player_cell(row.home, trade.year) }}</div>
                 <span class="num">{% if row.home and row.home.ros_vorp is not none %}{{ "%+.1f"|format(row.home.ros_vorp) }}{% endif %}</span>
                 <div class="mid">
                     <span class="slot">vs</span>
                     {% if row.delta is not none %}<span class="delta">{{ "%+.1f"|format(row.delta) }}</span>{% endif %}
                 </div>
                 <span class="num">{% if row.away and row.away.ros_vorp is not none %}{{ "%+.1f"|format(row.away.ros_vorp) }}{% endif %}</span>
-                <div class="away{% if row.winner == 'away' %} won{% elif row.winner == 'home' %} lost{% endif %}">{{ player_cell(row.away) }}</div>
+                <div class="away{% if row.winner == 'away' %} won{% elif row.winner == 'home' %} lost{% endif %}">{{ player_cell(row.away, trade.year) }}</div>
             </div>
             {% endfor %}
         </div>
@@ -73,6 +83,54 @@
     </article>
     {{ side_panel(trade.right, "away") }}
 </div>
+
+{% if trade.flips %}
+<h2>Flips</h2>
+<p class="note">Same manager later traded a player from this deal. The score above still stops at that flip. After is what they then did for the next owner.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th>Sent</th>
+            <th>Next</th>
+            <th>Got back</th>
+            <th class="num">After</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trade.flips %}
+        <tr>
+            <td>{{ person(row.holder_id, row.holder_name) }}</td>
+            <td>
+                {% for player in row.sent %}
+                {% if not loop.first %}, {% endif %}
+                {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+                {% endfor %}
+            </td>
+            <td>
+                <a href="/seasons/{{ row.year }}/trades/{{ row.id }}">{% if row.year != trade.year %}{{ row.year }} {% endif %}W{{ row.week }}</a>
+                vs {{ person(row.opponent_id, row.opponent_name) }}
+            </td>
+            <td>
+                {% for player in row.got %}
+                {% if not loop.first %}, {% endif %}
+                {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+                {% if player.ros_vorp is not none %} {{ "%+.1f"|format(player.ros_vorp) }}{% endif %}
+                {% endfor %}
+                {% if not row.got %}—{% endif %}
+            </td>
+            <td class="num">
+                {% for player in row.sent %}
+                {% if player.after is not none %}
+                <span class="{% if player.after > 0 %}plus{% elif player.after < 0 %}minus{% endif %}">{{ "%+.1f"|format(player.after) }}</span>{% if not loop.last %} {% endif %}
+                {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 
 {% if trade.weeks %}
 <h2>Starter weeks after the trade</h2>

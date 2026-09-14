@@ -259,8 +259,50 @@ def _transactions(
             parsed = _espn_transaction(season, week, raw, owner_by_team, players, player_info, trades_seen)
             if parsed is not None:
                 rows.append(parsed)
+    # Weekly mTransactions2 only includes player lists on the cookie owner's
+    # executed trades. Everyone else's completed deals are on player cards.
+    for raw in _espn_player_card_trades(folder, trades_seen):
+        week = int(raw.get("scoringPeriodId") or 0)
+        if not week:
+            continue
+        parsed = _espn_transaction(season, week, raw, owner_by_team, players, player_info, trades_seen)
+        if parsed is not None:
+            rows.append(parsed)
     rows.sort(key=lambda txn: (txn.week, txn.at or 0, txn.id))
     return rows
+
+
+def _espn_player_card_trades(folder, trades_seen: set[str]) -> list[dict[str, Any]]:
+    cards = folder / "player_cards"
+    if not cards.is_dir():
+        return []
+    best: dict[str, dict[str, Any]] = {}
+    for path in sorted(cards.glob("*.json")):
+        payload = load_json(path)
+        for entry in payload.get("players") or []:
+            if not isinstance(entry, dict):
+                continue
+            for raw in entry.get("transactions") or []:
+                if not isinstance(raw, dict):
+                    continue
+                if raw.get("type") != "TRADE_ACCEPT" or raw.get("status") != "EXECUTED":
+                    continue
+                items = [item for item in (raw.get("items") or []) if item.get("type") == "TRADE"]
+                if not items:
+                    continue
+                related = str(raw.get("relatedTransactionId") or raw.get("id") or "")
+                txn_id = str(raw.get("id") or "")
+                if not related or related in trades_seen or txn_id in trades_seen:
+                    continue
+                current = best.get(related)
+                current_n = (
+                    len([item for item in (current.get("items") or []) if item.get("type") == "TRADE"])
+                    if current
+                    else -1
+                )
+                if current is None or len(items) > current_n:
+                    best[related] = raw
+    return list(best.values())
 
 
 def _espn_transaction(
@@ -284,9 +326,19 @@ def _espn_transaction(
         if status_raw != "EXECUTED":
             return None
         related = str(raw.get("relatedTransactionId") or raw.get("id"))
-        if related in trades_seen:
+        txn_id = str(raw.get("id") or related)
+        if related in trades_seen or txn_id in trades_seen:
+            return None
+        team_ids: set[int] = set()
+        for item in items:
+            for key in ("fromTeamId", "toTeamId"):
+                team_id = int(item.get(key) or 0)
+                if team_id:
+                    team_ids.add(team_id)
+        if len(team_ids) != 2 or not team_ids.issubset(owner_by_team):
             return None
         trades_seen.add(related)
+        trades_seen.add(txn_id)
         adds, drops = _espn_trade_moves(items, owner_by_team, players, player_info)
         if not adds and not drops:
             return None

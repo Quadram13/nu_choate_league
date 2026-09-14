@@ -209,7 +209,7 @@
 
 {% if trades %}
 <h2 id="trades">Trades</h2>
-<p class="note">Graded by rest-of-season VORP of what each side received.</p>
+<p class="note">Graded by rest-of-season VORP of what each side received. Even is a gap under 15. Fleece is 50+ with the other side under +15.</p>
 <table>
     <thead>
         <tr>
@@ -222,13 +222,16 @@
     <tbody>
         {% for row in trades %}
         <tr>
-            <td class="num" rowspan="2"><a href="/seasons/{{ current.year }}/trades/{{ row.transaction_id }}">{{ row.week }}</a></td>
-            <td>{{ person(row.left_id, row.left_name) }}{% if row.winner_id == row.left_id %} <span class="plus">won</span>{% endif %}</td>
+            <td class="num" rowspan="2">
+                <a href="/seasons/{{ current.year }}/trades/{{ row.transaction_id }}">{{ row.week }}</a>
+                <span class="team">{{ row.verdict.label }} · {{ "%.0f"|format(row.verdict.gap) }}</span>
+            </td>
+            <td>{{ person(row.left_id, row.left_name) }}{% if row.verdict.kind != 'even' and row.winner_id == row.left_id %} <span class="plus">{{ row.verdict.label }}</span>{% endif %}</td>
             <td>{{ row.left_received or "—" }}</td>
             <td class="num{% if row.winner_id == row.left_id %} plus{% elif row.winner_id == row.right_id %} minus{% endif %}">{% if row.left_vorp is not none %}{{ "%+.1f"|format(row.left_vorp) }}{% endif %}</td>
         </tr>
         <tr>
-            <td>{{ person(row.right_id, row.right_name) }}{% if row.winner_id == row.right_id %} <span class="plus">won</span>{% endif %}</td>
+            <td>{{ person(row.right_id, row.right_name) }}{% if row.verdict.kind != 'even' and row.winner_id == row.right_id %} <span class="plus">{{ row.verdict.label }}</span>{% endif %}</td>
             <td>{{ row.right_received or "—" }}</td>
             <td class="num{% if row.winner_id == row.right_id %} plus{% elif row.winner_id == row.left_id %} minus{% endif %}">{% if row.right_vorp is not none %}{{ "%+.1f"|format(row.right_vorp) }}{% endif %}</td>
         </tr>

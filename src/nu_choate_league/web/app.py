@@ -179,6 +179,7 @@ def records(request: Request) -> HTMLResponse:
         low_weeks=queries.low_weeks(),
         blowouts=queries.blowouts(),
         closest=queries.closest_games(),
+        trades=queries.lopsided_trades(),
         win_streaks=queries.longest_streaks("win"),
         loss_streaks=queries.longest_streaks("loss"),
         current_streaks=queries.current_streaks(),
