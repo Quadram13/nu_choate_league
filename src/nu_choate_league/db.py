@@ -49,7 +49,13 @@ def apply_schema(conn: psycopg.Connection, *, refresh: bool = True) -> None:
 
 
 def refresh_analysis(conn: psycopg.Connection) -> None:
-    conn.execute("REFRESH MATERIALIZED VIEW v_asset_value")
+    for name in (
+        "v_asset_value",
+        "v_optimal_slots",
+        "v_universe_outcomes",
+        "v_waiver_claims",
+    ):
+        conn.execute(f"REFRESH MATERIALIZED VIEW {name}")
 
 
 def _statements(sql: str) -> list[str]:

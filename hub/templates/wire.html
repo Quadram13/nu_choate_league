@@ -23,10 +23,16 @@
     {% if claim.type == "free_agent" %}<span class="team">FA</span>{% endif %}
 </p>
 <p class="note">
-    {% if claim.league_vorp is not none %}{{ "%+.1f"|format(claim.league_vorp) }} ROS VORP{% endif %}
+    {% if claim.status == "complete" and claim.ros_vorp is not none %}
+    {{ "%+.1f"|format(claim.ros_vorp) }} VORP
+    {% if claim.ros_starter is not none %} · {{ "%.1f"|format(claim.ros_starter) }} starter PF{% endif %}
+    {% if claim.ros_starts %} · {{ claim.ros_starts }} start{% if claim.ros_starts != 1 %}s{% endif %}{% endif %}
+    {% elif claim.league_vorp is not none %}
+    {{ "%+.1f"|format(claim.league_vorp) }} ROS VORP
     {% if claim.league_ros is not none %} · {{ "%.1f"|format(claim.league_ros) }} starter PF{% endif %}
     {% if claim.league_starts %} · {{ claim.league_starts }} start{% if claim.league_starts != 1 %}s{% endif %}{% endif %}
-    {% if claim.tenure_vorp is not none and claim.status == "complete" %} · {{ "%+.1f"|format(claim.tenure_vorp) }} while rostered{% endif %}
+    {% endif %}
+    {% if claim.tenure_vorp is not none and claim.status == "complete" and (claim.ros_vorp is none or claim.tenure_vorp != claim.ros_vorp) %} · {{ "%+.1f"|format(claim.tenure_vorp) }} while rostered{% endif %}
     {% if claim.drops %} · dropped {{ drops(claim.drops) }}{% endif %}
     {% if claim.note and claim.status != "complete" %} · {{ claim.note }}{% endif %}
 </p>

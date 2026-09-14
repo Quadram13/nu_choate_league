@@ -39,6 +39,10 @@ body {
     max-width: 1440px;
 }
 
+.wrap:has(.draft-board) {
+    max-width: 1680px;
+}
+
 .sr-only {
     position: absolute;
     width: 1px;
@@ -1336,4 +1340,74 @@ tr.this td {
 .score-chart .tick {
     fill: #9ca3af;
     font-size: 10px;
+}
+
+.draft-board-wrap {
+    overflow-x: auto;
+    margin: 12px 0 20px;
+}
+
+.draft-board {
+    width: 100%;
+    min-width: 72rem;
+    table-layout: fixed;
+    font-size: 0.75rem;
+}
+
+.draft-board th,
+.draft-board td {
+    vertical-align: top;
+    padding: 6px 6px;
+}
+
+.draft-board thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #0f1419;
+}
+
+.draft-board .draft-round {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    width: 2.2rem;
+    min-width: 2.2rem;
+    padding: 6px 4px;
+    color: #9ca3af;
+    font-weight: 500;
+    background: #0f1419;
+}
+
+.draft-board thead th.draft-round {
+    z-index: 3;
+}
+
+.draft-cell {
+    background: color-mix(in srgb, var(--tone, transparent) calc(var(--heat, 0) * 42%), transparent);
+    scroll-margin-top: 3rem;
+}
+
+.draft-cell.empty {
+    background: transparent;
+}
+
+.draft-cell:target {
+    outline: 1px solid #93c5fd;
+    outline-offset: -1px;
+}
+
+.draft-ovr {
+    display: block;
+    color: #9ca3af;
+    font-size: 0.7rem;
+}
+
+.draft-name {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.draft-cell .team {
+    margin-top: 1px;
 }

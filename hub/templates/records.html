@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
 {% block body %}
 <h1>Record book</h1>
 <p class="lede">
@@ -12,11 +16,13 @@
     <a href="#blowouts">Blowouts</a>
     <a href="#closest">Nail-biters</a>
     <a href="#trades">Trades</a>
+    <a href="#draft">Draft</a>
+    <a href="#wire">Wire</a>
+    <a href="#lineups">Bench</a>
     <a href="#wins">Win streaks</a>
     <a href="#losses">Loss streaks</a>
     <a href="#current">Current streaks</a>
 </p>
-<p class="jump js-year-filter" hidden></p>
 
 <h2 id="high">Highest weeks</h2>
 <table>
@@ -140,6 +146,201 @@
     {% for row in trades %}
     {{ trade_card(row, show_year=True) }}
     {% endfor %}
+</div>
+
+<h2 id="draft">Draft</h2>
+<p class="note">Starter VORP on the drafter's roster until someone else adds the player, versus that round's drafted average. <a href="/seasons">Season boards</a></p>
+<div class="notable-grid">
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_hits %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/draft#p{{ row.overall }}">{{ row.year }} R{{ row.round }}</a></td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_misses %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/draft#p{{ row.overall }}">{{ row.year }} R{{ row.round }}</a></td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% if drafts %}
+<h3>Best drafts</h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Year</th>
+            <th>Manager</th>
+            <th class="num">vsRnd</th>
+            <th class="num">Hits</th>
+            <th class="num">VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in drafts %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}#draft">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+            <td class="num">{{ row.hits }} / {{ row.picks }}</td>
+            <td class="num">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<h2 id="wire">Wire</h2>
+<p class="note">Adds are starter VORP on that roster after the claim, until someone else gets the player. Misses are league ROS VORP of the failed claim vs what you actually got.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Best adds</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_adds %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                        <span class="team">{{ row.kind }}</span>
+                    </td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Costliest misses</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th>Missed</th>
+                    <th>Got</th>
+                    <th class="num">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_misses %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }} <span class="team">{{ row.flag }}</span></td>
+                    <td>{% if row.missed_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}</td>
+                    <td>{% if row.won_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
+                    <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<h2 id="lineups">Bench</h2>
+<p class="note">Regular season. Points left on the bench vs that week's optimal lineup. <a href="/seasons">Season heatmaps</a></p>
+<div class="notable-grid">
+    <section>
+        <h3>Worst weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th class="num">Left</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bench_weeks %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst seasons</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Year</th>
+                    <th>Manager</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bench_seasons %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="num"><a href="/seasons/{{ row.year }}#lineups">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
 </div>
 
 <h2 id="wins">Longest win streaks</h2>

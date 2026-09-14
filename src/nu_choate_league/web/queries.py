@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -45,21 +46,53 @@ TRADE_LABELS = {
 }
 
 
+RECORDS_TOP = 10
+_request_conn: ContextVar[psycopg.Connection | None] = ContextVar("hub_conn", default=None)
+
+_SCORED_REGULAR = """
+EXISTS (
+    SELECT 1
+    FROM matchups m
+    WHERE m.year = w.year AND m.week = w.week
+        AND m.kind = 'regular'
+        AND (m.home_points <> 0 OR m.away_points <> 0)
+)
+"""
+
+
 def connect() -> psycopg.Connection:
-    return psycopg.connect(database_url(), row_factory=dict_row)
-
-
-def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     try:
-        with connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                return list(cur.fetchall())
+        return psycopg.connect(
+            database_url(),
+            row_factory=dict_row,
+            autocommit=True,
+        )
     except psycopg.OperationalError as exc:
         raise HTTPException(
             status_code=503,
             detail="Cannot reach Postgres. Start Docker Desktop, then `docker compose up -d`.",
         ) from exc
+
+
+def bind_connection(conn: psycopg.Connection) -> Token:
+    return _request_conn.set(conn)
+
+
+def unbind_connection(token: Token) -> None:
+    _request_conn.reset(token)
+
+
+def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    conn = _request_conn.get()
+    try:
+        if conn is not None:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return list(cur.fetchall())
+        with connect() as owned:
+            with owned.cursor() as cur:
+                cur.execute(sql, params)
+                return list(cur.fetchall())
     except psycopg.errors.UndefinedTable as exc:
         raise HTTPException(
             status_code=503,
@@ -317,8 +350,7 @@ def season_page(year: int) -> dict[str, Any] | None:
         "notables": _season_notables(year),
         "trades": _season_trades(year),
         "wire": _season_wire(year),
-        "draft_hits": draft[0],
-        "draft_misses": draft[1],
+        "draft": draft,
         "lineups": lineups,
         "scoring": _season_scoring(year),
     }
@@ -415,7 +447,7 @@ def _season_scoring(year: int) -> dict[str, Any] | None:
 
 
 def _season_universes(year: int) -> dict[str, Any] | None:
-    packed = next((row for row in universe_titles() if row["year"] == year), None)
+    packed = next(iter(universe_titles(year)), None)
     if packed is None:
         return None
     if not packed.get("official_champ") and not packed.get("h2h_champ") and not packed.get("median_champ"):
@@ -424,14 +456,67 @@ def _season_universes(year: int) -> dict[str, Any] | None:
 
 
 def _season_notables(year: int) -> dict[str, Any]:
+    high = _season_extreme_week(year, high=True)
+    low = _season_extreme_week(year, high=False)
+    blowout = _season_margin_game(year, closest=False)
+    closest = _season_margin_game(year, closest=True)
     return {
-        "high": _season_extreme_week(year, high=True),
-        "low": _season_extreme_week(year, high=False),
-        "blowout": _season_margin_game(year, closest=False),
-        "closest": _season_margin_game(year, closest=True),
+        "high": high,
+        "low": low,
+        "blowout": blowout,
+        "closest": closest,
         "lucky": _season_luck_flag(year, lucky=True),
         "unlucky": _season_luck_flag(year, lucky=False),
     }
+
+
+def _stamp_if_top(
+    notable: dict[str, Any] | None,
+    rank: Any,
+    href: str,
+    kind: str,
+) -> None:
+    if notable is None or rank is None:
+        return
+    rank = int(rank)
+    if rank < 1 or rank > RECORDS_TOP:
+        return
+    notable["alltime_rank"] = rank
+    notable["alltime_label"] = f"{_ordinal(rank)}-{kind}"
+    notable["records_href"] = href
+
+
+def _week_alltime_rank(
+    *,
+    high: bool,
+    year: int,
+    week: int,
+    manager_id: str,
+    points: Any,
+) -> int | None:
+    cmp = ">" if high else "<"
+    row = fetchone(
+        f"""
+        SELECT count(*) + 1 AS rank
+        FROM v_record_weeks w
+        WHERE {_SCORED_REGULAR}
+            AND (
+                w.points {cmp} %(points)s
+                OR (
+                    w.points = %(points)s
+                    AND (w.year, w.week, w.manager_id)
+                        < (%(year)s, %(week)s, %(manager_id)s)
+                )
+            )
+        """,
+        {
+            "points": points,
+            "year": year,
+            "week": week,
+            "manager_id": manager_id,
+        },
+    )
+    return int(row["rank"]) if row else None
 
 
 def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
@@ -441,13 +526,7 @@ def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
         FROM v_record_weeks w
         WHERE w.year = %(year)s
             AND w.paired
-            AND EXISTS (
-                SELECT 1
-                FROM matchups m
-                WHERE m.year = w.year AND m.week = w.week
-                    AND m.kind = 'regular'
-                    AND (m.home_points <> 0 OR m.away_points <> 0)
-            )
+            AND {_SCORED_REGULAR}
         ORDER BY w.points {"DESC" if high else "ASC"}, w.week, w.manager_id
         LIMIT 1
         """,
@@ -460,14 +539,29 @@ def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
         return None
     packed = _score_game(game)
     packed["label"] = "Highest week" if high else "Lowest week"
+    packed["year"] = year
     packed["week"] = int(row["week"])
+    packed["scorer_id"] = row["manager_id"]
+    _stamp_if_top(
+        packed,
+        _week_alltime_rank(
+            high=high,
+            year=int(row["year"]),
+            week=int(row["week"]),
+            manager_id=row["manager_id"],
+            points=row["points"],
+        ),
+        "/records#high" if high else "/records#low",
+        "highest" if high else "lowest",
+    )
     return packed
 
 
 def _season_margin_game(year: int, *, closest: bool) -> dict[str, Any] | None:
+    rank_col = "closest_rank" if closest else "blowout_rank"
     row = fetchone(
         f"""
-        SELECT matchup_id, year, week, manager_id, opponent_id
+        SELECT matchup_id, year, week, {rank_col} AS alltime_rank
         FROM v_record_matchups
         WHERE year = %(year)s
         ORDER BY abs_margin {"ASC" if closest else "DESC"}, week, matchup_id
@@ -482,7 +576,14 @@ def _season_margin_game(year: int, *, closest: bool) -> dict[str, Any] | None:
         return None
     packed = _score_game(game)
     packed["label"] = "Closest" if closest else "Blowout"
+    packed["year"] = year
     packed["week"] = int(row["week"])
+    _stamp_if_top(
+        packed,
+        row["alltime_rank"],
+        "/records#closest" if closest else "/records#blowouts",
+        "closest" if closest else "biggest",
+    )
     return packed
 
 
@@ -912,74 +1013,39 @@ def _season_wire(year: int) -> dict[str, Any]:
     return {"adds": adds, "misses": misses, "dodges": dodges, "managers": managers}
 
 
-def _season_wire_adds(year: int) -> list[dict[str, Any]]:
+def _wire_add_highlights(
+    *,
+    year: int | None = None,
+    manager_id: str | None = None,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
     rows = fetchall(
         """
-        WITH pool AS (
-            SELECT week, player_id, position, points, started
-            FROM player_week_scores
-            WHERE year = %(year)s
-        ),
-        starters AS (
-            SELECT week, position, count(*) AS n_starters
-            FROM pool
-            WHERE started AND position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
-            GROUP BY week, position
-        ),
-        ranked AS (
-            SELECT week, position, points,
-                row_number() OVER (
-                    PARTITION BY week, position
-                    ORDER BY points DESC, player_id
-                ) AS rnk
-            FROM pool
-            WHERE position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
-        ),
-        repl AS (
-            SELECT s.week, s.position, r.points AS replacement
-            FROM starters s
-            JOIN ranked r
-                ON r.week = s.week AND r.position = s.position
-                AND r.rnk = greatest(s.n_starters, 1)
-        )
         SELECT
-            mv.transaction_id, mv.week, mv.type, mv.manager_id, mv.manager_name,
-            mv.player_id, mv.player_name, mv.position, mv.bid, mv.priority,
-            coalesce(sum(pw.points) FILTER (WHERE pw.started), 0) AS league_ros,
-            coalesce(sum(pw.points - r.replacement) FILTER (
-                WHERE pw.started AND r.replacement IS NOT NULL
-            ), 0) AS league_vorp
-        FROM v_moves mv
-        LEFT JOIN pool pw
-            ON pw.player_id = mv.player_id AND pw.week >= mv.week
-        LEFT JOIN repl r
-            ON r.week = pw.week AND r.position = pw.position
-        WHERE mv.year = %(year)s
-            AND mv.type IN ('waiver', 'free_agent')
+            v.year, v.week, v.type, v.transaction_id, v.manager_id, v.manager_name,
+            v.player_id, v.player_name, v.position, v.ros_vorp,
+            mv.bid, mv.priority
+        FROM v_add_value v
+        LEFT JOIN v_moves mv
+            ON mv.transaction_id = v.transaction_id
+            AND mv.player_id = v.player_id
+            AND mv.manager_id = v.manager_id
             AND mv.direction = 'add'
-            AND mv.status = 'complete'
-        GROUP BY
-            mv.transaction_id, mv.week, mv.type, mv.manager_id, mv.manager_name,
-            mv.player_id, mv.player_name, mv.position, mv.bid, mv.priority
-        ORDER BY league_vorp DESC, week, player_name
-        LIMIT 20
+        WHERE (%(year)s::integer IS NULL OR v.year = %(year)s)
+            AND (%(manager_id)s::text IS NULL OR v.manager_id = %(manager_id)s)
+        ORDER BY v.ros_vorp DESC NULLS LAST, v.year, v.week, v.player_name
+        LIMIT %(limit)s
         """,
-        {"year": year},
+        {"year": year, "manager_id": manager_id, "limit": limit},
     )
-    seen: set[str] = set()
-    packed: list[dict[str, Any]] = []
     for row in rows:
-        player_id = row["player_id"]
-        if player_id in seen:
-            continue
-        seen.add(player_id)
-        row["year"] = year
         row["kind"] = "wav" if row["type"] == "waiver" else "FA"
         row["bid_label"] = _wire_bid(row)
-        packed.append(row)
-        if len(packed) == 5:
-            break
-    return packed
+    return rows
+
+
+def _season_wire_adds(year: int) -> list[dict[str, Any]]:
+    return _wire_add_highlights(year=year, limit=5)
 
 
 def _claim_outcome(row: dict[str, Any]) -> dict[str, str]:
@@ -1281,19 +1347,49 @@ def _wire_nav(year: int, transaction_id: str) -> dict[str, Any]:
     }
 
 
-def _season_draft(year: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    # Season VORP vs that round's drafted average — v_draft_grades is too slow here.
+def draft_page(year: int) -> dict[str, Any] | None:
+    picks = fetchall(
+        """
+        SELECT
+            g.year, g.round, g.overall, g.manager_id, g.manager_name,
+            t.team_name, g.player_id, g.player_name, g.position, g.keeper,
+            g.ros_starter, g.ros_starts, g.ros_vorp, g.vs_vorp, g.round_vorp,
+            g.adp, g.times_drafted, g.pick_vs_adp, g.hit
+        FROM v_draft_grades g
+        JOIN team_seasons t ON t.year = g.year AND t.manager_id = g.manager_id
+        WHERE g.year = %(year)s
+        ORDER BY g.overall
+        """,
+        {"year": year},
+    )
+    if not picks:
+        return None
+    years = [int(row["year"]) for row in fetchall("SELECT DISTINCT year FROM v_draft ORDER BY year")]
+    index = years.index(year) if year in years else -1
+    scale = max(
+        50.0,
+        max((abs(float(row["vs_vorp"] or 0)) for row in picks), default=0.0),
+    )
+    for row in picks:
+        _annotate_draft_pick(row, scale)
+    return {
+        "board": _draft_snake(picks),
+        "years": years,
+        "prev_year": years[index - 1] if index > 0 else None,
+        "next_year": years[index + 1] if 0 <= index < len(years) - 1 else None,
+        "has_keepers": any(row.get("keeper") for row in picks),
+    }
+
+
+def _season_draft(year: int) -> dict[str, Any]:
     rows = fetchall(
         """
         SELECT
-            d.year, d.round, d.overall, d.manager_id, d.manager_name,
-            d.player_id, d.player_name, d.position,
-            p.vorp AS ros_vorp,
-            p.vorp - avg(p.vorp) OVER (PARTITION BY d.round) AS vs_vorp
-        FROM v_draft d
-        LEFT JOIN v_vorp_season p
-            ON p.year = d.year AND p.player_id = d.player_id
-        WHERE d.year = %(year)s
+            year, round, overall, manager_id, manager_name,
+            player_id, player_name, position, keeper,
+            ros_vorp, vs_vorp, ros_starts, hit
+        FROM v_draft_grades
+        WHERE year = %(year)s
         ORDER BY vs_vorp DESC NULLS LAST, overall
         """,
         {"year": year},
@@ -1302,7 +1398,110 @@ def _season_draft(year: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]
     hits = ranked[:5]
     rest = ranked[5:]
     misses = list(reversed(rest[-5:])) if rest else []
-    return hits, misses
+    managers = fetchall(
+        """
+        SELECT
+            m.manager_id,
+            m.manager_name,
+            t.team_name,
+            m.picks,
+            m.keepers,
+            m.ros_starter,
+            m.ros_vorp,
+            m.vs_vorp,
+            m.hits,
+            m.best_vorp,
+            b.player_id AS best_player_id,
+            b.player_name AS best_player,
+            b.overall AS best_overall
+        FROM v_draft_manager m
+        JOIN team_seasons t ON t.year = m.year AND t.manager_id = m.manager_id
+        LEFT JOIN LATERAL (
+            SELECT player_id, player_name, overall
+            FROM v_draft_grades g
+            WHERE g.year = m.year
+                AND g.manager_id = m.manager_id
+            ORDER BY ros_vorp DESC NULLS LAST, overall
+            LIMIT 1
+        ) b ON true
+        WHERE m.year = %(year)s
+        ORDER BY m.vs_vorp DESC NULLS LAST, m.manager_name
+        """,
+        {"year": year},
+    )
+    return {
+        "managers": managers,
+        "hits": hits,
+        "misses": misses,
+        "has_keepers": any(int(row.get("keepers") or 0) for row in managers),
+    }
+
+
+def _annotate_draft_pick(row: dict[str, Any], scale: float) -> None:
+    vs = float(row["vs_vorp"] or 0) if row.get("vs_vorp") is not None else None
+    if vs is None or scale <= 0:
+        row["heat"] = 0.0
+        row["tone"] = "transparent"
+    else:
+        row["heat"] = min(1.0, abs(vs) / scale)
+        row["tone"] = "#14532d" if vs >= 0 else "#9f1239"
+    parts: list[str] = []
+    starts = int(row["ros_starts"] or 0)
+    parts.append(f"{starts} start" + ("s" if starts != 1 else ""))
+    if row.get("ros_vorp") is not None:
+        parts.append(f"{float(row['ros_vorp']):+.1f} VORP")
+    if row.get("ros_starter") is not None:
+        parts.append(f"{float(row['ros_starter']):.1f} PF")
+    if row.get("vs_vorp") is not None:
+        parts.append(f"{float(row['vs_vorp']):+.1f} vs round")
+    if row.get("hit"):
+        parts.append("hit")
+    times = int(row.get("times_drafted") or 0)
+    adp = row.get("adp")
+    delta = row.get("pick_vs_adp")
+    if adp is not None and delta is not None and times >= 2:
+        delta_f = float(delta)
+        when = "later" if delta_f > 0 else "earlier"
+        parts.append(f"ADP {float(adp):.1f} {when} {abs(delta_f):.1f}")
+    if row.get("keeper"):
+        parts.append("keeper")
+    row["tooltip"] = " · ".join(parts)
+
+
+def _draft_snake(picks: list[dict[str, Any]]) -> dict[str, Any]:
+    round1 = sorted(
+        (row for row in picks if int(row["round"]) == 1),
+        key=lambda row: int(row["overall"]),
+    )
+    columns = [
+        {
+            "manager_id": row["manager_id"],
+            "manager_name": row["manager_name"],
+            "team_name": row.get("team_name"),
+        }
+        for row in round1
+    ]
+    index = {col["manager_id"]: i for i, col in enumerate(columns)}
+    n = len(columns)
+    extras: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    max_round = max((int(row["round"]) for row in picks), default=0)
+    by_round: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in picks:
+        by_round[int(row["round"])].append(row)
+    for rnd in range(1, max_round + 1):
+        slots: list[dict[str, Any] | None] = [None] * n
+        round_vorp = None
+        for row in by_round.get(rnd, []):
+            if round_vorp is None and row.get("round_vorp") is not None:
+                round_vorp = float(row["round_vorp"])
+            i = index.get(row["manager_id"])
+            if i is None or slots[i] is not None:
+                extras.append(row)
+                continue
+            slots[i] = row
+        rows.append({"round": rnd, "slots": slots, "round_vorp": round_vorp})
+    return {"columns": columns, "rows": rows, "extras": extras}
 
 
 def _season_lineups(year: int) -> dict[str, Any]:
@@ -1869,11 +2068,19 @@ def scored_weeks(year: int) -> list[int]:
 def career() -> list[dict[str, Any]]:
     return fetchall(
         """
-        SELECT manager_id, display_name, seasons, wins, losses, ties, points_for,
-               win_pct, titles, runner_up, regular_season_titles,
-               most_points_titles, playoff_appearances
-        FROM v_career
-        ORDER BY titles DESC, win_pct DESC NULLS LAST, points_for DESC, manager_id
+        SELECT
+            c.manager_id, c.display_name, c.seasons, c.wins, c.losses, c.ties,
+            c.points_for, c.win_pct, c.titles, c.runner_up,
+            c.regular_season_titles, c.most_points_titles, c.playoff_appearances,
+            s.result AS streak_result, s.length AS streak_length
+        FROM v_career c
+        LEFT JOIN LATERAL (
+            SELECT result, length
+            FROM v_streaks
+            WHERE manager_id = c.manager_id AND is_current
+            LIMIT 1
+        ) s ON true
+        ORDER BY c.titles DESC, c.win_pct DESC NULLS LAST, c.points_for DESC, c.manager_id
         """
     )
 
@@ -1891,16 +2098,68 @@ def career_one(manager_id: str) -> dict[str, Any] | None:
     )
 
 
-def finishes(manager_id: str) -> list[dict[str, Any]]:
-    return fetchall(
+def member_page(manager_id: str) -> dict[str, Any] | None:
+    person = career_one(manager_id)
+    if person is None:
+        return None
+    person["streak"] = fetchone(
         """
-        SELECT year, rank, team_name, wins, losses, ties, points_for, win_pct
-        FROM v_standings_official
-        WHERE manager_id = %(manager_id)s
-        ORDER BY year
+        SELECT result, length, start_year, start_week, end_year, end_week
+        FROM v_streaks
+        WHERE manager_id = %(manager_id)s AND is_current
+        LIMIT 1
         """,
         {"manager_id": manager_id},
     )
+    h2h = h2h_for(manager_id)
+    person["playoff"] = _member_playoff_record(h2h)
+    person["rival"], person["favorite"] = _member_h2h_poles(h2h)
+    return {
+        "member": person,
+        "finishes": _member_finishes(manager_id),
+        "h2h": h2h,
+        "draft": _member_draft(manager_id),
+        "wire": _member_wire(manager_id),
+        "trades": _member_trades(manager_id),
+        "lineups": _member_lineups(manager_id),
+        "luck": fetchone(
+            """
+            SELECT
+                lucky_wins, unlucky_losses, net_luck,
+                underdog_wins, favorite_losses, expected_wins, wins_vs_expected
+            FROM v_luck_career
+            WHERE manager_id = %(manager_id)s
+            """,
+            {"manager_id": manager_id},
+        ),
+        "highs": _member_highs(manager_id),
+    }
+
+
+def _member_finishes(manager_id: str) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            s.year, s.rank, s.team_name, s.wins, s.losses, s.ties,
+            s.points_for, s.win_pct,
+            (o.champion = s.manager_id) AS champion,
+            (o.runner_up = s.manager_id) AS runner_up,
+            (o.regular_season_champion = s.manager_id) AS rs_champ,
+            (o.most_points = s.manager_id) AS most_points,
+            (p.manager_id IS NOT NULL) AS playoff
+        FROM v_standings_official s
+        LEFT JOIN season_outcomes o ON o.year = s.year
+        LEFT JOIN season_playoff_managers p
+            ON p.year = s.year AND p.manager_id = s.manager_id
+        WHERE s.manager_id = %(manager_id)s
+        ORDER BY s.year
+        """,
+        {"manager_id": manager_id},
+    )
+
+
+def finishes(manager_id: str) -> list[dict[str, Any]]:
+    return _member_finishes(manager_id)
 
 
 def h2h_for(manager_id: str) -> list[dict[str, Any]]:
@@ -1908,10 +2167,11 @@ def h2h_for(manager_id: str) -> list[dict[str, Any]]:
         """
         SELECT
             left_id, left_name, right_id, right_name,
-            regular_wins, regular_losses, regular_ties,
+            regular_games, regular_wins, regular_losses, regular_ties,
             regular_points_for, regular_points_against,
             playoff_wins, playoff_losses, playoff_ties, playoff_games,
-            playoff_points_for, playoff_points_against
+            playoff_points_for, playoff_points_against,
+            regular_avg_margin, regular_biggest_blowout, regular_closest
         FROM v_h2h
         WHERE left_id = %(manager_id)s OR right_id = %(manager_id)s
         ORDER BY regular_games + playoff_games DESC, left_id, right_id
@@ -1920,57 +2180,345 @@ def h2h_for(manager_id: str) -> list[dict[str, Any]]:
     )
     oriented: list[dict[str, Any]] = []
     for row in rows:
-        if row["right_id"] == manager_id:
-            oriented.append(
-                {
-                    "opponent_id": row["left_id"],
-                    "opponent": row["left_name"],
-                    "regular_wins": row["regular_losses"],
-                    "regular_losses": row["regular_wins"],
-                    "regular_ties": row["regular_ties"],
-                    "regular_points_for": row["regular_points_against"],
-                    "regular_points_against": row["regular_points_for"],
-                    "playoff_wins": row["playoff_losses"],
-                    "playoff_losses": row["playoff_wins"],
-                    "playoff_ties": row["playoff_ties"],
-                    "playoff_games": row["playoff_games"],
-                    "playoff_points_for": row["playoff_points_against"],
-                    "playoff_points_against": row["playoff_points_for"],
-                }
-            )
-        else:
-            oriented.append(
-                {
-                    "opponent_id": row["right_id"],
-                    "opponent": row["right_name"],
-                    "regular_wins": row["regular_wins"],
-                    "regular_losses": row["regular_losses"],
-                    "regular_ties": row["regular_ties"],
-                    "regular_points_for": row["regular_points_for"],
-                    "regular_points_against": row["regular_points_against"],
-                    "playoff_wins": row["playoff_wins"],
-                    "playoff_losses": row["playoff_losses"],
-                    "playoff_ties": row["playoff_ties"],
-                    "playoff_games": row["playoff_games"],
-                    "playoff_points_for": row["playoff_points_for"],
-                    "playoff_points_against": row["playoff_points_against"],
-                }
-            )
+        flipped = row["right_id"] == manager_id
+        margin = row.get("regular_avg_margin")
+        if flipped and margin is not None:
+            margin = -float(margin)
+        oriented.append(
+            {
+                "opponent_id": row["left_id"] if flipped else row["right_id"],
+                "opponent": row["left_name"] if flipped else row["right_name"],
+                "regular_games": row["regular_games"],
+                "regular_wins": row["regular_losses"] if flipped else row["regular_wins"],
+                "regular_losses": row["regular_wins"] if flipped else row["regular_losses"],
+                "regular_ties": row["regular_ties"],
+                "regular_points_for": row["regular_points_against"] if flipped else row["regular_points_for"],
+                "regular_points_against": row["regular_points_for"] if flipped else row["regular_points_against"],
+                "playoff_wins": row["playoff_losses"] if flipped else row["playoff_wins"],
+                "playoff_losses": row["playoff_wins"] if flipped else row["playoff_losses"],
+                "playoff_ties": row["playoff_ties"],
+                "playoff_games": row["playoff_games"],
+                "playoff_points_for": row["playoff_points_against"] if flipped else row["playoff_points_for"],
+                "playoff_points_against": row["playoff_points_for"] if flipped else row["playoff_points_against"],
+                "regular_avg_margin": margin,
+                "regular_biggest_blowout": row["regular_biggest_blowout"],
+                "regular_closest": row["regular_closest"],
+            }
+        )
     return oriented
+
+
+def _h2h_games(row: dict[str, Any]) -> int:
+    return int(row.get("regular_games") or 0) + int(row.get("playoff_games") or 0)
+
+
+def _h2h_wl(row: dict[str, Any]) -> tuple[int, int, int]:
+    wins = int(row.get("regular_wins") or 0) + int(row.get("playoff_wins") or 0)
+    losses = int(row.get("regular_losses") or 0) + int(row.get("playoff_losses") or 0)
+    ties = int(row.get("regular_ties") or 0) + int(row.get("playoff_ties") or 0)
+    return wins, losses, ties
+
+
+def _h2h_pct(row: dict[str, Any]) -> float:
+    wins, losses, ties = _h2h_wl(row)
+    games = wins + losses + ties
+    if games == 0:
+        return 0.5
+    return (wins + 0.5 * ties) / games
+
+
+def _h2h_card(row: dict[str, Any]) -> dict[str, Any]:
+    wins, losses, ties = _h2h_wl(row)
+    return {
+        "id": row["opponent_id"],
+        "name": row["opponent"],
+        "wins": wins,
+        "losses": losses,
+        "ties": ties,
+        "games": wins + losses + ties,
+        "win_pct": _h2h_pct(row),
+    }
+
+
+def _member_playoff_record(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    wins = sum(int(row.get("playoff_wins") or 0) for row in rows)
+    losses = sum(int(row.get("playoff_losses") or 0) for row in rows)
+    ties = sum(int(row.get("playoff_ties") or 0) for row in rows)
+    games = wins + losses + ties
+    if games == 0:
+        return None
+    return {"wins": wins, "losses": losses, "ties": ties, "games": games}
+
+
+def _member_h2h_poles(
+    rows: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    max_games = max((_h2h_games(row) for row in rows), default=0)
+    min_games = 4 if max_games >= 4 else 2 if max_games >= 2 else 0
+    eligible = [row for row in rows if _h2h_games(row) >= min_games] if min_games else []
+    if not eligible:
+        return None, None
+    rival_row = min(
+        eligible,
+        key=lambda row: (_h2h_pct(row), -_h2h_games(row), row["opponent"] or ""),
+    )
+    favorite_row = max(
+        eligible,
+        key=lambda row: (_h2h_pct(row), _h2h_games(row), row["opponent"] or ""),
+    )
+    rival = _h2h_card(rival_row)
+    favorite = _h2h_card(favorite_row)
+    if rival["win_pct"] >= 0.5:
+        rival = None
+    if favorite and favorite["win_pct"] <= 0.5:
+        favorite = None
+    if rival and favorite and rival["id"] == favorite["id"]:
+        favorite = None
+    return rival, favorite
+
+
+def _member_draft(manager_id: str) -> dict[str, Any]:
+    totals = fetchone(
+        """
+        SELECT
+            coalesce(sum(picks), 0) AS picks,
+            coalesce(sum(hits), 0) AS hits,
+            sum(vs_vorp) AS vs_vorp,
+            sum(ros_vorp) AS ros_vorp
+        FROM v_draft_manager
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    ) or {}
+    rows = fetchall(
+        """
+        SELECT
+            year, round, overall, manager_id, manager_name,
+            player_id, player_name, position, keeper, vs_vorp, ros_vorp
+        FROM v_draft_grades
+        WHERE manager_id = %(manager_id)s
+        ORDER BY vs_vorp DESC NULLS LAST, year, overall
+        """,
+        {"manager_id": manager_id},
+    )
+    ranked = [row for row in rows if row.get("vs_vorp") is not None]
+    hits = ranked[:5]
+    rest = ranked[5:]
+    misses = list(reversed(rest[-5:])) if rest else []
+    return {"totals": totals, "hits": hits, "misses": misses}
+
+
+def _member_wire(manager_id: str) -> dict[str, Any]:
+    totals = fetchone(
+        """
+        SELECT
+            coalesce(sum(adds), 0) AS adds,
+            coalesce(sum(waivers), 0) AS waivers,
+            coalesce(sum(free_agents), 0) AS free_agents,
+            sum(ros_vorp) AS ros_vorp
+        FROM v_add_season
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    ) or {}
+    misses = fetchall(
+        """
+        SELECT
+            year, week, manager_id, manager_name, reason,
+            missed_transaction_id, missed_player_id, missed_player,
+            won_transaction_id, won_player_id, won_player, vorp_gap
+        FROM v_waiver_misses
+        WHERE manager_id = %(manager_id)s
+            AND reason IN ('own_claim_order', 'lost_on_wire')
+        ORDER BY vorp_gap DESC, year, week, missed_player
+        LIMIT 5
+        """,
+        {"manager_id": manager_id},
+    )
+    for row in misses:
+        row["flag"] = "own order" if row["reason"] == "own_claim_order" else "lost on wire"
+    return {
+        "totals": totals,
+        "adds": _wire_add_highlights(manager_id=manager_id, limit=5),
+        "misses": misses,
+    }
+
+
+def _member_trades(manager_id: str) -> list[dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id, year, week, left_id, left_name, left_received, left_vorp,
+            right_id, right_name, right_received, right_vorp,
+            vorp_gap, winner_id
+        FROM v_trade_grades
+        WHERE left_id = %(manager_id)s OR right_id = %(manager_id)s
+        ORDER BY year DESC, week, vorp_gap DESC, left_id
+        """,
+        {"manager_id": manager_id},
+    )
+    for row in rows:
+        row["verdict"] = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
+        home, away = _trade_card_sides(row)
+        if home["id"] != manager_id:
+            home, away = away, home
+        row["home"], row["away"] = home, away
+    _attach_trade_card_players(rows)
+    return rows
+
+
+def _member_lineups(manager_id: str) -> dict[str, Any]:
+    career = fetchone(
+        """
+        SELECT weeks, actual_points, optimal_points, left_on_bench, management_pct
+        FROM v_management_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    return {
+        "career": career,
+        "worst": _member_lineup_weeks(manager_id, worst=True),
+        "best": _member_lineup_weeks(manager_id, worst=False),
+    }
+
+
+def _member_lineup_weeks(manager_id: str, *, worst: bool, limit: int = 5) -> list[dict[str, Any]]:
+    leftover = "DESC" if worst else "ASC"
+    pct = "ASC" if worst else "DESC"
+    return fetchall(
+        f"""
+        SELECT year, week, matchup_id, actual_points, optimal_points,
+               left_on_bench, management_pct
+        FROM v_management_weeks
+        WHERE manager_id = %(manager_id)s
+            AND kind = 'regular'
+        ORDER BY left_on_bench {leftover} NULLS LAST,
+            management_pct {pct} NULLS LAST, year, week
+        LIMIT %(limit)s
+        """,
+        {"manager_id": manager_id, "limit": limit},
+    )
+
+
+def _member_highs(manager_id: str) -> dict[str, Any]:
+    return {
+        "high": _member_extreme_week(manager_id, high=True),
+        "low": _member_extreme_week(manager_id, high=False),
+        "blowout": _member_margin_game(manager_id, closest=False),
+        "closest": _member_margin_game(manager_id, closest=True),
+        "win_streak": _member_longest_streak(manager_id, "win"),
+        "loss_streak": _member_longest_streak(manager_id, "loss"),
+    }
+
+
+def _member_extreme_week(manager_id: str, *, high: bool) -> dict[str, Any] | None:
+    row = fetchone(
+        f"""
+        SELECT w.year, w.week, w.manager_id, w.display_name, w.points
+        FROM v_record_weeks w
+        WHERE w.manager_id = %(manager_id)s
+            AND w.paired
+            AND {_SCORED_REGULAR}
+        ORDER BY w.points {"DESC" if high else "ASC"}, w.year, w.week
+        LIMIT 1
+        """,
+        {"manager_id": manager_id},
+    )
+    if row is None:
+        return None
+    game = _regular_game(int(row["year"]), int(row["week"]), manager_id)
+    packed = {
+        "year": int(row["year"]),
+        "week": int(row["week"]),
+        "points": row["points"],
+        "scorer_id": row["manager_id"],
+        "id": game["id"] if game else None,
+        "label": "Highest week" if high else "Lowest week",
+    }
+    _stamp_if_top(
+        packed,
+        _week_alltime_rank(
+            high=high,
+            year=int(row["year"]),
+            week=int(row["week"]),
+            manager_id=manager_id,
+            points=row["points"],
+        ),
+        "/records#high" if high else "/records#low",
+        "highest" if high else "lowest",
+    )
+    return packed
+
+
+def _member_margin_game(manager_id: str, *, closest: bool) -> dict[str, Any] | None:
+    rank_col = "closest_rank" if closest else "blowout_rank"
+    row = fetchone(
+        f"""
+        SELECT matchup_id, year, week, {rank_col} AS alltime_rank
+        FROM v_record_matchups
+        WHERE manager_id = %(manager_id)s OR opponent_id = %(manager_id)s
+        ORDER BY abs_margin {"ASC" if closest else "DESC"}, year, week, matchup_id
+        LIMIT 1
+        """,
+        {"manager_id": manager_id},
+    )
+    if row is None:
+        return None
+    game = _game_by_id(row["matchup_id"])
+    if game is None:
+        return None
+    packed = _score_game(game)
+    packed["label"] = "Closest" if closest else "Biggest blowout"
+    packed["year"] = int(row["year"])
+    packed["week"] = int(row["week"])
+    _stamp_if_top(
+        packed,
+        row["alltime_rank"],
+        "/records#closest" if closest else "/records#blowouts",
+        "closest" if closest else "biggest",
+    )
+    return packed
+
+
+def _member_longest_streak(manager_id: str, result: str) -> dict[str, Any] | None:
+    row = fetchone(
+        """
+        SELECT manager_id, length, start_year, start_week, end_year, end_week,
+               is_current, streak_rank
+        FROM (
+            SELECT
+                manager_id, length, start_year, start_week, end_year, end_week,
+                is_current, result,
+                row_number() OVER (
+                    PARTITION BY result
+                    ORDER BY length DESC, start_year, start_week, manager_id
+                ) AS streak_rank
+            FROM v_streaks
+        ) ranked
+        WHERE manager_id = %(manager_id)s AND result = %(result)s
+        ORDER BY length DESC, start_year, start_week
+        LIMIT 1
+        """,
+        {"manager_id": manager_id, "result": result},
+    )
+    if row is None:
+        return None
+    _stamp_if_top(
+        row,
+        row["streak_rank"],
+        "/records#wins" if result == "win" else "/records#losses",
+        "longest",
+    )
+    return row
 
 
 def high_weeks(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT w.year, w.week, w.manager_id, w.display_name, w.points
         FROM v_record_weeks w
-        WHERE EXISTS (
-            SELECT 1
-            FROM matchups m
-            WHERE m.year = w.year AND m.week = w.week
-                AND m.kind = 'regular'
-                AND (m.home_points <> 0 OR m.away_points <> 0)
-        )
+        WHERE {_SCORED_REGULAR}
         ORDER BY w.points DESC, w.year, w.week, w.manager_id
         LIMIT %(limit)s
         """,
@@ -1980,16 +2528,10 @@ def high_weeks(limit: int = 10) -> list[dict[str, Any]]:
 
 def low_weeks(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT w.year, w.week, w.manager_id, w.display_name, w.points
         FROM v_record_weeks w
-        WHERE EXISTS (
-            SELECT 1
-            FROM matchups m
-            WHERE m.year = w.year AND m.week = w.week
-                AND m.kind = 'regular'
-                AND (m.home_points <> 0 OR m.away_points <> 0)
-        )
+        WHERE {_SCORED_REGULAR}
         ORDER BY w.points ASC, w.year, w.week, w.manager_id
         LIMIT %(limit)s
         """,
@@ -2081,6 +2623,105 @@ def current_streaks() -> list[dict[str, Any]]:
     )
 
 
+def records_page() -> dict[str, Any]:
+    return {
+        "high_weeks": high_weeks(),
+        "low_weeks": low_weeks(),
+        "blowouts": blowouts(),
+        "closest": closest_games(),
+        "trades": lopsided_trades(),
+        "draft_hits": _record_draft_picks(worst=False),
+        "draft_misses": _record_draft_picks(worst=True),
+        "drafts": _record_drafts(),
+        "wire_adds": _record_wire_adds(),
+        "wire_misses": _record_wire_misses(),
+        "bench_weeks": _record_bench_weeks(),
+        "bench_seasons": _record_bench_seasons(),
+        "win_streaks": longest_streaks("win"),
+        "loss_streaks": longest_streaks("loss"),
+        "current_streaks": current_streaks(),
+    }
+
+
+def _record_draft_picks(*, worst: bool, limit: int = 10) -> list[dict[str, Any]]:
+    order = "ASC" if worst else "DESC"
+    return fetchall(
+        f"""
+        SELECT
+            year, round, overall, manager_id, manager_name,
+            player_id, player_name, position, keeper, vs_vorp, ros_vorp
+        FROM v_draft_grades
+        ORDER BY vs_vorp {order} NULLS LAST, year, overall
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def _record_drafts(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT year, manager_id, manager_name, picks, hits, vs_vorp, ros_vorp
+        FROM v_draft_manager
+        ORDER BY vs_vorp DESC NULLS LAST, year, manager_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def _record_wire_adds(limit: int = 10) -> list[dict[str, Any]]:
+    return _wire_add_highlights(year=None, limit=limit)
+
+
+def _record_wire_misses(limit: int = 10) -> list[dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+            year, week, manager_id, manager_name, reason,
+            missed_transaction_id, missed_player_id, missed_player,
+            won_transaction_id, won_player_id, won_player, vorp_gap
+        FROM v_waiver_misses
+        WHERE reason IN ('own_claim_order', 'lost_on_wire')
+        ORDER BY vorp_gap DESC, year, week, missed_player
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in rows:
+        row["flag"] = "own order" if row["reason"] == "own_claim_order" else "lost on wire"
+    return rows
+
+
+def _record_bench_weeks(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            year, week, matchup_id, manager_id, manager_name,
+            actual_points, optimal_points, left_on_bench, management_pct
+        FROM v_management_weeks
+        WHERE kind = 'regular'
+        ORDER BY left_on_bench DESC NULLS LAST, year, week, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def _record_bench_seasons(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            year, manager_id, manager_name, weeks,
+            actual_points, optimal_points, left_on_bench, management_pct
+        FROM v_management_season
+        ORDER BY left_on_bench DESC NULLS LAST, year, manager_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
 def luck_career() -> list[dict[str, Any]]:
     return fetchall(
         """
@@ -2132,7 +2773,7 @@ def luck_flagged_weeks() -> list[dict[str, Any]]:
     return rows
 
 
-def universe_titles() -> list[dict[str, Any]]:
+def universe_titles(year: int | None = None) -> list[dict[str, Any]]:
     rows = fetchall(
         """
         SELECT
@@ -2153,9 +2794,11 @@ def universe_titles() -> list[dict[str, Any]]:
         LEFT JOIN season_outcomes oc ON oc.year = o.year
         LEFT JOIN managers och ON och.id = oc.champion
         LEFT JOIN managers ors ON ors.id = oc.regular_season_champion
+        WHERE (%(year)s::integer IS NULL OR o.year = %(year)s)
         ORDER BY o.year DESC,
             CASE o.universe WHEN 'never_median' THEN 0 ELSE 1 END
-        """
+        """,
+        {"year": year},
     )
     by_year: dict[int, dict[str, Any]] = {}
     for row in rows:

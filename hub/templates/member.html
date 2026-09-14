@@ -1,14 +1,56 @@
 {% extends "base.html" %}
+{% from "trade_macros.html" import trade_got %}
+{% from "draft_macros.html" import pick_link %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% macro record(wins, losses, ties) %}
+{{ (wins or 0)|int }}-{{ (losses or 0)|int }}{% if ties %}-{{ ties|int }}{% endif %}
+{% endmacro %}
 {% block body %}
-<h1>{{ person.display_name }}</h1>
-<p class="lede">
-    {{ person.wins|int }}-{{ person.losses|int }}-{{ person.ties|int }}
-    · {{ "%.2f"|format(person.points_for) }} PF
-    · {{ person.titles|int }} title{{ "s" if person.titles != 1 else "" }}
-    · {{ person.playoff_appearances|int }} playoff appearances
+<p class="jump">
+    <a href="/members">Members</a>
+    {% if finishes %}<a href="#seasons">Seasons</a>{% endif %}
+    {% if h2h %}<a href="#h2h">H2H</a>{% endif %}
+    {% if draft.hits or draft.misses or draft.totals.picks %}<a href="#draft">Draft</a>{% endif %}
+    {% if wire.adds or wire.misses or wire.totals.adds %}<a href="#wire">Wire</a>{% endif %}
+    {% if trades %}<a href="#trades">Trades</a>{% endif %}
+    {% if lineups.career %}<a href="#lineups">Lineups</a>{% endif %}
+    {% if luck %}<a href="#luck">Luck</a>{% endif %}
+    {% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}<a href="#highs">Highs</a>{% endif %}
 </p>
+<h1>{{ member.display_name }}</h1>
+<p class="lede">
+    {{ member.wins|int }}-{{ member.losses|int }}-{{ member.ties|int }}
+    {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}%){% endif %}
+    · {{ "%.2f"|format(member.points_for) }} PF
+    · {{ member.seasons|int }} season{{ "s" if member.seasons != 1 else "" }}
+    {% if member.playoff %}
+    · {{ record(member.playoff.wins, member.playoff.losses, member.playoff.ties) }} playoff
+    {% endif %}
+    {% if member.rival %}
+    · {{ record(member.rival.wins, member.rival.losses, member.rival.ties) }} vs {{ person(member.rival.id, member.rival.name) }} <span class="team">rival</span>
+    {% endif %}
+    {% if member.favorite %}
+    · {{ record(member.favorite.wins, member.favorite.losses, member.favorite.ties) }} vs {{ person(member.favorite.id, member.favorite.name) }} <span class="team">best</span>
+    {% endif %}
+    {% if member.streak %}
+    · {{ member.streak.length }} {{ member.streak.result }}{% if member.streak.length != 1 %}s{% endif %}
+    <a href="/seasons/{{ member.streak.start_year }}/week/{{ member.streak.start_week }}">since {{ member.streak.start_year }} W{{ member.streak.start_week }}</a>
+    {% endif %}
+</p>
+{% if member.titles or member.runner_up or member.regular_season_titles or member.most_points_titles or member.playoff_appearances %}
+<p class="medals-line">
+    {% if member.titles %}<span><span class="label">Champion</span> ×{{ member.titles|int }}</span>{% endif %}
+    {% if member.runner_up %}<span><span class="label">Runner-up</span> ×{{ member.runner_up|int }}</span>{% endif %}
+    {% if member.regular_season_titles %}<span><span class="label">RS champ</span> ×{{ member.regular_season_titles|int }}</span>{% endif %}
+    {% if member.most_points_titles %}<span><span class="label">Most PF</span> ×{{ member.most_points_titles|int }}</span>{% endif %}
+    {% if member.playoff_appearances %}<span><span class="label">Playoffs</span> ×{{ member.playoff_appearances|int }}</span>{% endif %}
+</p>
+{% endif %}
 
-<h2>Seasons</h2>
+{% if finishes %}
+<h2 id="seasons">Seasons</h2>
 <table class="js-sort">
     <thead>
         <tr>
@@ -24,41 +66,386 @@
         <tr>
             <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
             <td class="num">{{ row.rank }}</td>
-            <td>{{ row.team_name | flavor_team(person.display_name) or "—" }}</td>
+            <td>
+                {{ row.team_name | flavor_team(member.display_name) or "—" }}
+                {% if row.champion %}<span class="team">champ</span>{% endif %}
+                {% if row.runner_up %}<span class="team">RU</span>{% endif %}
+                {% if row.rs_champ %}<span class="team">RS</span>{% endif %}
+                {% if row.most_points %}<span class="team">PF</span>{% endif %}
+                {% if row.playoff and not row.champion and not row.runner_up %}<span class="team">PO</span>{% endif %}
+            </td>
             <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
 
-<h2>Head-to-head</h2>
+{% if h2h %}
+<h2 id="h2h">Head-to-head</h2>
+<p class="note">Regular season plus winners-bracket playoff. Closest and blowout are regular-season margins vs that opponent.</p>
+<div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
             <th>Opponent</th>
             <th data-type="num">Regular</th>
             <th data-type="num">Playoff</th>
+            <th class="num">Closest</th>
+            <th class="num">Blowout</th>
         </tr>
     </thead>
     <tbody>
         {% for row in h2h %}
-        {% set reg_games = (row.regular_wins or 0) + (row.regular_losses or 0) + (row.regular_ties or 0) %}
         <tr>
-            <td><a href="/members/{{ row.opponent_id }}">{{ row.opponent }}</a></td>
-            <td data-value="{% if reg_games %}{{ ((row.regular_wins or 0) + 0.5 * (row.regular_ties or 0)) / reg_games }}{% endif %}">
-                {{ (row.regular_wins or 0)|int }}-{{ (row.regular_losses or 0)|int }}-{{ (row.regular_ties or 0)|int }}
-                · {{ "%.1f"|format(row.regular_points_for or 0) }}-{{ "%.1f"|format(row.regular_points_against or 0) }}
+            <td>{{ person(row.opponent_id, row.opponent) }}</td>
+            <td data-value="{% if row.regular_games %}{{ ((row.regular_wins or 0) + 0.5 * (row.regular_ties or 0)) / row.regular_games }}{% endif %}">
+                {{ record(row.regular_wins, row.regular_losses, row.regular_ties) }}
+                · {{ "%.0f"|format(row.regular_points_for or 0) }}-{{ "%.0f"|format(row.regular_points_against or 0) }}
             </td>
             <td data-value="{% if row.playoff_games %}{{ ((row.playoff_wins or 0) + 0.5 * (row.playoff_ties or 0)) / row.playoff_games }}{% endif %}">
                 {% if row.playoff_games %}
-                {{ (row.playoff_wins or 0)|int }}-{{ (row.playoff_losses or 0)|int }}-{{ (row.playoff_ties or 0)|int }}
+                {{ record(row.playoff_wins, row.playoff_losses, row.playoff_ties) }}
+                · {{ "%.0f"|format(row.playoff_points_for or 0) }}-{{ "%.0f"|format(row.playoff_points_against or 0) }}
                 {% else %}
                 —
                 {% endif %}
             </td>
+            <td class="num">{% if row.regular_closest is not none %}{{ "%.1f"|format(row.regular_closest) }}{% endif %}</td>
+            <td class="num">{% if row.regular_biggest_blowout is not none %}{{ "%.1f"|format(row.regular_biggest_blowout) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
+{% endif %}
+
+{% if draft.hits or draft.misses or draft.totals.picks %}
+<h2 id="draft">Draft</h2>
+<p class="note">
+    Starter VORP on that roster until someone else adds the player, versus that round's drafted average. A hit is 8+ starts.
+    {% if draft.totals.picks %}{{ draft.totals.hits|int }} hit{{ "s" if draft.totals.hits != 1 else "" }} in {{ draft.totals.picks|int }} pick{{ "s" if draft.totals.picks != 1 else "" }}{% if draft.totals.vs_vorp is not none %} · {{ "%+.1f"|format(draft.totals.vs_vorp) }} vsRnd{% endif %}{% endif %}.
+</p>
+{% if draft.hits or draft.misses %}
+<div class="notable-grid">
+    {% if draft.hits %}
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.hits %}
+                <tr>
+                    <td>{{ pick_link(row.year, row, row.year ~ " #" ~ row.overall) }}</td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if draft.misses %}
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.misses %}
+                <tr>
+                    <td>{{ pick_link(row.year, row, row.year ~ " #" ~ row.overall) }}</td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if wire.adds or wire.misses or wire.totals.adds %}
+<h2 id="wire">Wire</h2>
+<p class="note">
+    Starter VORP on that roster after the add, until someone else gets the player. Misses are league ROS VORP of the failed claim vs what you actually got.
+    {% if wire.totals.adds %}{{ wire.totals.adds|int }} add{{ "s" if wire.totals.adds != 1 else "" }}{% if wire.totals.ros_vorp is not none %} · {{ "%+.1f"|format(wire.totals.ros_vorp) }} VORP{% endif %}{% endif %}.
+</p>
+{% if wire.adds or wire.misses %}
+<div class="notable-grid wire-grid">
+    {% if wire.adds %}
+    <section>
+        <h3>Best adds</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.adds %}
+                <tr>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                        <span class="team">{{ row.kind }}{% if row.bid_label %} {{ row.bid_label }}{% endif %}</span>
+                    </td>
+                    <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if wire.misses %}
+    <section>
+        <h3>Costliest misses</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Missed</th>
+                    <th>Got</th>
+                    <th class="num">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.misses %}
+                <tr>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.missed_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% elif row.missed_player_id %}<a href="/players/{{ row.missed_player_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}
+                        <span class="team">{{ row.flag }}</span>
+                    </td>
+                    <td>{% if row.won_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% elif row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
+                    <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if trades %}
+<h2 id="trades">Trades</h2>
+<p class="note">Rest-of-season starter VORP received. This manager is listed first. Even &lt; 15. Big win is 50+ with both sides +15. Fleece is 50+ and the other side under +15.</p>
+<div class="standings-wrap">
+<table class="js-sort js-fold trade-table" data-fold="8">
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>Got</th>
+            <th class="num">VORP</th>
+            <th>Sent to</th>
+            <th>They got</th>
+            <th class="num">VORP</th>
+            <th>Grade</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trades %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="trade-got {% if row.verdict.kind != 'even' and row.winner_id == row.home.id %}won{% elif row.verdict.kind != 'even' %}lost{% endif %}">{{ trade_got(row.home) }}</td>
+            <td class="num">{% if row.home.vorp is not none %}{{ "%+.1f"|format(row.home.vorp) }}{% endif %}</td>
+            <td class="{% if row.verdict.kind != 'even' and row.winner_id == row.away.id %}won{% elif row.verdict.kind != 'even' %}lost{% endif %}">{{ person(row.away.id, row.away.name) }}</td>
+            <td class="trade-got">{{ trade_got(row.away) }}</td>
+            <td class="num">{% if row.away.vorp is not none %}{{ "%+.1f"|format(row.away.vorp) }}{% endif %}</td>
+            <td data-value="{{ row.verdict.gap }}"><span class="verdict {{ row.verdict.kind }}">{{ row.verdict.label }}</span> {{ "%.0f"|format(row.verdict.gap) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if lineups.career %}
+<h2 id="lineups">Lineups</h2>
+<p class="note">
+    Regular season. % is actual / optimal.
+    {% if lineups.career.management_pct is not none %}{{ "%.1f"|format(lineups.career.management_pct * 100) }}%{% endif %}
+    {% if lineups.career.left_on_bench is not none %} · −{{ "%.0f"|format(lineups.career.left_on_bench) }} left on the bench{% endif %}.
+</p>
+{% if lineups.worst or lineups.best %}
+<div class="notable-grid">
+    {% if lineups.worst %}
+    <section>
+        <h3>Worst weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in lineups.worst %}
+                <tr>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if lineups.best %}
+    <section>
+        <h3>Best weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in lineups.best %}
+                <tr>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td class="num">{% if row.left_on_bench %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}0{% endif %}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if luck %}
+<h2 id="luck">Luck</h2>
+<p class="note">
+    Regular-season head-to-head.
+    {{ (luck.lucky_wins or 0)|int }} lucky win{{ "s" if luck.lucky_wins != 1 else "" }}
+    · {{ (luck.unlucky_losses or 0)|int }} unlucky loss{{ "es" if luck.unlucky_losses != 1 else "" }}
+    · net {{ "%+d"|format((luck.net_luck or 0)|int) }}
+    {% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vs expected{% endif %}.
+    <a href="/luck">Luck</a>
+</p>
+{% endif %}
+
+{% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}
+<h2 id="highs">Highs</h2>
+<table>
+    <tbody>
+        {% if highs.high %}
+        <tr>
+            <td>
+                Highest week
+                {% if highs.high.alltime_rank and highs.high.records_href %}
+                · <a href="{{ highs.high.records_href }}">{{ highs.high.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.high.id %}<a href="/seasons/{{ highs.high.year }}/week/{{ highs.high.week }}/{{ highs.high.id }}">{{ highs.high.year }} W{{ highs.high.week }}</a>{% else %}{{ highs.high.year }} W{{ highs.high.week }}{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(highs.high.points) }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.low %}
+        <tr>
+            <td>
+                Lowest week
+                {% if highs.low.alltime_rank and highs.low.records_href %}
+                · <a href="{{ highs.low.records_href }}">{{ highs.low.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.low.id %}<a href="/seasons/{{ highs.low.year }}/week/{{ highs.low.week }}/{{ highs.low.id }}">{{ highs.low.year }} W{{ highs.low.week }}</a>{% else %}{{ highs.low.year }} W{{ highs.low.week }}{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(highs.low.points) }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.blowout %}
+        <tr>
+            <td>
+                Biggest blowout
+                {% if highs.blowout.alltime_rank and highs.blowout.records_href %}
+                · <a href="{{ highs.blowout.records_href }}">{{ highs.blowout.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.blowout.id %}<a href="/seasons/{{ highs.blowout.year }}/week/{{ highs.blowout.week }}/{{ highs.blowout.id }}">{{ highs.blowout.year }} W{{ highs.blowout.week }}</a>{% else %}{{ highs.blowout.year }} W{{ highs.blowout.week }}{% endif %}</td>
+            <td>
+                <span class="{% if highs.blowout.winner_id and highs.blowout.winner_id == highs.blowout.home.id %}won{% elif highs.blowout.winner_id %}lost{% endif %}">{{ person(highs.blowout.home.id, highs.blowout.home.name) }}</span>
+                <span class="num">{% if highs.blowout.home.points is not none %}{{ "%.1f"|format(highs.blowout.home.points) }}{% endif %}</span>
+                –
+                <span class="num">{% if highs.blowout.away.points is not none %}{{ "%.1f"|format(highs.blowout.away.points) }}{% endif %}</span>
+                <span class="{% if highs.blowout.winner_id and highs.blowout.winner_id == highs.blowout.away.id %}won{% elif highs.blowout.winner_id %}lost{% endif %}">{{ person(highs.blowout.away.id, highs.blowout.away.name) }}</span>
+            </td>
+        </tr>
+        {% endif %}
+        {% if highs.closest %}
+        <tr>
+            <td>
+                Closest
+                {% if highs.closest.alltime_rank and highs.closest.records_href %}
+                · <a href="{{ highs.closest.records_href }}">{{ highs.closest.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.closest.id %}<a href="/seasons/{{ highs.closest.year }}/week/{{ highs.closest.week }}/{{ highs.closest.id }}">{{ highs.closest.year }} W{{ highs.closest.week }}</a>{% else %}{{ highs.closest.year }} W{{ highs.closest.week }}{% endif %}</td>
+            <td>
+                <span class="{% if highs.closest.winner_id and highs.closest.winner_id == highs.closest.home.id %}won{% elif highs.closest.winner_id %}lost{% endif %}">{{ person(highs.closest.home.id, highs.closest.home.name) }}</span>
+                <span class="num">{% if highs.closest.home.points is not none %}{{ "%.1f"|format(highs.closest.home.points) }}{% endif %}</span>
+                –
+                <span class="num">{% if highs.closest.away.points is not none %}{{ "%.1f"|format(highs.closest.away.points) }}{% endif %}</span>
+                <span class="{% if highs.closest.winner_id and highs.closest.winner_id == highs.closest.away.id %}won{% elif highs.closest.winner_id %}lost{% endif %}">{{ person(highs.closest.away.id, highs.closest.away.name) }}</span>
+            </td>
+        </tr>
+        {% endif %}
+        {% if highs.win_streak %}
+        <tr>
+            <td>
+                Longest win streak{% if highs.win_streak.is_current %} · current{% endif %}
+                {% if highs.win_streak.alltime_rank and highs.win_streak.records_href %}
+                · <a href="{{ highs.win_streak.records_href }}">{{ highs.win_streak.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/seasons/{{ highs.win_streak.start_year }}/week/{{ highs.win_streak.start_week }}">{{ highs.win_streak.start_year }} W{{ highs.win_streak.start_week }}</a>
+                –
+                <a href="/seasons/{{ highs.win_streak.end_year }}/week/{{ highs.win_streak.end_week }}">{{ highs.win_streak.end_year }} W{{ highs.win_streak.end_week }}</a>
+            </td>
+            <td class="num">{{ highs.win_streak.length }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.loss_streak %}
+        <tr>
+            <td>
+                Longest loss streak{% if highs.loss_streak.is_current %} · current{% endif %}
+                {% if highs.loss_streak.alltime_rank and highs.loss_streak.records_href %}
+                · <a href="{{ highs.loss_streak.records_href }}">{{ highs.loss_streak.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/seasons/{{ highs.loss_streak.start_year }}/week/{{ highs.loss_streak.start_week }}">{{ highs.loss_streak.start_year }} W{{ highs.loss_streak.start_week }}</a>
+                –
+                <a href="/seasons/{{ highs.loss_streak.end_year }}/week/{{ highs.loss_streak.end_week }}">{{ highs.loss_streak.end_year }} W{{ highs.loss_streak.end_week }}</a>
+            </td>
+            <td class="num">{{ highs.loss_streak.length }}</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endif %}
 {% endblock %}

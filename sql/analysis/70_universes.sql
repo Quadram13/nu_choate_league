@@ -3,8 +3,13 @@
 
 DROP VIEW IF EXISTS
     v_career_median,
-    v_career_h2h,
-    v_universe_outcomes,
+    v_career_h2h
+CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_universe_outcomes CASCADE;
+DROP VIEW IF EXISTS v_universe_outcomes CASCADE;
+
+DROP VIEW IF EXISTS
     v_universe_games,
     v_universe_seeds,
     v_universe_playoff_shape,
@@ -408,7 +413,8 @@ SELECT universe, year, round, week, home_seed, home_id, home_points,
        away_seed, away_id, away_points, winner, tiebreak
 FROM six_final;
 
-CREATE VIEW v_universe_outcomes AS
+-- Snapshot: season and Luck read titles from this. Replay is paid at load.
+CREATE MATERIALIZED VIEW v_universe_outcomes AS
 SELECT
     u.universe,
     u.year,
@@ -438,7 +444,10 @@ GROUP BY
     fin.home_id,
     fin.away_id,
     sh.shape,
-    sh.official_champion;
+    sh.official_champion
+WITH NO DATA;
+
+CREATE INDEX v_universe_outcomes_year ON v_universe_outcomes (year);
 
 CREATE VIEW v_career_h2h AS
 SELECT

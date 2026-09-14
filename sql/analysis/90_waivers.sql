@@ -3,14 +3,17 @@
 
 DROP VIEW IF EXISTS
     v_waiver_dodges,
-    v_waiver_misses,
-    v_waiver_claims
+    v_waiver_misses
 CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_waiver_claims CASCADE;
+DROP VIEW IF EXISTS v_waiver_claims CASCADE;
 
 -- Waiver claims include failed bids. league_ros is that player's starter PF in the league
 -- from the claim week on (whoever rostered him). claim_seq is Sleeper settings.seq
 -- (0 = that team's first claim that period) or ESPN process order when seq is missing.
-CREATE VIEW v_waiver_claims AS
+-- Snapshot: misses, dodges, and week-wire read this. Computing it live is ~0.6s per season.
+CREATE MATERIALIZED VIEW v_waiver_claims AS
 WITH claims AS (
     SELECT
         mv.transaction_id,
@@ -100,7 +103,11 @@ SELECT
         PARTITION BY year, week, manager_id
         ORDER BY claim_seq, transaction_id
     ) AS local_seq
-FROM scored;
+FROM scored
+WITH NO DATA;
+
+CREATE INDEX v_waiver_claims_year_week ON v_waiver_claims (year, week);
+CREATE INDEX v_waiver_claims_year_manager ON v_waiver_claims (year, manager_id, status);
 
 -- Self-join + row_number instead of a correlated LATERAL: v_waiver_claims is
 -- evaluated once, not re-scanned per failed claim.
