@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -45,21 +46,53 @@ TRADE_LABELS = {
 }
 
 
+RECORDS_TOP = 10
+_request_conn: ContextVar[psycopg.Connection | None] = ContextVar("hub_conn", default=None)
+
+_SCORED_REGULAR = """
+EXISTS (
+    SELECT 1
+    FROM matchups m
+    WHERE m.year = w.year AND m.week = w.week
+        AND m.kind = 'regular'
+        AND (m.home_points <> 0 OR m.away_points <> 0)
+)
+"""
+
+
 def connect() -> psycopg.Connection:
-    return psycopg.connect(database_url(), row_factory=dict_row)
-
-
-def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     try:
-        with connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                return list(cur.fetchall())
+        return psycopg.connect(
+            database_url(),
+            row_factory=dict_row,
+            autocommit=True,
+        )
     except psycopg.OperationalError as exc:
         raise HTTPException(
             status_code=503,
             detail="Cannot reach Postgres. Start Docker Desktop, then `docker compose up -d`.",
         ) from exc
+
+
+def bind_connection(conn: psycopg.Connection) -> Token:
+    return _request_conn.set(conn)
+
+
+def unbind_connection(token: Token) -> None:
+    _request_conn.reset(token)
+
+
+def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    conn = _request_conn.get()
+    try:
+        if conn is not None:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return list(cur.fetchall())
+        with connect() as owned:
+            with owned.cursor() as cur:
+                cur.execute(sql, params)
+                return list(cur.fetchall())
     except psycopg.errors.UndefinedTable as exc:
         raise HTTPException(
             status_code=503,
@@ -414,7 +447,7 @@ def _season_scoring(year: int) -> dict[str, Any] | None:
 
 
 def _season_universes(year: int) -> dict[str, Any] | None:
-    packed = next((row for row in universe_titles() if row["year"] == year), None)
+    packed = next(iter(universe_titles(year)), None)
     if packed is None:
         return None
     if not packed.get("official_champ") and not packed.get("h2h_champ") and not packed.get("median_champ"):
@@ -427,42 +460,6 @@ def _season_notables(year: int) -> dict[str, Any]:
     low = _season_extreme_week(year, high=False)
     blowout = _season_margin_game(year, closest=False)
     closest = _season_margin_game(year, closest=True)
-    _stamp_alltime(
-        high,
-        high_weeks(),
-        "/records#high",
-        "highest",
-        lambda notable, row: (
-            int(row["year"]) == int(notable["year"])
-            and int(row["week"]) == int(notable["week"])
-            and row["manager_id"] == notable.get("scorer_id")
-        ),
-    )
-    _stamp_alltime(
-        low,
-        low_weeks(),
-        "/records#low",
-        "lowest",
-        lambda notable, row: (
-            int(row["year"]) == int(notable["year"])
-            and int(row["week"]) == int(notable["week"])
-            and row["manager_id"] == notable.get("scorer_id")
-        ),
-    )
-    _stamp_alltime(
-        blowout,
-        blowouts(),
-        "/records#blowouts",
-        "biggest",
-        lambda notable, row: row["matchup_id"] == notable.get("id"),
-    )
-    _stamp_alltime(
-        closest,
-        closest_games(),
-        "/records#closest",
-        "closest",
-        lambda notable, row: row["matchup_id"] == notable.get("id"),
-    )
     return {
         "high": high,
         "low": low,
@@ -473,21 +470,53 @@ def _season_notables(year: int) -> dict[str, Any]:
     }
 
 
-def _stamp_alltime(
+def _stamp_if_top(
     notable: dict[str, Any] | None,
-    board: list[dict[str, Any]],
+    rank: Any,
     href: str,
     kind: str,
-    same,
 ) -> None:
-    if notable is None:
+    if notable is None or rank is None:
         return
-    for index, row in enumerate(board, 1):
-        if same(notable, row):
-            notable["alltime_rank"] = index
-            notable["alltime_label"] = f"{_ordinal(index)}-{kind}"
-            notable["records_href"] = href
-            return
+    rank = int(rank)
+    if rank < 1 or rank > RECORDS_TOP:
+        return
+    notable["alltime_rank"] = rank
+    notable["alltime_label"] = f"{_ordinal(rank)}-{kind}"
+    notable["records_href"] = href
+
+
+def _week_alltime_rank(
+    *,
+    high: bool,
+    year: int,
+    week: int,
+    manager_id: str,
+    points: Any,
+) -> int | None:
+    cmp = ">" if high else "<"
+    row = fetchone(
+        f"""
+        SELECT count(*) + 1 AS rank
+        FROM v_record_weeks w
+        WHERE {_SCORED_REGULAR}
+            AND (
+                w.points {cmp} %(points)s
+                OR (
+                    w.points = %(points)s
+                    AND (w.year, w.week, w.manager_id)
+                        < (%(year)s, %(week)s, %(manager_id)s)
+                )
+            )
+        """,
+        {
+            "points": points,
+            "year": year,
+            "week": week,
+            "manager_id": manager_id,
+        },
+    )
+    return int(row["rank"]) if row else None
 
 
 def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
@@ -497,13 +526,7 @@ def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
         FROM v_record_weeks w
         WHERE w.year = %(year)s
             AND w.paired
-            AND EXISTS (
-                SELECT 1
-                FROM matchups m
-                WHERE m.year = w.year AND m.week = w.week
-                    AND m.kind = 'regular'
-                    AND (m.home_points <> 0 OR m.away_points <> 0)
-            )
+            AND {_SCORED_REGULAR}
         ORDER BY w.points {"DESC" if high else "ASC"}, w.week, w.manager_id
         LIMIT 1
         """,
@@ -519,13 +542,26 @@ def _season_extreme_week(year: int, *, high: bool) -> dict[str, Any] | None:
     packed["year"] = year
     packed["week"] = int(row["week"])
     packed["scorer_id"] = row["manager_id"]
+    _stamp_if_top(
+        packed,
+        _week_alltime_rank(
+            high=high,
+            year=int(row["year"]),
+            week=int(row["week"]),
+            manager_id=row["manager_id"],
+            points=row["points"],
+        ),
+        "/records#high" if high else "/records#low",
+        "highest" if high else "lowest",
+    )
     return packed
 
 
 def _season_margin_game(year: int, *, closest: bool) -> dict[str, Any] | None:
+    rank_col = "closest_rank" if closest else "blowout_rank"
     row = fetchone(
         f"""
-        SELECT matchup_id, year, week, manager_id, opponent_id
+        SELECT matchup_id, year, week, {rank_col} AS alltime_rank
         FROM v_record_matchups
         WHERE year = %(year)s
         ORDER BY abs_margin {"ASC" if closest else "DESC"}, week, matchup_id
@@ -542,6 +578,12 @@ def _season_margin_game(year: int, *, closest: bool) -> dict[str, Any] | None:
     packed["label"] = "Closest" if closest else "Blowout"
     packed["year"] = year
     packed["week"] = int(row["week"])
+    _stamp_if_top(
+        packed,
+        row["alltime_rank"],
+        "/records#closest" if closest else "/records#blowouts",
+        "closest" if closest else "biggest",
+    )
     return packed
 
 
@@ -2360,79 +2402,13 @@ def _member_lineup_weeks(manager_id: str, *, worst: bool, limit: int = 5) -> lis
 
 
 def _member_highs(manager_id: str) -> dict[str, Any]:
-    high = _member_extreme_week(manager_id, high=True)
-    low = _member_extreme_week(manager_id, high=False)
-    blowout = _member_margin_game(manager_id, closest=False)
-    closest = _member_margin_game(manager_id, closest=True)
-    win_streak = _member_longest_streak(manager_id, "win")
-    loss_streak = _member_longest_streak(manager_id, "loss")
-    _stamp_alltime(
-        high,
-        high_weeks(),
-        "/records#high",
-        "highest",
-        lambda notable, row: (
-            int(row["year"]) == int(notable["year"])
-            and int(row["week"]) == int(notable["week"])
-            and row["manager_id"] == notable.get("scorer_id")
-        ),
-    )
-    _stamp_alltime(
-        low,
-        low_weeks(),
-        "/records#low",
-        "lowest",
-        lambda notable, row: (
-            int(row["year"]) == int(notable["year"])
-            and int(row["week"]) == int(notable["week"])
-            and row["manager_id"] == notable.get("scorer_id")
-        ),
-    )
-    _stamp_alltime(
-        blowout,
-        blowouts(),
-        "/records#blowouts",
-        "biggest",
-        lambda notable, row: row["matchup_id"] == notable.get("id"),
-    )
-    _stamp_alltime(
-        closest,
-        closest_games(),
-        "/records#closest",
-        "closest",
-        lambda notable, row: row["matchup_id"] == notable.get("id"),
-    )
-    _stamp_alltime(
-        win_streak,
-        longest_streaks("win"),
-        "/records#wins",
-        "longest",
-        lambda notable, row: (
-            row["manager_id"] == notable.get("manager_id")
-            and int(row["length"]) == int(notable["length"])
-            and int(row["start_year"]) == int(notable["start_year"])
-            and int(row["start_week"]) == int(notable["start_week"])
-        ),
-    )
-    _stamp_alltime(
-        loss_streak,
-        longest_streaks("loss"),
-        "/records#losses",
-        "longest",
-        lambda notable, row: (
-            row["manager_id"] == notable.get("manager_id")
-            and int(row["length"]) == int(notable["length"])
-            and int(row["start_year"]) == int(notable["start_year"])
-            and int(row["start_week"]) == int(notable["start_week"])
-        ),
-    )
     return {
-        "high": high,
-        "low": low,
-        "blowout": blowout,
-        "closest": closest,
-        "win_streak": win_streak,
-        "loss_streak": loss_streak,
+        "high": _member_extreme_week(manager_id, high=True),
+        "low": _member_extreme_week(manager_id, high=False),
+        "blowout": _member_margin_game(manager_id, closest=False),
+        "closest": _member_margin_game(manager_id, closest=True),
+        "win_streak": _member_longest_streak(manager_id, "win"),
+        "loss_streak": _member_longest_streak(manager_id, "loss"),
     }
 
 
@@ -2443,13 +2419,7 @@ def _member_extreme_week(manager_id: str, *, high: bool) -> dict[str, Any] | Non
         FROM v_record_weeks w
         WHERE w.manager_id = %(manager_id)s
             AND w.paired
-            AND EXISTS (
-                SELECT 1
-                FROM matchups m
-                WHERE m.year = w.year AND m.week = w.week
-                    AND m.kind = 'regular'
-                    AND (m.home_points <> 0 OR m.away_points <> 0)
-            )
+            AND {_SCORED_REGULAR}
         ORDER BY w.points {"DESC" if high else "ASC"}, w.year, w.week
         LIMIT 1
         """,
@@ -2466,13 +2436,26 @@ def _member_extreme_week(manager_id: str, *, high: bool) -> dict[str, Any] | Non
         "id": game["id"] if game else None,
         "label": "Highest week" if high else "Lowest week",
     }
+    _stamp_if_top(
+        packed,
+        _week_alltime_rank(
+            high=high,
+            year=int(row["year"]),
+            week=int(row["week"]),
+            manager_id=manager_id,
+            points=row["points"],
+        ),
+        "/records#high" if high else "/records#low",
+        "highest" if high else "lowest",
+    )
     return packed
 
 
 def _member_margin_game(manager_id: str, *, closest: bool) -> dict[str, Any] | None:
+    rank_col = "closest_rank" if closest else "blowout_rank"
     row = fetchone(
         f"""
-        SELECT matchup_id, year, week
+        SELECT matchup_id, year, week, {rank_col} AS alltime_rank
         FROM v_record_matchups
         WHERE manager_id = %(manager_id)s OR opponent_id = %(manager_id)s
         ORDER BY abs_margin {"ASC" if closest else "DESC"}, year, week, matchup_id
@@ -2489,34 +2472,53 @@ def _member_margin_game(manager_id: str, *, closest: bool) -> dict[str, Any] | N
     packed["label"] = "Closest" if closest else "Biggest blowout"
     packed["year"] = int(row["year"])
     packed["week"] = int(row["week"])
+    _stamp_if_top(
+        packed,
+        row["alltime_rank"],
+        "/records#closest" if closest else "/records#blowouts",
+        "closest" if closest else "biggest",
+    )
     return packed
 
 
 def _member_longest_streak(manager_id: str, result: str) -> dict[str, Any] | None:
-    return fetchone(
+    row = fetchone(
         """
-        SELECT manager_id, length, start_year, start_week, end_year, end_week, is_current
-        FROM v_streaks
+        SELECT manager_id, length, start_year, start_week, end_year, end_week,
+               is_current, streak_rank
+        FROM (
+            SELECT
+                manager_id, length, start_year, start_week, end_year, end_week,
+                is_current, result,
+                row_number() OVER (
+                    PARTITION BY result
+                    ORDER BY length DESC, start_year, start_week, manager_id
+                ) AS streak_rank
+            FROM v_streaks
+        ) ranked
         WHERE manager_id = %(manager_id)s AND result = %(result)s
         ORDER BY length DESC, start_year, start_week
         LIMIT 1
         """,
         {"manager_id": manager_id, "result": result},
     )
+    if row is None:
+        return None
+    _stamp_if_top(
+        row,
+        row["streak_rank"],
+        "/records#wins" if result == "win" else "/records#losses",
+        "longest",
+    )
+    return row
 
 
 def high_weeks(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT w.year, w.week, w.manager_id, w.display_name, w.points
         FROM v_record_weeks w
-        WHERE EXISTS (
-            SELECT 1
-            FROM matchups m
-            WHERE m.year = w.year AND m.week = w.week
-                AND m.kind = 'regular'
-                AND (m.home_points <> 0 OR m.away_points <> 0)
-        )
+        WHERE {_SCORED_REGULAR}
         ORDER BY w.points DESC, w.year, w.week, w.manager_id
         LIMIT %(limit)s
         """,
@@ -2526,16 +2528,10 @@ def high_weeks(limit: int = 10) -> list[dict[str, Any]]:
 
 def low_weeks(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT w.year, w.week, w.manager_id, w.display_name, w.points
         FROM v_record_weeks w
-        WHERE EXISTS (
-            SELECT 1
-            FROM matchups m
-            WHERE m.year = w.year AND m.week = w.week
-                AND m.kind = 'regular'
-                AND (m.home_points <> 0 OR m.away_points <> 0)
-        )
+        WHERE {_SCORED_REGULAR}
         ORDER BY w.points ASC, w.year, w.week, w.manager_id
         LIMIT %(limit)s
         """,
@@ -2777,7 +2773,7 @@ def luck_flagged_weeks() -> list[dict[str, Any]]:
     return rows
 
 
-def universe_titles() -> list[dict[str, Any]]:
+def universe_titles(year: int | None = None) -> list[dict[str, Any]]:
     rows = fetchall(
         """
         SELECT
@@ -2798,9 +2794,11 @@ def universe_titles() -> list[dict[str, Any]]:
         LEFT JOIN season_outcomes oc ON oc.year = o.year
         LEFT JOIN managers och ON och.id = oc.champion
         LEFT JOIN managers ors ON ors.id = oc.regular_season_champion
+        WHERE (%(year)s::integer IS NULL OR o.year = %(year)s)
         ORDER BY o.year DESC,
             CASE o.universe WHEN 'never_median' THEN 0 ELSE 1 END
-        """
+        """,
+        {"year": year},
     )
     by_year: dict[int, dict[str, Any]] = {}
     for row in rows:

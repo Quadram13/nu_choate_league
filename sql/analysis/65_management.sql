@@ -5,10 +5,12 @@ DROP VIEW IF EXISTS
     v_management_career,
     v_management_season,
     v_start_sit,
-    v_management_weeks,
-    v_optimal_slots,
-    v_lineup_shape
+    v_management_weeks
 CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_optimal_slots CASCADE;
+DROP VIEW IF EXISTS v_optimal_slots CASCADE;
+DROP VIEW IF EXISTS v_lineup_shape CASCADE;
 
 -- League starter shape. Observed counts win if a season started more
 -- (e.g. two FLEX); otherwise 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 1 K, 1 DEF.
@@ -50,7 +52,8 @@ LEFT JOIN observed o ON o.year = y.year AND o.slot = d.slot;
 -- FLEX is the highest leftover RB/WR/TE. Actual points for management %
 -- come from week_scores (not the started flag), so ESPN still works if a
 -- slot was mis-tagged.
-CREATE VIEW v_optimal_slots AS
+-- Snapshot: leftover and start/sit read this. Computing it live is ~0.3s per season.
+CREATE MATERIALIZED VIEW v_optimal_slots AS
 WITH roster AS (
     SELECT DISTINCT ON (pw.year, pw.week, pw.manager_id, pw.player_id)
         pw.year,
@@ -111,16 +114,27 @@ flexed AS (
     FROM flex_ranked f
     JOIN v_lineup_shape s ON s.year = f.year AND s.slot = 'FLEX'
     WHERE f.flex_rank <= s.n
+),
+slots AS (
+    SELECT
+        year, week, kind, matchup_id, manager_id, manager_name,
+        player_id, player_name, position, points, started, opt_slot
+    FROM locked
+    UNION ALL
+    SELECT
+        year, week, kind, matchup_id, manager_id, manager_name,
+        player_id, player_name, position, points, started, opt_slot
+    FROM flexed
 )
 SELECT
     year, week, kind, matchup_id, manager_id, manager_name,
     player_id, player_name, position, points, started, opt_slot
-FROM locked
-UNION ALL
-SELECT
-    year, week, kind, matchup_id, manager_id, manager_name,
-    player_id, player_name, position, points, started, opt_slot
-FROM flexed;
+FROM slots
+WITH NO DATA;
+
+CREATE INDEX v_optimal_slots_year ON v_optimal_slots (year);
+CREATE INDEX v_optimal_slots_week ON v_optimal_slots (year, week, manager_id);
+CREATE INDEX v_optimal_slots_player ON v_optimal_slots (year, week, manager_id, player_id);
 
 CREATE VIEW v_management_weeks AS
 SELECT

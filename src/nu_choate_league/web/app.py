@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import functools
+import inspect
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -16,7 +20,31 @@ templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(member, team)
 templates.env.globals["headshot_url"] = headshot_url
 
+
+def _with_db(endpoint):
+    @functools.wraps(endpoint)
+    def wrapped(*args, **kwargs):
+        conn = queries.connect()
+        token = queries.bind_connection(conn)
+        try:
+            return endpoint(*args, **kwargs)
+        finally:
+            queries.unbind_connection(token)
+            conn.close()
+
+    wrapped.__signature__ = inspect.signature(endpoint)
+    return wrapped
+
+
+class HubRoute(APIRoute):
+    def __init__(self, path: str, endpoint, **kwargs):
+        if not inspect.iscoroutinefunction(endpoint):
+            endpoint = _with_db(endpoint)
+        super().__init__(path, endpoint, **kwargs)
+
+
 app = FastAPI(title="Nu Choate League", docs_url=None, redoc_url=None)
+app.router.route_class = HubRoute
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 

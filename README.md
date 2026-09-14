@@ -123,7 +123,7 @@ uv run nu-choate-league query universes
 uv run nu-choate-league query luck --year 2025
 ```
 
-`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes the acquisition VORP snapshot used by trades, the wire, and draft grades. Re-run it after a new dump.
+`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes snapshots used by trades, draft, wire claims, lineups, and scoring universes. Re-run it after a new dump.
 
 ## View the hub locally
 
@@ -197,8 +197,10 @@ data/          gitignored dumps: espn/{year}/, sleeper/{year}/
 sql/facts.sql  tables
 sql/analysis/  views, one file per domain, applied in numeric order:
                10 games · 20 standings · 30 records · 40 luck · 50 draft/moves
-               60 players · 70 universes · 80 assets (materialized VORP
-               snapshot, refreshed on load) · 90 waivers
+               60 players · 65 management (materialized optimal lineups) ·
+               70 universes (materialized titles) · 80 assets (materialized
+               VORP snapshot) · 90 waivers (materialized claims). Snapshots
+               refresh on load.
 hub/           local HTML, CSS, and fonts for `serve`
 src/nu_choate_league/  dump, ingest, load, query, web
 compose.yaml   Postgres 17 on localhost:5433
