@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official records stitched across platforms.</p>
+<p class="lede">Official records stitched across platforms. Streak is the current regular-season run.</p>
 <table class="js-sort">
     <thead>
         <tr>
             <th>Manager</th>
             <th class="num">Yrs</th>
             <th data-type="num">Record</th>
+            <th class="num">Win%</th>
             <th class="num">PF</th>
             <th class="num">Titles</th>
+            <th class="num">RU</th>
             <th class="num">RS</th>
             <th class="num">PO</th>
+            <th class="num">PF+</th>
+            <th data-type="num">Streak</th>
         </tr>
     </thead>
     <tbody>
@@ -20,10 +24,18 @@
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td class="num">{{ row.seasons|int }}</td>
             <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td class="num" data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
             <td class="num">{{ row.titles|int }}</td>
+            <td class="num">{{ row.runner_up|int }}</td>
             <td class="num">{{ row.regular_season_titles|int }}</td>
             <td class="num">{{ row.playoff_appearances|int }}</td>
+            <td class="num">{{ row.most_points_titles|int }}</td>
+            <td data-value="{% if row.streak_length %}{% if row.streak_result == 'win' %}{{ row.streak_length }}{% else %}-{{ row.streak_length }}{% endif %}{% else %}0{% endif %}">
+                {% if row.streak_length %}
+                <a href="/records#current">{{ row.streak_length }} {{ "W" if row.streak_result == "win" else "L" }}</a>
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>

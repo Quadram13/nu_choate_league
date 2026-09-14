@@ -8,7 +8,7 @@ You do **not** need to know how to code to get a working copy on your computer. 
 
 1. Raw season files on your machine (`data/`, not stored in GitHub).
 2. A local database (Postgres, running in Docker).
-3. A local hub in the browser: standings, records, season brackets, weekly scores, matchup lineups, trades, and the waiver wire.
+3. A local hub in the browser: standings, records, season brackets, weekly scores, matchup lineups, trades, the waiver wire, and draft boards.
 4. Commands that load dumps into the database and print the same numbers in the terminal.
 
 ## What to install first
@@ -123,7 +123,7 @@ uv run nu-choate-league query universes
 uv run nu-choate-league query luck --year 2025
 ```
 
-`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes the acquisition VORP snapshot used by trades and the wire. Re-run it after a new dump.
+`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes the acquisition VORP snapshot used by trades, the wire, and draft grades. Re-run it after a new dump.
 
 ## View the hub locally
 
@@ -141,13 +141,14 @@ What is there today:
 | --- | --- |
 | Home (current standings and champions) | `/` |
 | Seasons | `/seasons` |
-| One season (standings, scoring, playoffs, trades, wire, lineups) | `/seasons/2025` |
+| One season (standings, scoring, playoffs, trades, wire, draft, lineups) | `/seasons/2025` |
 | Week scoreboard (games and wire) | `/seasons/2025/week/7` |
 | One matchup (lineups and bench) | `/seasons/2025/week/7/2025-w07-1` |
 | One trade | `/seasons/2024/trades/{id}` |
 | One waiver or FA claim | `/seasons/2025/wire/{id}` |
-| Members and one career | `/members`, `/members/marcus-du` |
-| Record book | `/records` |
+| Draft board | `/seasons/2025/draft` |
+| Members (all-time table and career yearbook) | `/members`, `/members/marcus-du` |
+| Record book (weeks, trades, draft, wire, bench, streaks) | `/records` |
 | Luck | `/luck` |
 | Players | `/players`, `/players/{id}` |
 

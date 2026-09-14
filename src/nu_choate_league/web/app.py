@@ -106,6 +106,24 @@ def trade(request: Request, year: int, transaction_id: str) -> HTMLResponse:
     )
 
 
+@app.get("/seasons/{year}/draft", response_class=HTMLResponse)
+def draft(request: Request, year: int) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    data = queries.draft_page(year)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No draft in {year}.")
+    return page(
+        request,
+        "draft.html",
+        nav="seasons",
+        title=f"{year} draft",
+        current=current,
+        draft=data,
+    )
+
+
 @app.get("/seasons/{year}/wire/{transaction_id}", response_class=HTMLResponse)
 def wire(request: Request, year: int, transaction_id: str) -> HTMLResponse:
     current = queries.season_row(year)
@@ -174,17 +192,15 @@ def members(request: Request) -> HTMLResponse:
 
 @app.get("/members/{manager_id}", response_class=HTMLResponse)
 def member(request: Request, manager_id: str) -> HTMLResponse:
-    person = queries.career_one(manager_id)
-    if person is None:
+    data = queries.member_page(manager_id)
+    if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No manager {manager_id}.")
     return page(
         request,
         "member.html",
         nav="members",
-        title=person["display_name"],
-        person=person,
-        finishes=queries.finishes(manager_id),
-        h2h=queries.h2h_for(manager_id),
+        title=data["member"]["display_name"],
+        **data,
     )
 
 
@@ -195,14 +211,7 @@ def records(request: Request) -> HTMLResponse:
         "records.html",
         nav="records",
         title="Record book",
-        high_weeks=queries.high_weeks(),
-        low_weeks=queries.low_weeks(),
-        blowouts=queries.blowouts(),
-        closest=queries.closest_games(),
-        trades=queries.lopsided_trades(),
-        win_streaks=queries.longest_streaks("win"),
-        loss_streaks=queries.longest_streaks("loss"),
-        current_streaks=queries.current_streaks(),
+        **queries.records_page(),
     )
 
 

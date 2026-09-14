@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "draft_macros.html" import person, pick_cell, pick_link %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#draft">draft</a>
+    {% if draft.prev_year %}
+    <a href="/seasons/{{ draft.prev_year }}/draft">← {{ draft.prev_year }}</a>
+    {% endif %}
+    {% if draft.next_year %}
+    <a href="/seasons/{{ draft.next_year }}/draft">{{ draft.next_year }} →</a>
+    {% endif %}
+</p>
+<h1>{{ current.year }} draft</h1>
+<p class="lede">Snake. Each column is one manager.{% if current.through_week %} Through week {{ current.through_week }}.{% endif %}</p>
+<p class="jump">
+    {% for year in draft.years %}
+    <a href="/seasons/{{ year }}/draft"{% if year == current.year %} class="on"{% endif %}>{{ year }}</a>
+    {% endfor %}
+</p>
+<p class="note">
+    Starter VORP on that roster until someone else adds the player, versus that round's drafted average.
+    A hit is 8+ starts. Green is above the round, red is below.
+</p>
+<div class="draft-board-wrap">
+<table class="draft-board">
+    <thead>
+        <tr>
+            <th class="draft-round">Rd</th>
+            {% for col in draft.board.columns %}
+            <th>
+                <span class="who">
+                    {{ person(col.manager_id, col.manager_name) }}
+                    {% set jersey = col.team_name | flavor_team(col.manager_name) %}
+                    {% if jersey %}<span class="team">{{ jersey }}</span>{% endif %}
+                </span>
+            </th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft.board.rows %}
+        <tr>
+            <th class="draft-round" title="{% if row.round_vorp is not none %}round avg {{ '%+.1f'|format(row.round_vorp) }} VORP{% endif %}">{{ row.round }}</th>
+            {% for pick in row.slots %}
+            {{ pick_cell(pick) }}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if draft.board.extras %}
+<p class="note">Not on the snake (extra pick in a round):
+    {% for row in draft.board.extras %}
+    {{ pick_link(current.year, row) }} ({{ row.overall }}){% if not loop.last %} · {% endif %}
+    {% endfor %}
+</p>
+{% endif %}
+{% endblock %}
