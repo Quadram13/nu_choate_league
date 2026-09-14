@@ -30,8 +30,14 @@ KIND_LABELS = {
 }
 
 TRADE_EVEN_GAP = 15
-TRADE_FLEECE_GAP = 50
+TRADE_SWING_GAP = 50
 TRADE_FLEECE_LOSER = 15
+TRADE_LABELS = {
+    "even": "even",
+    "win": "win",
+    "big-win": "big win",
+    "fleece": "fleece",
+}
 
 
 def connect() -> psycopg.Connection:
@@ -408,6 +414,8 @@ def _season_trades(year: int) -> list[dict[str, Any]]:
     )
     for row in rows:
         row["verdict"] = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
+        row["home"], row["away"] = _trade_card_sides(row)
+    _attach_trade_card_players(rows)
     return rows
 
 
@@ -418,11 +426,58 @@ def _trade_verdict(left_vorp: Any, right_vorp: Any) -> dict[str, Any]:
     loser = min(left, right)
     if gap < TRADE_EVEN_GAP:
         kind = "even"
-    elif gap >= TRADE_FLEECE_GAP and loser < TRADE_FLEECE_LOSER:
+    elif gap >= TRADE_SWING_GAP and loser < TRADE_FLEECE_LOSER:
         kind = "fleece"
+    elif gap >= TRADE_SWING_GAP:
+        kind = "big-win"
     else:
         kind = "win"
-    return {"kind": kind, "label": kind, "gap": gap}
+    return {"kind": kind, "label": TRADE_LABELS[kind], "gap": gap}
+
+
+def _trade_card_sides(row: dict[str, Any], *, winner_first: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+    left = {
+        "id": row["left_id"],
+        "name": row["left_name"],
+        "vorp": row["left_vorp"],
+        "received": row.get("left_received"),
+    }
+    right = {
+        "id": row["right_id"],
+        "name": row["right_name"],
+        "vorp": row["right_vorp"],
+        "received": row.get("right_received"),
+    }
+    if winner_first and row.get("winner_id") == row["right_id"]:
+        return right, left
+    return left, right
+
+
+def _attach_trade_card_players(rows: list[dict[str, Any]]) -> None:
+    ids = [row["transaction_id"] for row in rows]
+    if not ids:
+        return
+    assets = fetchall(
+        """
+        SELECT transaction_id, to_manager_id, player_id, player_name
+        FROM v_trade_assets
+        WHERE transaction_id = ANY(%(ids)s)
+        ORDER BY ros_vorp DESC NULLS LAST, player_name
+        """,
+        {"ids": ids},
+    )
+    by: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+    for item in assets:
+        by[item["transaction_id"]][item["to_manager_id"]].append(
+            {
+                "player_id": item["player_id"],
+                "player_name": item["player_name"],
+            }
+        )
+    for row in rows:
+        packed = by.get(row["transaction_id"], {})
+        row["home"]["players"] = packed.get(row["home"]["id"], [])
+        row["away"]["players"] = packed.get(row["away"]["id"], [])
 
 
 def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
@@ -508,8 +563,6 @@ def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
                     )
             player["weeks"] = cells
     flips = _attach_trade_flips(left, right, onward, all_assets)
-    left_v = float(left["vorp"] or 0)
-    right_v = float(right["vorp"] or 0)
     return {
         "id": transaction_id,
         "year": year,
@@ -518,13 +571,10 @@ def trade_page(year: int, transaction_id: str) -> dict[str, Any] | None:
         "right": right,
         "winner_id": row["winner_id"],
         "verdict": row["verdict"],
-        "margin": round(left_v - right_v, 1),
-        "board": _trade_board(left["players"], right["players"]),
         "flips": flips,
         "weeks": week_nums,
         "prev": _trade_brief(trades[idx - 1]) if idx else None,
         "next": _trade_brief(trades[idx + 1]) if idx + 1 < len(trades) else None,
-        "siblings": [_trade_brief(item) for item in trades],
     }
 
 
@@ -545,27 +595,6 @@ def _trade_side(
         "starts": sum(int(player["ros_starts"] or 0) for player in players),
         "players": players,
     }
-
-
-def _trade_board(
-    left: list[dict[str, Any]],
-    right: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    rows = []
-    for i in range(max(len(left), len(right), 1)):
-        home = left[i] if i < len(left) else None
-        away = right[i] if i < len(right) else None
-        hv = None if home is None or home.get("ros_vorp") is None else float(home["ros_vorp"])
-        av = None if away is None or away.get("ros_vorp") is None else float(away["ros_vorp"])
-        delta = None if hv is None or av is None else round(hv - av, 1)
-        winner = None
-        if hv is not None and av is not None:
-            if hv > av:
-                winner = "home"
-            elif av > hv:
-                winner = "away"
-        rows.append({"home": home, "away": away, "delta": delta, "winner": winner})
-    return rows
 
 
 def _trade_brief(row: dict[str, Any]) -> dict[str, Any]:
@@ -1417,8 +1446,8 @@ def lopsided_trades(limit: int = 10) -> list[dict[str, Any]]:
         """
         SELECT
             transaction_id, year, week, winner_id,
-            left_id, left_name, left_vorp,
-            right_id, right_name, right_vorp, vorp_gap
+            left_id, left_name, left_vorp, left_received,
+            right_id, right_name, right_vorp, right_received, vorp_gap
         FROM v_trade_grades
         ORDER BY vorp_gap DESC, year, week, transaction_id
         LIMIT %(limit)s
@@ -1428,7 +1457,7 @@ def lopsided_trades(limit: int = 10) -> list[dict[str, Any]]:
     packed = []
     for index, row in enumerate(rows, 1):
         verdict = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
-        winner_first = row["winner_id"] == row["right_id"]
+        home, away = _trade_card_sides(row, winner_first=True)
         packed.append(
             {
                 "rank": index,
@@ -1436,13 +1465,9 @@ def lopsided_trades(limit: int = 10) -> list[dict[str, Any]]:
                 "year": row["year"],
                 "week": row["week"],
                 "verdict": verdict,
-                "gap": row["vorp_gap"],
-                "won_id": row["right_id"] if winner_first else row["left_id"],
-                "won_name": row["right_name"] if winner_first else row["left_name"],
-                "won_vorp": row["right_vorp"] if winner_first else row["left_vorp"],
-                "lost_id": row["left_id"] if winner_first else row["right_id"],
-                "lost_name": row["left_name"] if winner_first else row["right_name"],
-                "lost_vorp": row["left_vorp"] if winner_first else row["right_vorp"],
+                "winner_id": row["winner_id"],
+                "home": home,
+                "away": away,
             }
         )
     return packed

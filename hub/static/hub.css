@@ -928,6 +928,122 @@ td.plus {
     color: #93c5fd;
 }
 
+.trade-list .gc-match.compact {
+    margin: 10px 0;
+}
+
+.gc-match.compact .trade-split {
+    margin-top: 8px;
+    gap: 4px 20px;
+}
+
+.gc-match.compact .trade-player {
+    padding: 2px 0;
+    border-bottom: none;
+}
+
+.gc-match.compact .trade-pack:first-child {
+    text-align: right;
+}
+
+.verdict.even {
+    color: #9ca3af;
+}
+
+.verdict.big-win,
+.verdict.fleece {
+    color: #e4e4e7;
+    font-weight: 600;
+}
+
+.trade-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 28px;
+    align-items: start;
+}
+
+.trade-pack-head,
+.trade-player {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.trade-pack-head {
+    font-weight: 600;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+}
+
+.trade-pack.home {
+    text-align: right;
+}
+
+.trade-pack.home .trade-pack-head,
+.trade-pack.home .trade-player {
+    flex-direction: row-reverse;
+}
+
+.trade-pack.lost,
+.trade-pack.lost a {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.trade-pack .num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.player-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: inherit;
+}
+
+.trade-pack.home .player-name {
+    flex-direction: row-reverse;
+}
+
+.headshot {
+    width: 24px;
+    height: 24px;
+    object-fit: cover;
+    flex: 0 0 24px;
+    background: #1f2933;
+}
+
+.trade-pack-head .num {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+    .trade-split {
+        grid-template-columns: 1fr;
+    }
+
+    .trade-pack.home {
+        text-align: left;
+    }
+
+    .gc-match.compact .trade-pack:first-child {
+        text-align: left;
+    }
+
+    .trade-pack.home .trade-pack-head,
+    .trade-pack.home .trade-player,
+    .trade-pack.home .player-name {
+        flex-direction: row;
+    }
+}
+
 .trade-weeks {
     overflow-x: auto;
     margin: 12px 0 20px;

@@ -9,10 +9,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from ..paths import project_root
 from . import queries
 from .names import flavor_team
+from .photos import headshot_url
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(member, team)
+templates.env.globals["headshot_url"] = headshot_url
 
 app = FastAPI(title="Nu Choate League", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")

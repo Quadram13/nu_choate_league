@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "trade_macros.html" import trade_card %}
 {% block body %}
 <h1>Record book</h1>
 <p class="lede">
@@ -134,34 +135,12 @@
 </table>
 
 <h2 id="trades">Most lopsided trades</h2>
-<p class="note">Rest-of-season starter VORP of what each side received. Fleece is a gap of 50+ with the other side under +15.</p>
-<table>
-    <thead>
-        <tr>
-            <th class="num">#</th>
-            <th>Trade</th>
-            <th>When</th>
-            <th class="num">Gap</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in trades %}
-        <tr data-year="{{ row.year }}">
-            <td class="num">{{ row.rank }}</td>
-            <td>
-                <a href="/members/{{ row.won_id }}">{{ row.won_name }}</a>
-                {% if row.won_vorp is not none %}{{ "%+.1f"|format(row.won_vorp) }}{% endif %}
-                –
-                <a href="/members/{{ row.lost_id }}">{{ row.lost_name }}</a>
-                {% if row.lost_vorp is not none %}{{ "%+.1f"|format(row.lost_vorp) }}{% endif %}
-                <span class="team">{{ row.verdict.label }}</span>
-            </td>
-            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
-            <td class="num">{% if row.gap is not none %}{{ "%.1f"|format(row.gap) }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<p class="note">Rest-of-season starter VORP of what each side received. Winner listed first. Big win is 50+ with both sides at +15 or more. Fleece is 50+ with the other side under +15.</p>
+<div class="trade-list">
+    {% for row in trades %}
+    {{ trade_card(row, show_year=True) }}
+    {% endfor %}
+</div>
 
 <h2 id="wins">Longest win streaks</h2>
 <table>

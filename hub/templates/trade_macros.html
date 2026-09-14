@@ -1,0 +1,48 @@
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+
+{% macro trade_side(side, row) %}
+{% set kind = row.verdict.kind %}
+<div class="side{% if kind != 'even' and row.winner_id %}{% if side.id == row.winner_id %} won{% else %} lost{% endif %}{% endif %}">
+    <div class="who">
+        {{ person(side.id, side.name) }}
+        {% if not side.players and side.received %}<span class="team">{{ side.received }}</span>{% endif %}
+    </div>
+    <span class="num">{% if side.vorp is not none %}{{ "%+.1f"|format(side.vorp) }}{% endif %}</span>
+</div>
+{% endmacro %}
+
+{% macro trade_names(side) %}
+<div class="trade-pack">
+    {% for player in side.players %}
+    <div class="trade-player">
+        <div class="who">
+            {% if player.player_id %}<a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>{% else %}{{ player.player_name }}{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro trade_card(row, show_year=False) %}
+<article class="gc-match compact" data-year="{{ row.year }}">
+    <p class="note">
+        {% if row.rank %}#{{ row.rank }} · {% endif %}
+        {% if show_year %}{{ row.year }} {% endif %}W{{ row.week }}
+        · <span class="verdict {{ row.verdict.kind }}">{{ row.verdict.label }}</span>
+        · {{ "%.0f"|format(row.verdict.gap) }}
+    </p>
+    <header class="gc-score">
+        {{ trade_side(row.home, row) }}
+        {{ trade_side(row.away, row) }}
+    </header>
+    {% if row.home.players or row.away.players %}
+    <div class="trade-split">
+        {{ trade_names(row.home) }}
+        {{ trade_names(row.away) }}
+    </div>
+    {% endif %}
+    <p class="open-gc"><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">board</a></p>
+</article>
+{% endmacro %}

@@ -103,7 +103,7 @@ function compareValues(left, right) {
 const filterState = { year: "all", pos: "all" };
 
 function enableFilters() {
-    const rows = [...document.querySelectorAll("tr[data-year], tr[data-year-start], tr[data-pos]")];
+    const rows = [...document.querySelectorAll("[data-year], [data-year-start], [data-pos]")];
     const yearSlots = [...document.querySelectorAll(".js-year-filter")];
     const posSlots = [...document.querySelectorAll(".js-pos-filter")];
     if (!rows.length || (!yearSlots.length && !posSlots.length)) {
