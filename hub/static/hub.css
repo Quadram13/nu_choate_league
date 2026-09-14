@@ -1,3 +1,19 @@
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("/static/fonts/JetBrainsMonoNerdFont-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("/static/fonts/JetBrainsMonoNerdFont-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,7 +21,7 @@
 }
 
 body {
-    font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+    font-family: "JetBrains Mono", ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
     line-height: 1.55;
     color: #e4e4e7;
     background: #0f1419;
@@ -13,7 +29,7 @@ body {
 }
 
 .wrap {
-    max-width: 920px;
+    max-width: 1080px;
     margin: 0 auto;
 }
 
@@ -58,6 +74,14 @@ h3 {
 .lede {
     color: #a1a1aa;
     margin-bottom: 20px;
+}
+
+.jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    margin: 0 0 28px;
+    font-size: 0.9rem;
 }
 
 .note {
@@ -110,4 +134,209 @@ ul.index span {
 
 code {
     font-size: 0.9em;
+}
+
+.brackets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+    margin-top: 8px;
+}
+
+.brackets h2 {
+    margin-top: 32px;
+}
+
+.brackets h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.bracket-tree {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    flex: 1;
+}
+
+.bracket-slots {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    flex: 1;
+    min-height: 220px;
+}
+
+.bracket-tree.ladder .bracket-slots {
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 0;
+}
+
+.bracket-match {
+    border: 1px solid #2a3440;
+    padding: 8px 10px;
+    margin: 10px 12px 10px 0;
+}
+
+.seed {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 0;
+    align-items: flex-start;
+}
+
+.who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.team {
+    display: block;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.seed.won {
+    color: #e4e4e7;
+}
+
+.seed.lost,
+.seed.lost a {
+    color: #9ca3af;
+}
+
+.placements {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.placements h3 {
+    margin-bottom: 8px;
+}
+
+@media (max-width: 800px) {
+    .brackets {
+        grid-template-columns: 1fr;
+    }
+}
+
+details.week {
+    margin: 8px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+details.week summary {
+    cursor: pointer;
+    padding: 10px 0;
+    color: #d4d4d8;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+details.week table {
+    margin-bottom: 12px;
+}
+
+.jump a.on {
+    color: #e4e4e7;
+    text-decoration: none;
+}
+
+.open-gc {
+    margin: 6px 0 0;
+    font-size: 0.8rem;
+}
+
+.gc-match {
+    border: 1px solid #2a3440;
+    padding: 16px;
+    margin: 20px 0;
+}
+
+.gc-match.compact {
+    padding: 12px 14px;
+    margin: 12px 0;
+}
+
+.gc-match.compact .gc-score {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.gc-score {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #1f2933;
+}
+
+.gc-score .side {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 600;
+    align-items: flex-start;
+}
+
+.gc-score .side.lost,
+.gc-score .side.lost a {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.gc-lineups {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.gc-lineup h3 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+}
+
+.gc-lineup h3 .team {
+    margin-top: 2px;
+}
+
+.gc-lineup td.slot {
+    color: #9ca3af;
+    width: 3.6rem;
+    padding-left: 0;
+}
+
+.gc-lineup tr.bench-head td {
+    color: #9ca3af;
+    font-weight: 600;
+    padding-top: 14px;
+}
+
+.gc-lineup tr.bench td {
+    color: #a1a1aa;
+}
+
+@media (max-width: 800px) {
+    .gc-lineups,
+    .gc-score {
+        grid-template-columns: 1fr;
+    }
 }

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% macro lineup(side) %}
+<div class="gc-lineup">
+    <h3>
+        {% if side.id %}<a href="/members/{{ side.id }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %}
+        {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+    </h3>
+    {% if side.starters or side.bench %}
+    <table>
+        <tbody>
+            {% for row in side.starters %}
+            <tr>
+                <td class="slot">{{ row.slot }}</td>
+                <td>{{ row.player_name or "—" }}</td>
+                <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+            {% if side.bench %}
+            <tr class="bench-head">
+                <td colspan="2">Bench</td>
+                <td class="num">{% if side.bench_points is not none %}{{ "%.2f"|format(side.bench_points) }}{% endif %}</td>
+            </tr>
+            {% for row in side.bench %}
+            <tr class="bench">
+                <td class="slot">{{ row.slot }}</td>
+                <td>{{ row.player_name or "—" }}</td>
+                <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="note">No lineup recorded.</p>
+    {% endif %}
+</div>
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}/week/{{ gc.week }}">week {{ gc.week }}</a>
+    {% if gc.prev_match %}
+    <a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ gc.prev_match.id }}">← {{ gc.prev_match.home.name }} vs {{ gc.prev_match.away.name }}</a>
+    {% endif %}
+    {% if gc.next_match %}
+    <a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ gc.next_match.id }}">{{ gc.next_match.home.name }} vs {{ gc.next_match.away.name }} →</a>
+    {% endif %}
+</p>
+<h1>{{ gc.game.home.name }} vs {{ gc.game.away.name }}</h1>
+<p class="lede">{{ current.year }} week {{ gc.week }}{% if gc.kind_label and gc.game.kind != "regular" %} · {{ gc.kind_label }}{% endif %}</p>
+<p class="jump">
+    {% for week in gc.weeks %}
+    <a href="/seasons/{{ current.year }}/week/{{ week }}"{% if week == gc.week %} class="on"{% endif %}>{{ week }}</a>
+    {% endfor %}
+</p>
+<p class="jump">
+    {% for sib in gc.siblings %}
+    <a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ sib.id }}"{% if sib.id == gc.game.id %} class="on"{% endif %}>{{ sib.home.name }} vs {{ sib.away.name }}</a>
+    {% endfor %}
+</p>
+<article class="gc-match">
+    <header class="gc-score">
+        <div class="side{% if gc.game.winner_id and gc.game.winner_id == gc.game.home.id %} won{% elif gc.game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {% if gc.game.home.id %}<a href="/members/{{ gc.game.home.id }}">{{ gc.game.home.name }}</a>{% else %}{{ gc.game.home.name }}{% endif %}
+                {% if gc.game.home.team %}<span class="team">{{ gc.game.home.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if gc.game.home.points is not none %}{{ "%.2f"|format(gc.game.home.points) }}{% endif %}</span>
+        </div>
+        <div class="side{% if gc.game.winner_id and gc.game.winner_id == gc.game.away.id %} won{% elif gc.game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {% if gc.game.away.id %}<a href="/members/{{ gc.game.away.id }}">{{ gc.game.away.name }}</a>{% else %}{{ gc.game.away.name }}{% endif %}
+                {% if gc.game.away.team %}<span class="team">{{ gc.game.away.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if gc.game.away.points is not none %}{{ "%.2f"|format(gc.game.away.points) }}{% endif %}</span>
+        </div>
+    </header>
+    <div class="gc-lineups">
+        {{ lineup(gc.game.home) }}
+        {{ lineup(gc.game.away) }}
+    </div>
+</article>
+{% endblock %}

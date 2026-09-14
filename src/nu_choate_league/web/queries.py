@@ -8,6 +8,26 @@ from fastapi import HTTPException
 from psycopg.rows import dict_row
 
 from ..db import database_url
+from . import brackets
+from .names import flavor_team
+
+SLOT_ORDER = {
+    "QB": 0,
+    "RB": 1,
+    "WR": 2,
+    "TE": 3,
+    "FLEX": 4,
+    "K": 5,
+    "DEF": 6,
+    "BN": 50,
+    "IR": 51,
+}
+
+KIND_LABELS = {
+    "regular": "Regular season",
+    "playoff": "Playoffs",
+    "consolation": "Consolation",
+}
 
 
 def connect() -> psycopg.Connection:
@@ -111,10 +131,159 @@ def standings(year: int) -> list[dict[str, Any]]:
     )
 
 
-def matchups_by_week(year: int) -> list[tuple[int, str, list[dict[str, Any]]]]:
+def season_schedule(year: int) -> dict[str, Any]:
     rows = fetchall(
         """
         SELECT
+            m.id,
+            m.week,
+            m.kind,
+            m.home_manager_id,
+            m.away_manager_id,
+            hm.display_name AS home_name,
+            am.display_name AS away_name,
+            m.home_team_name,
+            m.away_team_name,
+            m.home_points,
+            m.away_points,
+            (hp.manager_id IS NOT NULL) AS home_playoff,
+            (ap.manager_id IS NOT NULL) AS away_playoff
+        FROM matchups m
+        LEFT JOIN managers hm ON hm.id = m.home_manager_id
+        LEFT JOIN managers am ON am.id = m.away_manager_id
+        LEFT JOIN season_playoff_managers hp
+            ON hp.year = m.year AND hp.manager_id = m.home_manager_id
+        LEFT JOIN season_playoff_managers ap
+            ON ap.year = m.year AND ap.manager_id = m.away_manager_id
+        JOIN seasons s ON s.year = m.year
+        WHERE m.year = %(year)s
+            AND m.kind IN ('regular', 'playoff', 'consolation')
+            AND (s.through_week IS NULL OR m.week <= s.through_week)
+            AND (m.home_points <> 0 OR m.away_points <> 0)
+        ORDER BY m.week, m.kind, m.id
+        """,
+        {"year": year},
+    )
+    regular: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    postseason: list[dict[str, Any]] = []
+    for row in rows:
+        week = int(row["week"])
+        if row["kind"] == "regular":
+            regular[week].append(row)
+        else:
+            postseason.append(row)
+    meta = fetchone(
+        """
+        SELECT s.platform, o.playoff_start_week
+        FROM seasons s
+        LEFT JOIN season_outcomes o ON o.year = s.year
+        WHERE s.year = %(year)s
+        """,
+        {"year": year},
+    )
+    platform = (meta or {}).get("platform")
+    start_week = int((meta or {}).get("playoff_start_week") or 15)
+    winners_tree = None
+    consolation_tree = None
+    if platform == "sleeper":
+        roster = {
+            int(row["platform_team_id"]): {
+                "id": row["manager_id"],
+                "name": row["display_name"],
+                "team": flavor_team(row["display_name"], row["team_name"]),
+            }
+            for row in fetchall(
+                """
+                SELECT ts.platform_team_id, ts.manager_id, m.display_name, ts.team_name
+                FROM team_seasons ts
+                JOIN managers m ON m.id = ts.manager_id
+                WHERE ts.year = %(year)s
+                """,
+                {"year": year},
+            )
+            if row["platform_team_id"]
+        }
+        winners_tree = brackets.sleeper_tree(
+            brackets.load_sleeper_bracket(year, "winners_bracket.json"),
+            roster,
+            postseason,
+            start_week,
+            championship=True,
+        )
+        consolation_tree = brackets.sleeper_tree(
+            brackets.load_sleeper_bracket(year, "losers_bracket.json"),
+            roster,
+            postseason,
+            start_week,
+            championship=False,
+        )
+    else:
+        winners_tree = brackets.espn_winners_tree(postseason)
+        consolation_tree = brackets.espn_consolation_ladder(postseason)
+    return {
+        "regular": [(week, regular[week]) for week in regular],
+        "weeks": sorted({int(row["week"]) for row in rows}),
+        "winners_tree": winners_tree,
+        "consolation_tree": consolation_tree,
+    }
+
+
+def week_slate(year: int, week: int) -> dict[str, Any] | None:
+    games = _week_games(year, week)
+    if not games:
+        return None
+    packed = [_score_game(game) for game in games]
+    return {**_week_nav(year, week), "groups": _group_games(packed)}
+
+
+def gamecenter(year: int, week: int, matchup_id: str) -> dict[str, Any] | None:
+    games = _week_games(year, week)
+    row = next((game for game in games if game["id"] == matchup_id), None)
+    if row is None:
+        return None
+    slots = fetchall(
+        """
+        SELECT matchup_id, manager_id, player_name, slot, started, points
+        FROM v_player_weeks
+        WHERE matchup_id = %(matchup_id)s
+        """,
+        {"matchup_id": matchup_id},
+    )
+    manager_ids = [
+        manager_id
+        for manager_id in (row["home_manager_id"], row["away_manager_id"])
+        if manager_id
+    ]
+    bench_rows = fetchall(
+        """
+        SELECT manager_id, started_points, bench_points
+        FROM v_bench
+        WHERE year = %(year)s AND week = %(week)s
+            AND manager_id = ANY(%(manager_ids)s)
+        """,
+        {"year": year, "week": week, "manager_ids": manager_ids},
+    ) if manager_ids else []
+    by_side: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for slot in slots:
+        by_side[slot["manager_id"]].append(slot)
+    bench_by = {item["manager_id"]: item for item in bench_rows}
+    siblings = [_score_game(game) for game in games]
+    index = next(i for i, game in enumerate(siblings) if game["id"] == matchup_id)
+    return {
+        **_week_nav(year, week),
+        "game": _score_game(row, by_side=by_side, bench_by=bench_by),
+        "kind_label": KIND_LABELS.get(row["kind"], row["kind"]),
+        "siblings": siblings,
+        "prev_match": siblings[index - 1] if index > 0 else None,
+        "next_match": siblings[index + 1] if index < len(siblings) - 1 else None,
+    }
+
+
+def _week_games(year: int, week: int) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            m.id,
             m.week,
             m.kind,
             m.home_manager_id,
@@ -130,16 +299,128 @@ def matchups_by_week(year: int) -> list[tuple[int, str, list[dict[str, Any]]]]:
         LEFT JOIN managers am ON am.id = m.away_manager_id
         JOIN seasons s ON s.year = m.year
         WHERE m.year = %(year)s
+            AND m.week = %(week)s
+            AND m.kind IN ('regular', 'playoff', 'consolation')
             AND (s.through_week IS NULL OR m.week <= s.through_week)
             AND (m.home_points <> 0 OR m.away_points <> 0)
-        ORDER BY m.week, m.kind, m.id
+        ORDER BY m.kind, m.id
         """,
-        {"year": year},
+        {"year": year, "week": week},
     )
-    grouped: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        grouped[(int(row["week"]), row["kind"])].append(row)
-    return [(week, kind, grouped[(week, kind)]) for week, kind in grouped]
+
+
+def _week_nav(year: int, week: int) -> dict[str, Any]:
+    weeks = scored_weeks(year)
+    index = weeks.index(week) if week in weeks else -1
+    return {
+        "week": week,
+        "weeks": weeks,
+        "prev_week": weeks[index - 1] if index > 0 else None,
+        "next_week": weeks[index + 1] if 0 <= index < len(weeks) - 1 else None,
+    }
+
+
+def _score_game(
+    game: dict[str, Any],
+    *,
+    by_side: dict[str, list[dict[str, Any]]] | None = None,
+    bench_by: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    home = _side(
+        game["home_manager_id"],
+        game["home_name"],
+        game["home_team_name"],
+        game["home_points"],
+        by_side=by_side,
+        bench_by=bench_by,
+    )
+    away = _side(
+        game["away_manager_id"],
+        game["away_name"],
+        game["away_team_name"],
+        game["away_points"],
+        by_side=by_side,
+        bench_by=bench_by,
+    )
+    winner_id = None
+    if home["points"] is not None and away["points"] is not None:
+        if home["points"] > away["points"]:
+            winner_id = home["id"]
+        elif away["points"] > home["points"]:
+            winner_id = away["id"]
+    return {
+        "id": game["id"],
+        "kind": game["kind"],
+        "home": home,
+        "away": away,
+        "winner_id": winner_id,
+    }
+
+
+def _side(
+    manager_id: str | None,
+    name: str | None,
+    team_name: str | None,
+    points: Any,
+    *,
+    by_side: dict[str, list[dict[str, Any]]] | None = None,
+    bench_by: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    display = (name or "").strip() or (team_name or "").strip() or "Bye"
+    packed = {
+        "id": manager_id,
+        "name": display,
+        "team": flavor_team(display, team_name),
+        "points": points,
+    }
+    if by_side is None:
+        return packed
+    lineup = by_side.get(manager_id, []) if manager_id else []
+    starters = [row for row in lineup if row["started"]]
+    bench = [row for row in lineup if not row["started"]]
+    starters.sort(
+        key=lambda row: (
+            SLOT_ORDER.get(row["slot"] or "", 40),
+            row["slot"] or "",
+            -(float(row["points"] or 0)),
+        )
+    )
+    bench.sort(key=lambda row: (-(float(row["points"] or 0)), row["player_name"] or ""))
+    totals = bench_by.get(manager_id) if bench_by and manager_id else None
+    packed["starters"] = starters
+    packed["bench"] = bench
+    packed["bench_points"] = (totals or {}).get("bench_points")
+    return packed
+
+
+def _group_games(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for game in games:
+        grouped[game["kind"]].append(game)
+    return [
+        {"kind": kind, "label": KIND_LABELS[kind], "games": grouped[kind]}
+        for kind in ("regular", "playoff", "consolation")
+        if grouped[kind]
+    ]
+
+
+def scored_weeks(year: int) -> list[int]:
+    return [
+        int(row["week"])
+        for row in fetchall(
+            """
+            SELECT DISTINCT m.week
+            FROM matchups m
+            JOIN seasons s ON s.year = m.year
+            WHERE m.year = %(year)s
+                AND m.kind IN ('regular', 'playoff', 'consolation')
+                AND (s.through_week IS NULL OR m.week <= s.through_week)
+                AND (m.home_points <> 0 OR m.away_points <> 0)
+            ORDER BY m.week
+            """,
+            {"year": year},
+        )
+    ]
 
 
 def career() -> list[dict[str, Any]]:
@@ -233,3 +514,93 @@ def h2h_for(manager_id: str) -> list[dict[str, Any]]:
                 }
             )
     return oriented
+
+
+def high_weeks(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT w.year, w.week, w.manager_id, w.display_name, w.points
+        FROM v_record_weeks w
+        WHERE EXISTS (
+            SELECT 1
+            FROM matchups m
+            WHERE m.year = w.year AND m.week = w.week
+                AND m.kind = 'regular'
+                AND (m.home_points <> 0 OR m.away_points <> 0)
+        )
+        ORDER BY w.points DESC, w.year, w.week, w.manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def low_weeks(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT w.year, w.week, w.manager_id, w.display_name, w.points
+        FROM v_record_weeks w
+        WHERE EXISTS (
+            SELECT 1
+            FROM matchups m
+            WHERE m.year = w.year AND m.week = w.week
+                AND m.kind = 'regular'
+                AND (m.home_points <> 0 OR m.away_points <> 0)
+        )
+        ORDER BY w.points ASC, w.year, w.week, w.manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def blowouts(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT matchup_id, year, week, manager_id, manager_name, opponent_id, opponent_name,
+               points, opp_points, abs_margin, result, blowout_rank
+        FROM v_record_matchups
+        WHERE blowout_rank <= %(limit)s
+        ORDER BY blowout_rank, year, week
+        """,
+        {"limit": limit},
+    )
+
+
+def closest_games(limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT matchup_id, year, week, manager_id, manager_name, opponent_id, opponent_name,
+               points, opp_points, abs_margin, result, closest_rank
+        FROM v_record_matchups
+        WHERE closest_rank <= %(limit)s
+        ORDER BY closest_rank, year, week
+        """,
+        {"limit": limit},
+    )
+
+
+def longest_streaks(result: str, limit: int = 10) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT manager_id, display_name, length, start_year, start_week,
+               end_year, end_week, is_current
+        FROM v_streaks
+        WHERE result = %(result)s
+        ORDER BY length DESC, start_year, start_week, manager_id
+        LIMIT %(limit)s
+        """,
+        {"result": result, "limit": limit},
+    )
+
+
+def current_streaks() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT manager_id, display_name, result, length, start_year, start_week,
+               end_year, end_week
+        FROM v_streaks
+        WHERE is_current
+        ORDER BY length DESC, display_name
+        """
+    )

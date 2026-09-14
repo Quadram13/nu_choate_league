@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    {% if gc.prev_week %}
+    <a href="/seasons/{{ current.year }}/week/{{ gc.prev_week }}">← week {{ gc.prev_week }}</a>
+    {% endif %}
+    {% if gc.next_week %}
+    <a href="/seasons/{{ current.year }}/week/{{ gc.next_week }}">week {{ gc.next_week }} →</a>
+    {% endif %}
+</p>
+<h1>{{ current.year }} week {{ gc.week }}</h1>
+<p class="jump">
+    {% for week in gc.weeks %}
+    <a href="/seasons/{{ current.year }}/week/{{ week }}"{% if week == gc.week %} class="on"{% endif %}>{{ week }}</a>
+    {% endfor %}
+</p>
+{% for group in gc.groups %}
+{% if gc.groups|length > 1 or group.kind != "regular" %}
+<h2>{{ group.label }}</h2>
+{% endif %}
+{% for game in group.games %}
+<article class="gc-match compact">
+    <header class="gc-score">
+        <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {% if game.home.id %}<a href="/members/{{ game.home.id }}">{{ game.home.name }}</a>{% else %}{{ game.home.name }}{% endif %}
+                {% if game.home.team %}<span class="team">{{ game.home.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if game.home.points is not none %}{{ "%.2f"|format(game.home.points) }}{% endif %}</span>
+        </div>
+        <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
+            <div class="who">
+                {% if game.away.id %}<a href="/members/{{ game.away.id }}">{{ game.away.name }}</a>{% else %}{{ game.away.name }}{% endif %}
+                {% if game.away.team %}<span class="team">{{ game.away.team }}</span>{% endif %}
+            </div>
+            <span class="num">{% if game.away.points is not none %}{{ "%.2f"|format(game.away.points) }}{% endif %}</span>
+        </div>
+    </header>
+    <p class="open-gc"><a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ game.id }}">lineups</a></p>
+</article>
+{% endfor %}
+{% endfor %}
+{% endblock %}

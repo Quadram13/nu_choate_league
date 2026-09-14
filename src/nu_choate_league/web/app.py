@@ -8,9 +8,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..paths import project_root
 from . import queries
+from .names import flavor_team
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
+templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(member, team)
 
 app = FastAPI(title="Nu Choate League", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
@@ -78,7 +80,44 @@ def season(request: Request, year: int) -> HTMLResponse:
         title=f"{year} season",
         current=current,
         standings=queries.standings(year),
-        weeks=queries.matchups_by_week(year),
+        schedule=queries.season_schedule(year),
+    )
+
+
+@app.get("/seasons/{year}/week/{week}", response_class=HTMLResponse)
+def week(request: Request, year: int, week: int) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    data = queries.week_slate(year, week)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No scored games in {year} week {week}.")
+    return page(
+        request,
+        "week.html",
+        nav="seasons",
+        title=f"{year} week {week}",
+        current=current,
+        gc=data,
+    )
+
+
+@app.get("/seasons/{year}/week/{week}/{matchup_id}", response_class=HTMLResponse)
+def gamecenter(request: Request, year: int, week: int, matchup_id: str) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    data = queries.gamecenter(year, week, matchup_id)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No matchup {matchup_id} in {year} week {week}.")
+    game = data["game"]
+    return page(
+        request,
+        "gamecenter.html",
+        nav="seasons",
+        title=f"{game['home']['name']} vs {game['away']['name']}",
+        current=current,
+        gc=data,
     )
 
 
@@ -113,11 +152,16 @@ def member(request: Request, manager_id: str) -> HTMLResponse:
 def records(request: Request) -> HTMLResponse:
     return page(
         request,
-        "coming.html",
+        "records.html",
         nav="records",
         title="Record book",
-        heading="Record book",
-        note="High/low weeks, blowouts, and streaks are already in v_record_weeks, v_record_matchups, and v_streaks. This page is next after the spine.",
+        high_weeks=queries.high_weeks(),
+        low_weeks=queries.low_weeks(),
+        blowouts=queries.blowouts(),
+        closest=queries.closest_games(),
+        win_streaks=queries.longest_streaks("win"),
+        loss_streaks=queries.longest_streaks("loss"),
+        current_streaks=queries.current_streaks(),
     )
 
 

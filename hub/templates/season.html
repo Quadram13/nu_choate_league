@@ -1,4 +1,52 @@
 {% extends "base.html" %}
+{% macro seed(manager_id, name, team, points, winner_id) %}
+<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}">
+    <span class="who">
+        {% if manager_id %}<a href="/members/{{ manager_id }}">{{ name }}</a>{% else %}{{ name or "Bye" }}{% endif %}
+        {% if team %}<span class="team">{{ team }}</span>{% endif %}
+    </span>
+    <span class="num">{% if points is not none %}{{ "%.1f"|format(points) }}{% endif %}</span>
+</div>
+{% endmacro %}
+{% macro match_card(match, year) %}
+<article class="bracket-match">
+    {{ seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id) }}
+    {{ seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id) }}
+    {% if match.id %}
+    <p class="open-gc"><a href="/seasons/{{ year }}/week/{{ match.week }}/{{ match.id }}">lineups</a></p>
+    {% endif %}
+</article>
+{% endmacro %}
+{% macro bracket(tree, heading, note, fragment, year) %}
+{% if tree %}
+<section>
+    <h2>{{ heading }}</h2>
+    {% if note %}<p class="note">{{ note }}</p>{% endif %}
+    <div class="bracket-tree {{ tree.kind }}">
+        {% for round in tree.rounds %}
+        <div class="bracket-round">
+            <h3 id="week-{{ round.week }}-{{ fragment }}">{{ round.label }} · week {{ round.week }}</h3>
+            <div class="bracket-slots">
+                {% for match in round.matches %}
+                {{ match_card(match, year) }}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if tree.placements %}
+    <div class="placements">
+        {% for match in tree.placements %}
+        <div>
+            <h3>{{ match.place_label }}</h3>
+            {{ match_card(match, year) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+{% endmacro %}
 {% block body %}
 <h1>{{ current.year }}</h1>
 <p class="lede">
@@ -29,7 +77,7 @@
         <tr>
             <td class="num">{{ row.rank }}</td>
             <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
-            <td>{{ row.team_name }}</td>
+            <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
             <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
         </tr>
@@ -37,32 +85,18 @@
     </tbody>
 </table>
 
-<h2>Schedule</h2>
-{% for week, kind, games in weeks %}
-<h3>Week {{ week }} · {{ kind }}</h3>
-<table>
-    <thead>
-        <tr>
-            <th>Home</th>
-            <th class="num">PF</th>
-            <th>Away</th>
-            <th class="num">PF</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for game in games %}
-        <tr>
-            <td>
-                {% if game.home_manager_id %}<a href="/members/{{ game.home_manager_id }}">{{ game.home_name }}</a>{% else %}{{ game.home_team_name }}{% endif %}
-            </td>
-            <td class="num">{{ "%.2f"|format(game.home_points) }}</td>
-            <td>
-                {% if game.away_manager_id %}<a href="/members/{{ game.away_manager_id }}">{{ game.away_name }}</a>{% else %}{{ game.away_team_name }}{% endif %}
-            </td>
-            <td class="num">{{ "%.2f"|format(game.away_points) }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endfor %}
+<h2>Weeks</h2>
+<p class="note">Weekly scores, then a matchup page for lineups.</p>
+<p class="jump">
+    {% for week in schedule.weeks %}
+    <a href="/seasons/{{ current.year }}/week/{{ week }}">{{ week }}</a>
+    {% endfor %}
+</p>
+
+{% if schedule.winners_tree or schedule.consolation_tree %}
+<div class="brackets">
+    {{ bracket(schedule.winners_tree, "Winners bracket", none, "playoff", current.year) }}
+    {{ bracket(schedule.consolation_tree, "Consolation", none, "consolation", current.year) }}
+</div>
+{% endif %}
 {% endblock %}
