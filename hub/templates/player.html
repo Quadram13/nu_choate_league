@@ -12,12 +12,32 @@
 <h1>{{ player.player_name }}</h1>
 <p class="lede">
     {{ player.position or "—" }}
+    {% if bio and bio.nfl_team %} · {{ bio.nfl_team }}{% endif %}
+    {% if bio and bio.jersey_number %} #{{ bio.jersey_number }}{% endif %}
+    {% if bio and bio.college %} · {{ bio.college }}{% endif %}
+    {% if bio and bio.years_exp is not none %} · {{ bio.years_exp }} yr NFL{% endif %}
     · {{ (player.starts or 0)|int }} start{{ "s" if player.starts != 1 else "" }}
     {% if player.starter_points is not none %} · {{ "%.1f"|format(player.starter_points) }} starter PF{% endif %}
     {% if player.own_pct is not none %} · {{ pct(player.own_pct) }} owned{% endif %}
     {% if player.vorp is not none %} · {{ "%+.1f"|format(player.vorp) }} VORP{% endif %}
     {% if player.first_year %} · {{ player.first_year }}–{{ player.last_year }}{% endif %}
 </p>
+{% if chairs %}
+<p class="note">
+    {{ (chairs.first_chair or 0)|int }} Varsity Letter
+    · {{ (chairs.last_chair or 0)|int }} Varsity Farmer
+    · {{ (chairs.benched_first_chair or 0)|int }} Stephen Strasburg Treatment
+    {% if chairs.journeyman %} · journeyman ({{ chairs.owners|int }} managers){% endif %}
+</p>
+{% endif %}
+{% if rings %}
+<p class="note">
+    Started in a title week
+    {% for row in rings %}
+    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a> for {{ person(row.manager_id, row.manager_name) }}
+    {% endfor %}
+</p>
+{% endif %}
 <p class="jump">
     <a href="#own">Ownership</a>
     <a href="#seasons">By season</a>
@@ -103,6 +123,7 @@
             <th>Manager</th>
             <th>Role</th>
             <th class="num">PF</th>
+            <th>Line</th>
         </tr>
     </thead>
     <tbody>
@@ -120,6 +141,16 @@
             </td>
             <td>{% if row.started %}start{% elif row.rostered %}bench{% else %}FA{% endif %}</td>
             <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td>
+                {% if row.line %}
+                {% if row.line.pass_points %}pass {{ "%.1f"|format(row.line.pass_points) }}{% endif %}
+                {% if row.line.rush_points %}{% if row.line.pass_points %} · {% endif %}rush {{ "%.1f"|format(row.line.rush_points) }}{% endif %}
+                {% if row.line.rec_points %}{% if row.line.pass_points or row.line.rush_points %} · {% endif %}rec {{ "%.1f"|format(row.line.rec_points) }}{% endif %}
+                {% if row.line.misc_points %}{% if row.line.pass_points or row.line.rush_points or row.line.rec_points %} · {% endif %}misc {{ "%.1f"|format(row.line.misc_points) }}{% endif %}
+                {% else %}
+                —
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>

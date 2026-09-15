@@ -1,19 +1,27 @@
 {% extends "base.html" %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official records stitched across platforms. Streak is the current regular-season run.</p>
-<table class="js-sort">
+<p class="lede">Official records stitched across platforms. All-play is every other roster that week. Streak is the current regular-season run. Drought is seasons since last playoff.</p>
+<div class="standings-wrap">
+<table class="js-sort sticky-first">
     <thead>
         <tr>
             <th>Manager</th>
             <th class="num">Yrs</th>
             <th data-type="num">Record</th>
             <th class="num">Win%</th>
+            <th data-type="num">All-play</th>
             <th class="num">PF</th>
+            <th class="num">PF/G</th>
             <th class="num">Titles</th>
             <th class="num">RU</th>
             <th class="num">RS</th>
+            <th data-type="num">Playoff</th>
             <th class="num">PO</th>
+            <th class="num">TG</th>
+            <th class="num">Drought</th>
+            <th class="num" title="Varsity Letter">Letter</th>
+            <th class="num" title="Varsity Farmer">Farmer</th>
             <th class="num">PF+</th>
             <th data-type="num">Streak</th>
         </tr>
@@ -21,15 +29,22 @@
     <tbody>
         {% for row in career %}
         <tr>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}<a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
             <td class="num">{{ row.seasons|int }}</td>
             <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num" data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+            <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+            <td class="num">{% if row.pf_per_game is not none %}{{ "%.1f"|format(row.pf_per_game) }}{% endif %}</td>
             <td class="num">{{ row.titles|int }}</td>
             <td class="num">{{ row.runner_up|int }}</td>
             <td class="num">{{ row.regular_season_titles|int }}</td>
+            <td data-value="{% if row.playoff_wins is not none %}{{ row.playoff_wins }}{% endif %}">{{ row.playoff or "—" }}</td>
             <td class="num">{{ row.playoff_appearances|int }}</td>
+            <td class="num">{{ (row.title_games or 0)|int }}</td>
+            <td class="num">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% endif %}</td>
+            <td class="num">{{ (row.first_chair or 0)|int }}</td>
+            <td class="num">{{ (row.last_chair or 0)|int }}</td>
             <td class="num">{{ row.most_points_titles|int }}</td>
             <td data-value="{% if row.streak_length %}{% if row.streak_result == 'win' %}{{ row.streak_length }}{% else %}-{{ row.streak_length }}{% endif %}{% else %}0{% endif %}">
                 {% if row.streak_length %}
@@ -40,4 +55,5 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "wire_macros.html" import claims_table, fa_table %}
+{% from "week_card.html" import week_card_block %}
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
@@ -9,9 +10,11 @@
     {% if gc.next_week %}
     <a href="/seasons/{{ current.year }}/week/{{ gc.next_week }}">week {{ gc.next_week }} →</a>
     {% endif %}
+    {% if gc.card %}<a href="#card">Week card</a>{% endif %}
     {% if gc.wire.claims or gc.wire.fa %}<a href="#wire">Wire</a>{% endif %}
 </p>
 <h1>{{ current.year }} week {{ gc.week }}</h1>
+<div id="card">{{ week_card_block(gc.card, current.year) }}</div>
 <p class="jump">
     {% for week in gc.weeks %}
     <a href="/seasons/{{ current.year }}/week/{{ week }}"{% if week == gc.week %} class="on"{% endif %}>{{ week }}</a>

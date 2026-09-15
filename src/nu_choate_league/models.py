@@ -17,6 +17,7 @@ class Season(BaseModel):
     name: str
     vs_median: bool = False
     faab: bool = False
+    faab_budget: int | None = None
 
     @field_validator("league_id", mode="before")
     @classmethod

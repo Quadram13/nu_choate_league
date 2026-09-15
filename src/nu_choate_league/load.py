@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 
 import psycopg
@@ -7,8 +8,10 @@ import psycopg
 from .build import _compare
 from .catalog import load_managers
 from .db import apply_schema, connect, refresh_analysis
+from .dumps import load_json, season_dir
 from .ingest import ingest_all
-from .models import Matchup, SeasonBundle, Transaction
+from .ingest.score import score_sleeper_buckets
+from .models import Matchup, Platform, SeasonBundle, Transaction
 from .players import PlayerIndex
 
 
@@ -27,6 +30,7 @@ def load_facts(*, year: int | None = None) -> list[str]:
         _upsert_players(conn, bundles)
         for bundle in bundles:
             _insert_season(conn, bundle)
+            _insert_stat_lines(conn, bundle)
         refresh_analysis(conn)
         conn.commit()
     lines: list[str] = []
@@ -44,6 +48,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             transaction_moves,
             week_scores,
             player_week_scores,
+            player_week_stat_lines,
             draft_picks,
             transactions,
             matchups,
@@ -97,7 +102,7 @@ def _upsert_managers(conn: psycopg.Connection) -> None:
 
 def _upsert_players(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -> None:
     index = PlayerIndex()
-    rows: dict[str, tuple[str, str, str | None, int | None]] = {}
+    rows: dict[str, tuple] = {}
     for bundle in bundles:
         for matchup in bundle.matchups:
             for side in (matchup.home, matchup.away):
@@ -113,19 +118,25 @@ def _upsert_players(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -
     _executemany(
         conn,
         """
-        INSERT INTO players (id, display_name, position, espn_id)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO players (
+            id, display_name, position, espn_id, nfl_team, college, years_exp, jersey_number
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (id) DO UPDATE SET
             display_name = EXCLUDED.display_name,
             position = COALESCE(EXCLUDED.position, players.position),
-            espn_id = COALESCE(EXCLUDED.espn_id, players.espn_id)
+            espn_id = COALESCE(EXCLUDED.espn_id, players.espn_id),
+            nfl_team = COALESCE(EXCLUDED.nfl_team, players.nfl_team),
+            college = COALESCE(EXCLUDED.college, players.college),
+            years_exp = COALESCE(EXCLUDED.years_exp, players.years_exp),
+            jersey_number = COALESCE(EXCLUDED.jersey_number, players.jersey_number)
         """,
         list(rows.values()),
     )
 
 
 def _remember_player(
-    rows: dict[str, tuple[str, str, str | None, int | None]],
+    rows: dict[str, tuple],
     index: PlayerIndex,
     player_id: str,
     name: str,
@@ -133,14 +144,25 @@ def _remember_player(
     if player_id in rows:
         return
     player = index.from_sleeper(player_id)
+    record = index.catalog.get(player_id) or {}
     if player is None:
-        rows[player_id] = (player_id, name or player_id, None, None)
+        rows[player_id] = (player_id, name or player_id, None, None, None, None, None, None)
         return
+    number = record.get("number")
+    years = record.get("years_exp")
+    try:
+        years_exp = int(years) if years is not None else None
+    except (TypeError, ValueError):
+        years_exp = None
     rows[player_id] = (
         player.id,
         player.display_name or name or player.id,
         player.position,
         player.espn_id,
+        str(record.get("team") or "") or None,
+        str(record.get("college") or "") or None,
+        years_exp,
+        str(number) if number is not None and str(number) != "" else None,
     )
 
 
@@ -148,8 +170,11 @@ def _insert_season(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
     season = bundle.season
     conn.execute(
         """
-        INSERT INTO seasons (year, platform, league_id, name, vs_median, through_week)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO seasons (
+            year, platform, league_id, name, vs_median, through_week,
+            scoring_settings, faab_budget
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s)
         """,
         (
             season.year,
@@ -158,6 +183,8 @@ def _insert_season(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
             season.name,
             season.vs_median,
             bundle.through_week,
+            json.dumps(_scoring_settings(season)),
+            season.faab_budget,
         ),
     )
     _executemany(
@@ -362,3 +389,88 @@ def _move_rows(transactions: Iterable[Transaction]) -> list[tuple]:
         for move in txn.drops:
             rows.append((txn.id, "drop", move.player_id, move.player_name, move.manager_id))
     return rows
+
+
+def _scoring_settings(season) -> dict | list | None:
+    path = season_dir(season) / "league.json"
+    try:
+        league = load_json(path)
+    except Exception:
+        return None
+    if not isinstance(league, dict):
+        return None
+    if season.platform is Platform.SLEEPER:
+        settings = league.get("scoring_settings")
+        return settings if isinstance(settings, dict) else None
+    settings = (league.get("settings") or {}).get("scoringSettings")
+    return settings if settings is not None else None
+
+
+def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    season = bundle.season
+    if season.platform is not Platform.SLEEPER:
+        return
+    folder = season_dir(season)
+    league_path = folder / "league.json"
+    try:
+        league = load_json(league_path)
+    except Exception:
+        return
+    settings = league.get("scoring_settings") if isinstance(league, dict) else None
+    if not isinstance(settings, dict):
+        return
+    players = PlayerIndex()
+    through = bundle.through_week
+    weeks = folder / "weeks"
+    if not weeks.is_dir():
+        return
+    rows: list[tuple] = []
+    for week_dir in sorted(weeks.iterdir()):
+        if not week_dir.is_dir():
+            continue
+        week = int(week_dir.name)
+        if through is not None and week > through:
+            continue
+        path = week_dir / "stats.json"
+        if not path.is_file():
+            continue
+        try:
+            stats = load_json(path)
+        except Exception:
+            continue
+        if not isinstance(stats, dict):
+            continue
+        for player_id, raw in stats.items():
+            if not isinstance(raw, dict):
+                continue
+            buckets = score_sleeper_buckets(raw, settings)
+            if not any(buckets.values()):
+                continue
+            meta = players.from_sleeper(str(player_id))
+            canonical = meta.id if meta is not None else str(player_id)
+            rows.append(
+                (
+                    season.year,
+                    week,
+                    canonical,
+                    buckets["pass"],
+                    buckets["rush"],
+                    buckets["rec"],
+                    buckets["misc"],
+                )
+            )
+    _executemany(
+        conn,
+        """
+        INSERT INTO player_week_stat_lines (
+            year, week, player_id, pass_points, rush_points, rec_points, misc_points
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (year, week, player_id) DO UPDATE SET
+            pass_points = EXCLUDED.pass_points,
+            rush_points = EXCLUDED.rush_points,
+            rec_points = EXCLUDED.rec_points,
+            misc_points = EXCLUDED.misc_points
+        """,
+        rows,
+    )

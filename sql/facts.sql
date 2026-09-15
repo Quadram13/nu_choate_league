@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS seasons (
     through_week INTEGER
 );
 
+ALTER TABLE seasons ADD COLUMN IF NOT EXISTS scoring_settings JSONB;
+ALTER TABLE seasons ADD COLUMN IF NOT EXISTS faab_budget INTEGER;
+
 CREATE TABLE IF NOT EXISTS team_seasons (
     year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
     manager_id TEXT NOT NULL REFERENCES managers (id),
@@ -136,6 +139,11 @@ CREATE TABLE IF NOT EXISTS players (
     espn_id INTEGER
 );
 
+ALTER TABLE players ADD COLUMN IF NOT EXISTS nfl_team TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS college TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS years_exp INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number TEXT;
+
 CREATE INDEX IF NOT EXISTS matchups_year_week_idx ON matchups (year, week);
 CREATE INDEX IF NOT EXISTS lineup_slots_matchup_idx ON lineup_slots (matchup_id);
 CREATE INDEX IF NOT EXISTS lineup_slots_player_idx ON lineup_slots (player_id);
@@ -162,6 +170,17 @@ CREATE INDEX IF NOT EXISTS player_week_scores_player_idx
 -- v_asset_value joins pool weeks by player + manager + week range (ROS windows).
 CREATE INDEX IF NOT EXISTS player_week_scores_roster_idx
     ON player_week_scores (player_id, manager_id, year, week);
+
+CREATE TABLE IF NOT EXISTS player_week_stat_lines (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    pass_points DOUBLE PRECISION NOT NULL DEFAULT 0,
+    rush_points DOUBLE PRECISION NOT NULL DEFAULT 0,
+    rec_points DOUBLE PRECISION NOT NULL DEFAULT 0,
+    misc_points DOUBLE PRECISION NOT NULL DEFAULT 0,
+    PRIMARY KEY (year, week, player_id)
+);
 -- v_moves / v_trades join transaction_moves back to transactions.
 CREATE INDEX IF NOT EXISTS transaction_moves_transaction_idx
     ON transaction_moves (transaction_id);

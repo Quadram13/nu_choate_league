@@ -28,3 +28,4 @@ seasons:
     name: Nu Choate League
     vs_median: true
     faab: true
+    faab_budget: 100

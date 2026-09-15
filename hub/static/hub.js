@@ -1,5 +1,6 @@
 (function () {
     enableSeasonPicker();
+    enableSeasonTabs();
     scrollH2hNow();
     document.querySelectorAll("table.js-sort").forEach(enableSort);
     enableFilters();
@@ -23,13 +24,56 @@ function enableSeasonPicker() {
     if (!select) {
         return;
     }
-    const dest = `/seasons/${select.value}`;
+    const suffix = select.dataset.suffix || "";
     select.addEventListener("change", () => {
-        window.location.href = `/seasons/${select.value}`;
+        window.location.href = `/seasons/${select.value}${suffix}`;
     });
-    if (window.location.pathname !== dest) {
-        window.location.href = dest;
+}
+
+function enableSeasonTabs() {
+    const tabs = document.querySelector(".js-season-tabs");
+    if (!tabs) {
+        return;
     }
+    const panes = [...document.querySelectorAll(".js-season-pane")];
+    const buttons = [...tabs.querySelectorAll("[data-tab]")];
+    if (!panes.length) {
+        return;
+    }
+    const aliases = {
+        scoring: "standings",
+        universes: "standings",
+        power: "standings",
+        heat: "standings",
+        race: "standings",
+        desk: "standings",
+        "median-tax": "standings",
+        matchups: "weeks",
+        trades: "moves",
+        wire: "moves",
+    };
+    function paneId(hash) {
+        const raw = (hash || "").replace(/^#/, "");
+        if (!raw) {
+            return panes[0].id;
+        }
+        if (panes.some((pane) => pane.id === raw)) {
+            return raw;
+        }
+        return aliases[raw] || panes[0].id;
+    }
+    function show(hash) {
+        const target = paneId(hash);
+        buttons.forEach((button) => {
+            button.classList.toggle("on", button.dataset.tab === target);
+        });
+        panes.forEach((pane) => {
+            pane.hidden = pane.id !== target;
+        });
+        window.dispatchEvent(new Event("resize"));
+    }
+    window.addEventListener("hashchange", () => show(location.hash));
+    show(location.hash);
 }
 
 function enableSort(table) {

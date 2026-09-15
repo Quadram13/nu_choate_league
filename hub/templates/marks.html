@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "week_card.html" import week_card_block %}
+{% from "plaque_macros.html" import holder_row %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#weeks">Weeks</a>
+</p>
+<p class="season-head">
+    <label class="season-pick">
+        <span class="sr-only">Season</span>
+        <select class="js-season-pick" data-suffix="/marks" aria-label="Season">
+            {% for row in seasons %}
+            <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <span class="lede">Distinctions</span>
+</p>
+<p class="note">Weekly awards from scored regular-season weeks.</p>
+
+{% if latest_card %}
+<p class="kicker">Last scored week</p>
+{{ week_card_block(latest_card, current.year) }}
+{% endif %}
+
+{% if holders %}
+<h2>Holders</h2>
+<div class="holder-list">
+    {% for row in holders %}
+    {{ holder_row(row, kind_order, labels, meta) }}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% for chapter in by_kind %}
+<section class="kind-chapter">
+    <h2>{{ chapter.label }}</h2>
+    <p class="note">{{ chapter.definition }}</p>
+    <ul class="kind-strip">
+        {% for row in chapter.weeks %}
+        <li>
+            <a href="/seasons/{{ current.year }}/week/{{ row.week }}">W{{ row.week }}</a>
+            <span>{{ person(row.manager_id, row.display_name) }}{% if row.opponent_id %} vs {{ person(row.opponent_id, row.opponent_name) }}{% endif %}</span>
+            <span class="num">
+                {% if row.href %}<a href="{{ row.href }}">{% endif %}
+                {{ row.figure }}
+                {% if row.href %}</a>{% endif %}
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endfor %}
+{% endblock %}

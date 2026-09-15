@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% from "trade_macros.html" import trade_card %}
 {% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% block body %}
 <h1>Record book</h1>
@@ -11,10 +12,17 @@
     consolation weeks (ESPN two-week finals would otherwise own the list).
 </p>
 <p class="jump">
+    <a href="#holders">Distinctions</a>
+    <a href="#season">Season</a>
+    <a href="#playoff">Playoff</a>
     <a href="#high">Highest weeks</a>
     <a href="#low">Lowest weeks</a>
     <a href="#blowouts">Blowouts</a>
     <a href="#closest">Nail-biters</a>
+    <a href="#chairs">Varsity</a>
+    <a href="#median">Median tax</a>
+    <a href="#platform">Platform</a>
+    <a href="#eras">Wire eras</a>
     <a href="#trades">Trades</a>
     <a href="#draft">Draft</a>
     <a href="#wire">Wire</a>
@@ -22,7 +30,397 @@
     <a href="#wins">Win streaks</a>
     <a href="#losses">Loss streaks</a>
     <a href="#current">Current streaks</a>
+    <a href="#drought">Droughts</a>
 </p>
+<p class="jump js-year-filter" hidden></p>
+
+{% if holders %}
+<h2 id="holders">Who owns the book</h2>
+<p class="note">Career weeks as WTF IS A MEDIAN???, At least we don't use all-play, the inch, the rout, H2H enjoyer, Median enjoyer, or Bench Waste.</p>
+<div class="holder-list">
+    {% for row in holders %}
+    {{ holder_row(row, kind_order, labels, meta) }}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if season_pf %}
+<h2 id="season">Season</h2>
+<div class="notable-grid">
+    <section>
+        <h3>Most PF</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in season_pf.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Least PF</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in season_pf.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_pct %}
+<div class="notable-grid">
+    <section>
+        <h3>Best official %</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_pct.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst official %</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_pct.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_all_play %}
+<div class="notable-grid">
+    <section>
+        <h3>Best all-play</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_all_play.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst all-play</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_all_play.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_luck %}
+<div class="notable-grid">
+    <section>
+        <h3>Luckiest net</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Net</th></tr></thead>
+            <tbody>
+                {% for row in season_luck.lucky %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/luck#seasons">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Unluckiest net</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Net</th></tr></thead>
+            <tbody>
+                {% for row in season_luck.unlucky %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/luck#seasons">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+
+{% if playoff_weeks or playoff_wins or title_games %}
+<h2 id="playoff">Playoff</h2>
+<div class="notable-grid">
+    {% if playoff_weeks %}
+    <section>
+        <h3>Highest playoff week</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>When</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in playoff_weeks %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if playoff_wins %}
+    <section>
+        <h3>Most playoff wins</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num">TG</th></tr></thead>
+            <tbody>
+                {% for row in playoff_wins %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.wins|int }}</td>
+                    <td class="num">{{ (row.title_games or 0)|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% if title_games %}
+<h3>Title-game margins</h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>When</th>
+            <th>Matchup</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in title_games %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }} {{ "%.1f"|format(row.points) }} – {{ person(row.opponent_id, row.opponent_name) }} {{ "%.1f"|format(row.opp_points) }}</td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+{% if chairs %}
+<h2 id="chairs">Varsity</h2>
+<div class="notable-grid">
+    <section>
+        <h3>Most Varsity Letters</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+            <tbody>
+                {% for row in chairs.first %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.first_chair|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Most Varsity Farmers</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+            <tbody>
+                {% for row in chairs.last %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.last_chair|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% if chairs.sat %}
+<h3>Most Stephen Strasburg Treatments</h3>
+<table>
+    <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+    <tbody>
+        {% for row in chairs.sat %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.benched_first_chair|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+{% if median_tax %}
+<h2 id="median">Median tax</h2>
+<p class="note">Vs-median is off through 2024 and on after. Extra wins from the median game; playoff flips vs a H2H-only board.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            <th class="num">Extra</th>
+            <th>Playoffs</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in median_tax %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}#median-tax">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ "%+d"|format(row.extra_wins|int) }}</td>
+            <td>
+                {% if row.playoff_flip %}{% if row.official_playoff %}in without H2H{% else %}out despite H2H{% endif %}
+                {% elif row.official_playoff %}in
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if platform %}
+<h2 id="platform">Platform split</h2>
+<p class="note">ESPN 2022–23 vs Sleeper 2024 onward. Same people, two sites.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Platform</th>
+            <th>Manager</th>
+            <th class="num">Yrs</th>
+            <th data-type="num">Record</th>
+            <th class="num">PF</th>
+            <th class="num">Titles</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in platform %}
+        <tr>
+            <td>{{ row.platform }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.seasons|int }}</td>
+            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+            <td class="num">{{ (row.titles or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if wire_eras %}
+<h2 id="eras">Waiver era vs FAAB era</h2>
+<p class="note">Priority 2022–2025. FAAB from 2026. Claims are completed waiver adds.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Era</th>
+            <th>Years</th>
+            <th class="num">Claims</th>
+            <th class="num">FA</th>
+            <th class="num">Avg bid</th>
+            <th class="num">Avg pri</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire_eras %}
+        <tr>
+            <td>{{ row.era }}</td>
+            <td>{{ row.first_year }}–{{ row.last_year }}</td>
+            <td class="num">{{ (row.claims or 0)|int }}</td>
+            <td class="num">{{ (row.free_agents or 0)|int }}</td>
+            <td class="num">{% if row.avg_bid is not none %}{{ "%.1f"|format(row.avg_bid) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.avg_priority is not none %}{{ "%.1f"|format(row.avg_priority) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% if fa_adds %}
+<h3>Most FA adds in a season</h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Year</th>
+            <th>Manager</th>
+            <th class="num">Adds</th>
+            <th class="num">FA</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in fa_adds %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.adds|int }}</td>
+            <td class="num">{{ (row.free_agents or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 
 <h2 id="high">Highest weeks</h2>
 <table>
@@ -416,4 +814,32 @@
         {% endfor %}
     </tbody>
 </table>
+{% if title_droughts %}
+<h2 id="drought">Title droughts</h2>
+<p class="note">Years since last championship. Playoff drought is years since last playoff appearance.</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Titles</th>
+            <th class="num">Last title</th>
+            <th class="num">Title drought</th>
+            <th class="num">Last PO</th>
+            <th class="num">PO drought</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in title_droughts %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ (row.titles or 0)|int }}</td>
+            <td class="num">{{ row.last_title or "—" }}</td>
+            <td class="num">{{ row.title_drought if row.title_drought is not none else "—" }}</td>
+            <td class="num">{{ row.last_playoff or "—" }}</td>
+            <td class="num">{{ row.playoff_drought if row.playoff_drought is not none else "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 {% endblock %}

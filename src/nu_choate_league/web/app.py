@@ -12,13 +12,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..paths import project_root
 from . import queries
-from .names import flavor_team
+from .names import flavor_team, manager_hue
 from .photos import headshot_url
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(member, team)
 templates.env.globals["headshot_url"] = headshot_url
+templates.env.globals["manager_hue"] = manager_hue
 
 
 def _with_db(endpoint):
@@ -71,19 +72,13 @@ async def http_error(request: Request, exc: StarletteHTTPException) -> HTMLRespo
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request) -> HTMLResponse:
-    seasons = queries.list_seasons()
-    year = queries.latest_scored_year()
-    current = queries.season_row(year) if year is not None else None
-    table = queries.standings(year) if year is not None else []
+    data = queries.home_desk()
     return page(
         request,
         "home.html",
         nav="home",
         title="Nu Choate League",
-        seasons=seasons,
-        year=year,
-        current=current,
-        standings=table,
+        **data,
     )
 
 
@@ -204,6 +199,75 @@ def gamecenter(request: Request, year: int, week: int, matchup_id: str) -> HTMLR
         title=f"{game['home']['name']} vs {game['away']['name']}",
         current=current,
         gc=data,
+    )
+
+
+@app.get("/seasons/{year}/marks", response_class=HTMLResponse)
+def season_marks(request: Request, year: int) -> HTMLResponse:
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    return page(
+        request,
+        "marks.html",
+        nav="seasons",
+        title=f"{year} distinctions",
+        current=current,
+        **queries.week_marks_season(year),
+        seasons=queries.list_seasons(),
+    )
+
+
+@app.get("/seasons/{year}/desk", response_class=HTMLResponse)
+def schedule_desk(request: Request, year: int) -> HTMLResponse:
+    data = queries.schedule_desk_page(year)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    return page(
+        request,
+        "desk.html",
+        nav="seasons",
+        title=f"{year} schedule desk",
+        **data,
+    )
+
+
+@app.get("/seasons/{year}/scoring", response_class=HTMLResponse)
+def scoring(request: Request, year: int) -> HTMLResponse:
+    data = queries.scoring_sheet(year)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    return page(
+        request,
+        "scoring.html",
+        nav="seasons",
+        title=f"{year} scoring",
+        **data,
+    )
+
+
+@app.get("/versus", response_class=HTMLResponse)
+def versus(request: Request) -> HTMLResponse:
+    return page(
+        request,
+        "versus.html",
+        nav="versus",
+        title="Versus",
+        **queries.versus_grid(),
+    )
+
+
+@app.get("/versus/{left_id}/{right_id}", response_class=HTMLResponse)
+def versus_pair(request: Request, left_id: str, right_id: str) -> HTMLResponse:
+    data = queries.versus_pair(left_id, right_id)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail="No versus series for that pair.")
+    return page(
+        request,
+        "versus_pair.html",
+        nav="versus",
+        title=f"{data['left']['display_name']} vs {data['right']['display_name']}",
+        **data,
     )
 
 

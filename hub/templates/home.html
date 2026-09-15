@@ -1,63 +1,121 @@
 {% extends "base.html" %}
+{% from "week_card.html" import week_card_block %}
+{% from "plaque_macros.html" import person_link %}
+{% macro person(id, name, hue=none) %}
+{{ person_link(id, name, hue) }}
+{% endmacro %}
 {% block body %}
+<p class="kicker">Local warehouse</p>
 <h1>Nu Choate League</h1>
 <p class="lede">ESPN 2022–2023 and Sleeper 2024 onward, read live from the local warehouse.</p>
 
 {% if year %}
-<h2>{{ year }} official standings</h2>
-{% if current and current.vs_median %}
-<p class="note">Official scoring this year is head-to-head plus a game vs the weekly median.</p>
-{% endif %}
-<table class="js-sort">
-    <thead>
-        <tr>
-            <th class="num">#</th>
-            <th>Manager</th>
-            <th>Team</th>
-            <th data-type="num">Record</th>
-            <th class="num">PF</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in standings %}
-        <tr>
-            <td class="num">{{ row.rank }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
-            <td>{{ row.team_name | flavor_team(row.display_name) or "—" }}</td>
-            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
-            <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
-        </tr>
+<section class="desk">
+    <div class="desk-main">
+        <h2>{{ year }} official standings</h2>
+        {% if current and current.vs_median %}
+        <p class="note">Official scoring this year is head-to-head plus a game vs the weekly median.</p>
+        {% endif %}
+        {% if standings %}
+        <div class="standings-wrap">
+        <table class="js-sort sticky-first">
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Manager</th>
+                    <th data-type="num">Record</th>
+                    <th class="num">PF</th>
+                    <th class="num">PA</th>
+                    <th data-type="num">All-play</th>
+                    <th class="num">Luck</th>
+                    <th class="num">vsExp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in standings %}
+                <tr>
+                    <td class="num">{{ row.rank }}</td>
+                    <td>{{ person(row.manager_id, row.display_name, row.hue) }}{% set jersey = row.team_name | flavor_team(row.display_name) %}{% if jersey %} <span class="team">{{ jersey }}</span>{% endif %}</td>
+                    <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
+                    <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+                    <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
+                    <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
+                    <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
+                    <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+        <p>
+            <a href="/seasons/{{ year }}">{{ year }} season</a>
+            · <a href="/seasons/{{ year }}/desk">Schedule desk</a>
+            · <a href="/seasons/{{ year }}/marks">Distinctions</a>
+            · <a href="/seasons/{{ year }}/scoring">Scoring</a>
+        </p>
+    </div>
+    <aside class="desk-side">
+        {% if universes %}
+        <section class="universe-strip home-universes">
+            <p class="note universe-line" id="universes">
+                Other timeline
+                · Official {{ person(universes.official_champ_id, universes.official_champ) }}
+                · H2H {{ person(universes.h2h_champ_id, universes.h2h_champ) }}{% if universes.h2h_same is false %} differs{% endif %}
+                · Median {{ person(universes.median_champ_id, universes.median_champ) }}{% if universes.median_same is false %} differs{% endif %}
+                · <a href="/luck#universes">Luck</a>
+            </p>
+        </section>
+        {% endif %}
+        {% if slate %}
+        <h2>This week · <a href="/seasons/{{ slate.year }}/week/{{ slate.week }}">W{{ slate.week }}</a></h2>
+        {% for group in slate.groups %}
+        {% if slate.groups|length > 1 or group.kind != "regular" %}
+        <h3>{{ group.label }}</h3>
+        {% endif %}
+        {% for game in group.games %}
+        <article class="gc-match compact slate-match">
+            <header class="gc-score">
+                <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
+                    <div class="who">{{ person(game.home.id, game.home.name) }}</div>
+                    <span class="num">{% if game.home.points is not none %}{{ "%.1f"|format(game.home.points) }}{% endif %}</span>
+                </div>
+                <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
+                    <div class="who">{{ person(game.away.id, game.away.name) }}</div>
+                    <span class="num">{% if game.away.points is not none %}{{ "%.1f"|format(game.away.points) }}{% endif %}</span>
+                </div>
+            </header>
+            <p class="open-gc"><a href="/seasons/{{ slate.year }}/week/{{ slate.week }}/{{ game.id }}">lineups</a></p>
+        </article>
         {% endfor %}
-    </tbody>
-</table>
-<p><a href="/seasons/{{ year }}">{{ year }} season details</a></p>
+        {% endfor %}
+        {% endif %}
+        {{ week_card_block(preview, year) }}
+    </aside>
+</section>
 {% else %}
 <p class="note">No scored standings yet. Run <code>uv run nu-choate-league load</code> after a dump.</p>
 {% endif %}
 
 <h2>Champions</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Year</th>
-            <th>Platform</th>
-            <th>Champion</th>
-            <th>Runner-up</th>
-            <th>RS champ</th>
-            <th>Most PF</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in seasons %}
-        <tr>
-            <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
-            <td>{{ row.platform }}</td>
-            <td>{% if row.champion_id %}<a href="/members/{{ row.champion_id }}">{{ row.champion }}</a>{% else %}—{% endif %}</td>
-            <td>{{ row.runner_up or "—" }}</td>
-            <td>{{ row.regular_season_champion or "—" }}</td>
-            <td>{{ row.most_points or "—" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="year-rail">
+    {% for row in seasons %}
+    <article class="year-card{% if loop.first %} podium{% endif %}">
+        <a class="year" href="/seasons/{{ row.year }}">{{ row.year }}</a>
+        <span class="chip platform">{{ row.platform }}</span>
+        <div class="champ">
+            <span>
+                <span class="role">Champion</span>
+                {{ person(row.champion_id, row.champion, row.champion_hue) }}
+            </span>
+        </div>
+        <div class="last">
+            <span>
+                <span class="role">Should've done Artscon</span>
+                {{ person(row.last_chair_id, row.last_chair, row.last_chair_hue) }}
+            </span>
+        </div>
+    </article>
+    {% endfor %}
+</div>
 {% endblock %}
