@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% macro person(id, name, hue=none) %}
+{% if hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% block body %}
+<h1>Versus</h1>
+<p class="lede">Regular-season records. Color is win percentage from the row manager’s side. Click a cell for the series.</p>
+
+{% if notes %}
+<section class="series-notes">
+    <h2>Series notes</h2>
+    <ul class="index">
+        {% for note in notes %}
+        <li>
+            <span class="label">{{ note.label }}</span>
+            <a href="{{ note.href }}">{{ note.left_name }} vs {{ note.right_name }}</a>
+            {% if note.detail %}<span>{{ note.detail }}</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if grid %}
+<div class="standings-wrap">
+<table class="versus-grid sticky-first">
+    <thead>
+        <tr>
+            <th></th>
+            {% for col in managers %}
+            <th class="num" title="{{ col.display_name }}">{{ col.display_name[:3] }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in grid %}
+        <tr>
+            <td>{{ person(row.manager.manager_id, row.manager.display_name, row.hue) }}</td>
+            {% for cell in row.cells %}
+            {% if cell.self %}
+            <td class="self"></td>
+            {% elif cell.games %}
+            <td class="num versus-cell" style="--win: {{ '%.3f'|format(cell.win_pct or 0) }}">
+                <a href="{{ cell.href }}">{{ cell.record }}</a>
+            </td>
+            {% else %}
+            <td class="num muted">—</td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">No head-to-head games in the warehouse yet.</p>
+{% endif %}
+{% endblock %}

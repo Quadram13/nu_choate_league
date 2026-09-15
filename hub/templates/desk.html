@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% macro person(id, name, hue=none) %}
+{% if hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#desk">on the season page</a>
+</p>
+<p class="season-head">
+    <label class="season-pick">
+        <span class="sr-only">Season</span>
+        <select class="js-season-pick" data-suffix="/desk" aria-label="Season">
+            {% for row in seasons %}
+            <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <span class="lede">Schedule desk</span>
+</p>
+<p class="note">Each row is that manager’s weekly scores paired with the column manager’s opponents. Diagonal is their own schedule.</p>
+{% if desk %}
+<div class="standings-wrap">
+<table class="versus-grid sticky-first">
+    <thead>
+        <tr>
+            <th></th>
+            {% for col in desk.managers %}
+            <th class="num" title="{{ col.display_name }}">{{ col.display_name[:3] }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in desk.managers %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name, row.hue) }}</td>
+            {% for cell in row.cells %}
+            {% if cell and cell.self %}
+            <td class="self"></td>
+            {% elif cell %}
+            <td class="num versus-cell" style="--win: {{ '%.3f'|format(cell.win_pct or 0) }}">{{ cell.record or "—" }}</td>
+            {% else %}
+            <td class="num muted">—</td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">No regular-season scores to swap yet.</p>
+{% endif %}
+{% endblock %}

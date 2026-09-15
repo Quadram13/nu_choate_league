@@ -11,15 +11,15 @@
 {% block body %}
 <h1>Luck</h1>
 <p class="lede">
-    Regular-season head-to-head only. A lucky win is a win from the bottom half
-    of that week’s PF ranks; an unlucky loss is a loss from the top half.
+    Regular-season head-to-head only. An H2H enjoyer is a win from the bottom half
+    of that week’s PF ranks; a Median enjoyer is a loss from the top half.
     Expected wins are all-play that week (random opponent). Underdog and
     favorite use season-average PF, not this week’s score.
 </p>
 <p class="jump">
     <a href="#career">Career</a>
     <a href="#seasons">By season</a>
-    <a href="#weeks">Lucky / unlucky weeks</a>
+    <a href="#weeks">H2H / Median enjoyers</a>
     <a href="#universes">Universes</a>
 </p>
 
@@ -30,8 +30,8 @@
             <th>Manager</th>
             <th class="num">Yrs</th>
             <th data-type="num">H2H</th>
-            <th class="num">Lucky</th>
-            <th class="num">Unluck</th>
+            <th class="num" title="H2H enjoyer">Lucky</th>
+            <th class="num" title="Median enjoyer">Unluck</th>
             <th class="num">Net</th>
             <th class="num">Undog</th>
             <th class="num">FavL</th>
@@ -66,8 +66,8 @@
             <th class="num">Year</th>
             <th>Manager</th>
             <th data-type="num">H2H</th>
-            <th class="num">Lucky</th>
-            <th class="num">Unluck</th>
+            <th class="num" title="H2H enjoyer">Lucky</th>
+            <th class="num" title="Median enjoyer">Unluck</th>
             <th class="num">Net</th>
             <th class="num">Undog</th>
             <th class="num">FavL</th>
@@ -93,8 +93,8 @@
     </tbody>
 </table>
 
-<h2 id="weeks">Lucky / unlucky weeks</h2>
-<p class="note">Wins from the bottom half of weekly PF, and losses from the top half.</p>
+<h2 id="weeks">H2H enjoyer / Median enjoyer</h2>
+<p class="note">H2H enjoyer: wins from the bottom half of weekly PF. Median enjoyer: losses from the top half.</p>
 <table class="js-sort">
     <thead>
         <tr>

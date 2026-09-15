@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% from "trade_macros.html" import trade_got %}
 {% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import plaque_free, holder_row, person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% macro record(wins, losses, ties) %}
 {{ (wins or 0)|int }}-{{ (losses or 0)|int }}{% if ties %}-{{ ties|int }}{% endif %}
@@ -11,7 +12,7 @@
 <p class="jump">
     <a href="/members">Members</a>
     {% if finishes %}<a href="#seasons">Seasons</a>{% endif %}
-    {% if h2h %}<a href="#h2h">H2H</a>{% endif %}
+    {% if h2h %}<a href="#h2h">H2H</a> · <a href="/versus">Versus</a>{% endif %}
     {% if draft.hits or draft.misses or draft.totals.picks %}<a href="#draft">Draft</a>{% endif %}
     {% if wire.adds or wire.misses or wire.totals.adds %}<a href="#wire">Wire</a>{% endif %}
     {% if trades %}<a href="#trades">Trades</a>{% endif %}
@@ -25,8 +26,14 @@
     {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}%){% endif %}
     · {{ "%.2f"|format(member.points_for) }} PF
     · {{ member.seasons|int }} season{{ "s" if member.seasons != 1 else "" }}
+    {% if all_play %}
+    · all-play {{ record(all_play.wins, all_play.losses, all_play.ties) }}
+    {% endif %}
     {% if member.playoff %}
     · {{ record(member.playoff.wins, member.playoff.losses, member.playoff.ties) }} playoff
+    {% endif %}
+    {% if chairs %}
+    · {{ (chairs.first_chair or 0)|int }} Varsity Letter · {{ (chairs.last_chair or 0)|int }} Varsity Farmer
     {% endif %}
     {% if member.rival %}
     · {{ record(member.rival.wins, member.rival.losses, member.rival.ties) }} vs {{ person(member.rival.id, member.rival.name) }} <span class="team">rival</span>
@@ -39,13 +46,47 @@
     <a href="/seasons/{{ member.streak.start_year }}/week/{{ member.streak.start_week }}">since {{ member.streak.start_year }} W{{ member.streak.start_week }}</a>
     {% endif %}
 </p>
-{% if member.titles or member.runner_up or member.regular_season_titles or member.most_points_titles or member.playoff_appearances %}
-<p class="medals-line">
-    {% if member.titles %}<span><span class="label">Champion</span> ×{{ member.titles|int }}</span>{% endif %}
-    {% if member.runner_up %}<span><span class="label">Runner-up</span> ×{{ member.runner_up|int }}</span>{% endif %}
-    {% if member.regular_season_titles %}<span><span class="label">RS champ</span> ×{{ member.regular_season_titles|int }}</span>{% endif %}
-    {% if member.most_points_titles %}<span><span class="label">Most PF</span> ×{{ member.most_points_titles|int }}</span>{% endif %}
-    {% if member.playoff_appearances %}<span><span class="label">Playoffs</span> ×{{ member.playoff_appearances|int }}</span>{% endif %}
+{% if member.titles or member.runner_up or member.regular_season_titles or member.most_points_titles or member.playoff_appearances or chairs or marks %}
+{% set champ_years = finishes | selectattr("champion") | map(attribute="year") | list %}
+{% set ru_years = finishes | selectattr("runner_up") | map(attribute="year") | list %}
+{% set rs_years = finishes | selectattr("rs_champ") | map(attribute="year") | list %}
+{% set pf_years = finishes | selectattr("most_points") | map(attribute="year") | list %}
+<div class="hardware-row">
+    {% if champ_years %}
+    {{ plaque_free("Champion", figure=champ_years|length, meta=champ_years|join(" · "), polarity="high") }}
+    {% endif %}
+    {% if ru_years %}
+    {{ plaque_free("Runner-up", figure=ru_years|length, meta=ru_years|join(" · ")) }}
+    {% endif %}
+    {% if rs_years %}
+    {{ plaque_free("RS champ", figure=rs_years|length, meta=rs_years|join(" · "), polarity="high") }}
+    {% endif %}
+    {% if pf_years %}
+    {{ plaque_free("Most PF", figure=pf_years|length, meta=pf_years|join(" · "), polarity="high") }}
+    {% endif %}
+    {% if member.playoff_appearances %}
+    {{ plaque_free("Playoffs", figure=member.playoff_appearances|int) }}
+    {% endif %}
+    {% if chairs and chairs.first_chair %}
+    {{ plaque_free("Varsity Letter", figure=chairs.first_chair|int, polarity="high") }}
+    {% endif %}
+    {% if chairs and chairs.last_chair %}
+    {{ plaque_free("Varsity Farmer", figure=chairs.last_chair|int, polarity="low") }}
+    {% endif %}
+</div>
+{% if marks and marks.total %}
+<div class="holder-list">
+    {{ holder_row(marks, kind_order, labels, meta) }}
+</div>
+{% endif %}
+{% endif %}
+
+{% if platform %}
+<p class="note">
+    Platform split
+    {% for row in platform %}
+    · {{ row.platform }} {{ row.seasons|int }} yr · {{ record(row.wins, row.losses, row.ties) }}{% if row.titles %} · {{ row.titles|int }} title{{ "s" if row.titles != 1 else "" }}{% endif %}
+    {% endfor %}
 </p>
 {% endif %}
 
@@ -99,7 +140,7 @@
     <tbody>
         {% for row in h2h %}
         <tr>
-            <td>{{ person(row.opponent_id, row.opponent) }}</td>
+            <td>{% if row.href %}<a href="{{ row.href }}">{{ row.opponent }}</a>{% else %}{{ person(row.opponent_id, row.opponent) }}{% endif %}</td>
             <td data-value="{% if row.regular_games %}{{ ((row.regular_wins or 0) + 0.5 * (row.regular_ties or 0)) / row.regular_games }}{% endif %}">
                 {{ record(row.regular_wins, row.regular_losses, row.regular_ties) }}
                 · {{ "%.0f"|format(row.regular_points_for or 0) }}-{{ "%.0f"|format(row.regular_points_against or 0) }}
@@ -341,8 +382,8 @@
 <h2 id="luck">Luck</h2>
 <p class="note">
     Regular-season head-to-head.
-    {{ (luck.lucky_wins or 0)|int }} lucky win{{ "s" if luck.lucky_wins != 1 else "" }}
-    · {{ (luck.unlucky_losses or 0)|int }} unlucky loss{{ "es" if luck.unlucky_losses != 1 else "" }}
+    {{ (luck.lucky_wins or 0)|int }} H2H enjoyer{{ "s" if luck.lucky_wins != 1 else "" }}
+    · {{ (luck.unlucky_losses or 0)|int }} Median enjoyer{{ "s" if luck.unlucky_losses != 1 else "" }}
     · net {{ "%+d"|format((luck.net_luck or 0)|int) }}
     {% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vs expected{% endif %}.
     <a href="/luck">Luck</a>

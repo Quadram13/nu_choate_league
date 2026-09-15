@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% macro person(id, name) %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+</p>
+<p class="season-head">
+    <label class="season-pick">
+        <span class="sr-only">Season</span>
+        <select class="js-season-pick" data-suffix="/scoring" aria-label="Season">
+            {% for row in seasons %}
+            <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <span class="lede">Scoring sheet · {{ current.platform }}</span>
+</p>
+<p class="note">Rules this warehouse used from the dumped league settings. Zero-weight stats are omitted.</p>
+{% if rows %}
+<table>
+    <thead>
+        <tr>
+            <th>Stat</th>
+            <th class="num">Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.key }}</td>
+            <td class="num">{{ row.value }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="note">No scoring settings stored for this season. Reload after a dump.</p>
+{% endif %}
+
+{% if faab %}
+<h2>FAAB remaining</h2>
+<p class="note">Budget {{ current.faab_budget }}. Spent is completed waiver bids.</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Spent</th>
+            <th class="num">Left</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in faab %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.spent|int }}</td>
+            <td class="num">{{ row.remaining|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

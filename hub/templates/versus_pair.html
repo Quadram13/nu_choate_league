@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "plaque_macros.html" import plaque_free, person_link %}
+{% macro person(id, name, hue=none) %}
+{{ person_link(id, name, hue) }}
+{% endmacro %}
+{% macro record(wins, losses, ties) %}
+{{ (wins or 0)|int }}-{{ (losses or 0)|int }}{% if ties %}-{{ ties|int }}{% endif %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/versus">Versus</a>
+    <a href="/members/{{ left.manager_id }}">{{ left.display_name }}</a>
+    <a href="/members/{{ right.manager_id }}">{{ right.display_name }}</a>
+</p>
+<section class="versus-hero">
+    <div class="side">
+        <h1>{{ person(left.manager_id, left.display_name, hue_left) }}</h1>
+    </div>
+    <div class="series">
+        {% if series %}
+        {{ record(series.regular_wins, series.regular_losses, series.regular_ties) }}
+        <span class="series-meta">
+            {{ "%.0f"|format(series.regular_points_for or 0) }}–{{ "%.0f"|format(series.regular_points_against or 0) }} PF
+            {% if series.playoff_games %}
+            · playoff {{ record(series.playoff_wins, series.playoff_losses, series.playoff_ties) }}
+            {% endif %}
+            {% if streak %}
+            · {{ streak.length }} {{ streak.result }}{% if streak.length != 1 %}s{% endif %} since {{ streak.start_year }} W{{ streak.start_week }}
+            {% endif %}
+        </span>
+        {% else %}
+        —
+        <span class="series-meta">No regular-season meetings yet.</span>
+        {% endif %}
+    </div>
+    <div class="side right">
+        <h1>{{ person(right.manager_id, right.display_name, hue_right) }}</h1>
+    </div>
+</section>
+{% if closest or blowout %}
+<div class="plaque-grid">
+    {% if closest %}
+    {{ plaque_free("The inch", figure=("%.1f"|format(closest.abs_margin)), href=closest.href, meta=closest.year ~ " W" ~ closest.week, polarity="high") }}
+    {% endif %}
+    {% if blowout %}
+    {{ plaque_free("The rout", figure=("%.1f"|format(blowout.abs_margin)), href=blowout.href, meta=blowout.year ~ " W" ~ blowout.week, polarity="high") }}
+    {% endif %}
+</div>
+{% endif %}
+
+{% if games %}
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>Kind</th>
+            <th data-type="num">Result</th>
+            <th class="num">Score</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in games %}
+        <tr data-year="{{ row.year }}">
+            <td><a href="{{ row.href }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>{{ row.kind_label }}</td>
+            <td class="{% if row.result == 'win' %}won{% elif row.result == 'loss' %}lost{% endif %}">{{ row.result }}</td>
+            <td class="num">{{ "%.1f"|format(row.points) }}–{{ "%.1f"|format(row.opp_points) }}</td>
+            <td class="num">{% if row.margin is not none %}{{ "%+.1f"|format(row.margin) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

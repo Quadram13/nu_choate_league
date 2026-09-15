@@ -1,0 +1,75 @@
+{% macro person_link(id, name, hue=none) %}
+{% if hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
+{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% elif name %}{{ name }}{% else %}—{% endif %}
+{% endmacro %}
+
+{% macro plaque(row, year=none, compact=false) %}
+{% if row %}
+<article class="plaque{% if row.polarity %} plaque-{{ row.polarity }}{% endif %}{% if compact %} compact{% endif %}">
+    <p class="plaque-kicker">{{ row.label }}</p>
+    <p class="plaque-who">
+        {% if row.player_id %}
+        <a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>
+        {% else %}
+        {{ person_link(row.manager_id, row.display_name or row.manager_name, row.hue) }}
+        {% endif %}
+    </p>
+    {% if row.figure %}
+    <p class="plaque-figure">
+        {% if row.href %}<a href="{{ row.href }}">{{ row.figure }}</a>{% else %}{{ row.figure }}{% endif %}
+    </p>
+    {% endif %}
+    <p class="plaque-meta">
+        {% if row.position %}<span class="team">{{ row.position }}</span>{% endif %}
+        {% if row.unit %}{% if row.position %} · {% endif %}{{ row.unit }}{% endif %}
+        {% if row.score %} · {{ row.score }}{% endif %}
+        {% if year and row.week %}
+        {% if row.unit or row.position or row.score %} · {% endif %}
+        <a href="/seasons/{{ year }}/week/{{ row.week }}">W{{ row.week }}</a>
+        {% endif %}
+        {% if row.manager_id and row.player_id %}
+        · {{ person_link(row.manager_id, row.manager_name, none) }}
+        {% endif %}
+    </p>
+</article>
+{% endif %}
+{% endmacro %}
+
+{% macro plaque_free(kicker, who="", figure="", meta="", polarity="", href="", hue=none, who_id=none) %}
+<article class="plaque{% if polarity %} plaque-{{ polarity }}{% endif %}">
+    <p class="plaque-kicker">{{ kicker }}</p>
+    {% if who %}
+    <p class="plaque-who">{{ person_link(who_id, who, hue) }}</p>
+    {% endif %}
+    {% if figure %}
+    <p class="plaque-figure">
+        {% if href %}<a href="{{ href }}">{{ figure }}</a>{% else %}{{ figure }}{% endif %}
+    </p>
+    {% endif %}
+    {% if meta %}<p class="plaque-meta">{{ meta }}</p>{% endif %}
+</article>
+{% endmacro %}
+
+{% macro plaque_grid(rows, year, compact=false) %}
+<div class="plaque-grid{% if compact %} compact{% endif %}">
+    {% for row in rows %}
+    {{ plaque(row, year, compact) }}
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro holder_row(row, kind_order, labels, meta) %}
+<div class="holder-row">
+    <div class="who">{{ person_link(row.manager_id, row.display_name, row.hue if row.hue is defined else none) }}</div>
+    <div class="holder-chips">
+        {% for kind in kind_order %}
+        {% if row[kind] %}
+        <span class="mark-chip{% if meta[kind] %} plaque-{{ meta[kind].polarity }}{% endif %}">
+            {{ labels[kind] }} <span class="n">×{{ row[kind] }}</span>
+        </span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <span class="num">{{ row.total }}</span>
+</div>
+{% endmacro %}
