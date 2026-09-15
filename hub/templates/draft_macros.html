@@ -1,5 +1,6 @@
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 
 {% macro pick_link(year, row, label=None) %}
@@ -11,7 +12,7 @@
 <td id="p{{ pick.overall }}" class="draft-cell{% if pick.hit %} hit{% endif %}"{% if pick.vs_vorp is not none %} style="--heat: {{ '%.3f'|format(pick.heat) }}; --tone: {{ pick.tone }}"{% endif %}{% if pick.tooltip %} title="{{ pick.tooltip }}"{% endif %}>
     <span class="draft-ovr">{{ pick.overall }}{% if pick.keeper %} K{% endif %}</span>
     <span class="draft-name">{% if pick.player_id %}<a href="/players/{{ pick.player_id }}">{{ pick.player_name }}</a>{% else %}{{ pick.player_name }}{% endif %}</span>
-    <span class="team">{{ pick.position or "" }}{% if pick.vs_vorp is not none %} · <span class="{% if pick.vs_vorp > 0 %}plus{% elif pick.vs_vorp < 0 %}minus{% endif %}">{{ "%+.0f"|format(pick.vs_vorp) }}</span>{% endif %}</span>
+    <span class="team">{{ pick.position or "" }}{% if pick.vs_vorp is not none %} · <span class="{% if pick.vs_vorp > 0 %}plus{% elif pick.vs_vorp < 0 %}minus{% endif %}">{{ "%+.0f"|format(pick.vs_vorp) }}</span>{% endif %}{% if pick.adp is not none and (pick.times_drafted or 0) >= 2 %} · ADP {{ "%.0f"|format(pick.adp) }}{% endif %}</span>
 </td>
 {% else %}
 <td class="draft-cell empty"></td>

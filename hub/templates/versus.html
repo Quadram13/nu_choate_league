@@ -1,11 +1,11 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name, hue=none) %}
-{% if hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name, hue) }}
 {% endmacro %}
 {% block body %}
 <h1>Versus</h1>
-<p class="lede">Regular-season records. Color is win percentage from the row manager’s side. Click a cell for the series.</p>
+<p class="lede">Regular-season records. Color is the row manager’s win%.</p>
 
 {% if notes %}
 <section class="series-notes">

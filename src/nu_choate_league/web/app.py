@@ -13,12 +13,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from ..paths import project_root
 from . import queries
 from .names import flavor_team, manager_hue
-from .photos import headshot_url
+from .photos import avatar_url, headshot_url
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(member, team)
 templates.env.globals["headshot_url"] = headshot_url
+templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["manager_hue"] = manager_hue
 
 
@@ -126,6 +127,20 @@ def trade(request: Request, year: int, transaction_id: str) -> HTMLResponse:
         title=f"{data['left']['name']} vs {data['right']['name']}",
         current=current,
         trade=data,
+    )
+
+
+@app.get("/seasons/{year}/moves", response_class=HTMLResponse)
+def season_moves(request: Request, year: int) -> HTMLResponse:
+    data = queries.moves_log(year)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+    return page(
+        request,
+        "moves.html",
+        nav="seasons",
+        title=f"{year} moves",
+        **data,
     )
 
 
@@ -273,12 +288,14 @@ def versus_pair(request: Request, left_id: str, right_id: str) -> HTMLResponse:
 
 @app.get("/members", response_class=HTMLResponse)
 def members(request: Request) -> HTMLResponse:
+    rows = queries.career()
     return page(
         request,
         "members.html",
         nav="members",
         title="All-time standings",
-        career=queries.career(),
+        career=rows,
+        luck_plaques=queries.luck_plaques(rows, href="/members"),
     )
 
 
@@ -298,27 +315,24 @@ def member(request: Request, manager_id: str) -> HTMLResponse:
 
 @app.get("/records", response_class=HTMLResponse)
 def records(request: Request) -> HTMLResponse:
+    selected = request.query_params.get("year")
+    year = int(selected) if selected and selected.isdigit() else None
     return page(
         request,
         "records.html",
         nav="records",
         title="Record book",
+        selected_year=year,
         **queries.records_page(),
     )
 
 
-@app.get("/luck", response_class=HTMLResponse)
-def luck(request: Request) -> HTMLResponse:
-    return page(
-        request,
-        "luck.html",
-        nav="luck",
-        title="Luck",
-        career=queries.luck_career(),
-        seasons=queries.luck_seasons(),
-        flagged=queries.luck_flagged_weeks(),
-        universes=queries.universe_titles(),
-    )
+@app.get("/luck")
+def luck() -> RedirectResponse:
+    year = queries.latest_scored_year()
+    if year is None:
+        return RedirectResponse(url="/records#season", status_code=302)
+    return RedirectResponse(url=f"/seasons/{year}#luck", status_code=302)
 
 
 @app.get("/players", response_class=HTMLResponse)
@@ -331,7 +345,6 @@ def players(request: Request) -> HTMLResponse:
         title="Players",
         career=data["career"],
         seasons=data["seasons"],
-        all_pro=data["all_pro"],
     )
 
 

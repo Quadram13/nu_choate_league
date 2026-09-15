@@ -1,4 +1,4 @@
-{% from "plaque_macros.html" import plaque, plaque_grid, plaque_free %}
+{% from "plaque_macros.html" import plaque, plaque_grid %}
 {% macro mark_line(row, year) %}
 {{ plaque(row, year, compact=true) }}
 {% endmacro %}
@@ -15,27 +15,16 @@
     {{ plaque_grid(card.marks, year) }}
     {% endif %}
     {% if card.first_chairs %}
-    <h3>Varsity Letter</h3>
-    {{ plaque_grid(card.first_chairs, year, compact=true) }}
+    <h3>Varsity Letters</h3>
+    {{ plaque_grid(card.first_chairs, year, compact=true, chair=true) }}
     {% endif %}
     {% if card.last_chairs %}
-    <h3>Varsity Farmer</h3>
-    {{ plaque_grid(card.last_chairs, year, compact=true) }}
+    <h3>Varsity Farmers</h3>
+    {{ plaque_grid(card.last_chairs, year, compact=true, chair=true) }}
     {% endif %}
-    {% if card.strasburg %}
-    <h3>The Stephen Strasburg Treatment</h3>
-    {{ plaque_grid(card.strasburg, year, compact=true) }}
-    {% endif %}
-    {% if card.add %}
-    {{ plaque_free(
-        "Best add",
-        who=card.add.manager_name,
-        who_id=card.add.manager_id,
-        figure=card.add.player_name,
-        href=("/seasons/" ~ year ~ "/wire/" ~ card.add.transaction_id) if card.add.transaction_id else ("/players/" ~ card.add.player_id if card.add.player_id else none),
-        meta=((("%+.1f"|format(card.add.ros_vorp)) ~ " VORP") if card.add.ros_vorp is not none else ""),
-        polarity="high"
-    ) }}
+    {% if card.freeze %}
+    <h3>Beat the Freeze</h3>
+    {{ plaque_grid(card.freeze, year, compact=true) }}
     {% endif %}
 </section>
 {% endif %}

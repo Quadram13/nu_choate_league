@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% macro pct(value) %}
 {% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
@@ -24,9 +25,9 @@
 </p>
 {% if chairs %}
 <p class="note">
-    {{ (chairs.first_chair or 0)|int }} Varsity Letter
-    · {{ (chairs.last_chair or 0)|int }} Varsity Farmer
-    · {{ (chairs.benched_first_chair or 0)|int }} Stephen Strasburg Treatment
+    {{ (chairs.first_chair or 0)|int }} Varsity Letters
+    · {{ (chairs.last_chair or 0)|int }} Varsity Farmers
+    · {{ (chairs.benched_first_chair or 0)|int }} Beat the Freeze
     {% if chairs.journeyman %} · journeyman ({{ chairs.owners|int }} managers){% endif %}
 </p>
 {% endif %}

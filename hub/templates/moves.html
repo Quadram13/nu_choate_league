@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+{% macro player_link(id, name) %}
+{% if id %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#moves">on the season page</a>
+</p>
+<p class="season-head">
+    <label class="season-pick">
+        <span class="sr-only">Season</span>
+        <select class="js-season-pick" data-suffix="/moves" aria-label="Season">
+            {% for row in seasons %}
+            <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <span class="lede">Moves</span>
+</p>
+<p class="note">Completed trades, waivers, and free-agent adds.</p>
+{% if moves %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th class="num">Wk</th>
+            <th>Type</th>
+            <th>Adds</th>
+            <th>Drops</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in moves %}
+        <tr>
+            <td class="num">{% if row.href %}<a href="{{ row.href }}">{{ row.week }}</a>{% else %}{{ row.week }}{% endif %}</td>
+            <td>{{ row.type }}{% if row.status and row.status != "complete" %} <span class="team">{{ row.status }}</span>{% endif %}</td>
+            <td>
+                {% for item in row.adds %}
+                {{ person(item.manager_id, item.manager_name) }}
+                {{ player_link(item.player_id, item.player_name) }}
+                {% if item.position %}<span class="team">{{ item.position }}</span>{% endif %}{% if not loop.last %}<br>{% endif %}
+                {% else %}—{% endfor %}
+            </td>
+            <td>
+                {% for item in row.drops %}
+                {{ person(item.manager_id, item.manager_name) }}
+                {{ player_link(item.player_id, item.player_name) }}{% if not loop.last %}<br>{% endif %}
+                {% else %}—{% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">No trades, waivers, or free-agent moves stored for this season.</p>
+{% endif %}
+{% endblock %}

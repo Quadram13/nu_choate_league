@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
+
 from ..catalog import IdentityIndex, load_managers, load_seasons
 from ..history import attach_outcomes
 from ..models import Platform, Season, SeasonBundle
@@ -8,6 +11,8 @@ from ..records import sort_standings
 from .espn import ingest_espn
 from .pool import player_week_pool
 from .sleeper import ingest_sleeper
+
+Progress = Callable[[str], None]
 
 
 def ingest_season(
@@ -39,12 +44,15 @@ def ingest_season(
     )
 
 
-def ingest_all(*, year: int | None = None) -> list[SeasonBundle]:
+def ingest_all(*, year: int | None = None, progress: Progress | None = None) -> list[SeasonBundle]:
     managers = IdentityIndex(load_managers())
     players = PlayerIndex()
     bundles: list[SeasonBundle] = []
     for season in load_seasons():
         if year is not None and season.year != year:
             continue
+        started = time.perf_counter()
         bundles.append(ingest_season(season, managers=managers, players=players))
+        if progress:
+            progress(f"ingest {season.year} ({time.perf_counter() - started:.1f}s)")
     return attach_outcomes(bundles)

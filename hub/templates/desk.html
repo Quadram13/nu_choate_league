@@ -1,7 +1,7 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name, hue=none) %}
-{% if hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name, hue) }}
 {% endmacro %}
 {% block body %}
 <p class="jump">
@@ -19,7 +19,7 @@
     </label>
     <span class="lede">Schedule desk</span>
 </p>
-<p class="note">Each row is that manager’s weekly scores paired with the column manager’s opponents. Diagonal is their own schedule.</p>
+<p class="note">Your weekly scores vs the column’s opponents.</p>
 {% if desk %}
 <div class="standings-wrap">
 <table class="versus-grid sticky-first">

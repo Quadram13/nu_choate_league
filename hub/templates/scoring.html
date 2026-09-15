@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% block body %}
 <p class="jump">
@@ -17,7 +18,7 @@
     </label>
     <span class="lede">Scoring sheet · {{ current.platform }}</span>
 </p>
-<p class="note">Rules this warehouse used from the dumped league settings. Zero-weight stats are omitted.</p>
+<p class="note">League settings from the dump. Zero-weight stats omitted.</p>
 {% if rows %}
 <table>
     <thead>
@@ -29,7 +30,7 @@
     <tbody>
         {% for row in rows %}
         <tr>
-            <td>{{ row.key }}</td>
+            <td>{{ row.label }}</td>
             <td class="num">{{ row.value }}</td>
         </tr>
         {% endfor %}

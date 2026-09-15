@@ -1,4 +1,5 @@
 (function () {
+    enableNav();
     enableSeasonPicker();
     enableSeasonTabs();
     scrollH2hNow();
@@ -7,6 +8,18 @@
     enableRankMode();
     document.querySelectorAll(".bracket-tree").forEach(enableBracket);
 })();
+
+function enableNav() {
+    const button = document.querySelector(".nav-toggle");
+    const nav = document.querySelector("#site-nav");
+    if (!button || !nav) {
+        return;
+    }
+    button.addEventListener("click", () => {
+        const open = nav.classList.toggle("is-open");
+        button.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+}
 
 function scrollH2hNow() {
     const now = document.querySelector(".h2h-meet.now");
@@ -43,6 +56,10 @@ function enableSeasonTabs() {
     const aliases = {
         scoring: "standings",
         universes: "standings",
+        "universe-ranks": "standings",
+        luck: "standings",
+        allpro: "standings",
+        allbench: "standings",
         power: "standings",
         heat: "standings",
         race: "standings",
@@ -158,6 +175,7 @@ function enableFilters() {
         paintFolds();
         return;
     }
+    const urlSlot = yearSlots.find((slot) => slot.dataset.url);
     const yearBlocks = [...document.querySelectorAll(".js-year-block")];
     const years = [...new Set([
         ...rows.flatMap(rowYears),
@@ -181,10 +199,14 @@ function enableFilters() {
             const year = Number(block.dataset.year);
             block.hidden = filterState.year !== "all" && year !== filterState.year;
         });
+        document.querySelectorAll("[data-grain='career']").forEach((el) => {
+            el.hidden = filterState.year !== "all";
+        });
         document.querySelectorAll("table.js-fold").forEach((table) => {
             table.classList.remove("is-open");
         });
         paintFolds();
+        syncYearUrl(urlSlot);
     }
     yearSlots.forEach((slot) => {
         if (!years.length) {
@@ -221,7 +243,28 @@ function enableFilters() {
             });
         });
     });
+    const requested = new URLSearchParams(location.search).get("year");
+    if (requested === "all") {
+        filterState.year = "all";
+    } else if (requested && !Number.isNaN(Number(requested))) {
+        filterState.year = Number(requested);
+    } else if (urlSlot && urlSlot.dataset.year) {
+        filterState.year = Number(urlSlot.dataset.year);
+    }
     paint();
+}
+
+function syncYearUrl(slot) {
+    if (!slot || !slot.dataset.url) {
+        return;
+    }
+    const url = new URL(location.href);
+    if (filterState.year === "all") {
+        url.searchParams.delete("year");
+    } else {
+        url.searchParams.set("year", String(filterState.year));
+    }
+    history.replaceState(null, "", url);
 }
 
 function rowIsMatched(row) {
@@ -283,7 +326,7 @@ function enableRankMode() {
     buttons.forEach((button) => {
         button.addEventListener("click", () => show(button.dataset.mode));
     });
-    show("season");
+    show("career");
 }
 
 function addChip(slot, buttons, key, label, onClick) {

@@ -8,9 +8,14 @@ DROP VIEW IF EXISTS
     v_chair_career,
     v_chair_season,
     v_marks_holders,
-    v_marks_weeks,
+    v_stream_weeks,
+    v_wire_starts,
+    v_first_start_over,
     v_week_scores_ranked
 CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_marks_weeks CASCADE;
+DROP VIEW IF EXISTS v_marks_weeks CASCADE;
 
 -- Regular-season scored weeks only (same filter as records highs/lows).
 CREATE VIEW v_week_scores_ranked AS
@@ -42,7 +47,86 @@ WHERE (s.through_week IS NULL OR w.week <= s.through_week)
             AND (mu.home_points <> 0 OR mu.away_points <> 0)
     );
 
-CREATE VIEW v_marks_weeks AS
+-- Starters this week whose current tenure began as a waiver or FA add
+-- (this week or earlier). Distinct so a player with two matching windows
+-- is not double-counted; keep the latest acquisition.
+CREATE VIEW v_wire_starts AS
+SELECT DISTINCT ON (pw.year, pw.week, pw.manager_id, pw.player_id)
+    pw.year,
+    pw.week,
+    pw.manager_id,
+    pw.manager_name,
+    pw.player_id,
+    pw.player_name,
+    coalesce(w.position, pw.position) AS position,
+    pw.matchup_id,
+    pw.points,
+    w.week AS add_week,
+    w.transaction_id
+FROM v_player_weeks pw
+JOIN v_asset_value w
+    ON w.player_id = pw.player_id
+    AND w.manager_id = pw.manager_id
+    AND w.type IN ('waiver', 'free_agent')
+    AND (w.year < pw.year OR (w.year = pw.year AND w.week <= pw.week))
+    AND (
+        w.next_year IS NULL
+        OR w.next_year > pw.year
+        OR (w.next_year = pw.year AND pw.week < w.next_week)
+    )
+WHERE pw.started
+ORDER BY
+    pw.year,
+    pw.week,
+    pw.manager_id,
+    pw.player_id,
+    w.year DESC,
+    w.week DESC,
+    w.acquisition_id DESC;
+
+-- First start of 15+ PF this season, any roster. Breakout week, not later
+-- production from a player who already proved it.
+CREATE VIEW v_first_start_over AS
+SELECT
+    year,
+    player_id,
+    min(week) AS week
+FROM v_player_weeks
+WHERE started
+    AND points >= 15
+GROUP BY year, player_id;
+
+-- One pass: first 15+ start this season, then the week's highest among those.
+CREATE VIEW v_stream_weeks AS
+SELECT
+    year,
+    week,
+    manager_id,
+    manager_name,
+    player_id,
+    player_name,
+    position,
+    matchup_id,
+    points
+FROM (
+    SELECT
+        v.*,
+        rank() OVER (
+            PARTITION BY v.year, v.week
+            ORDER BY v.points DESC, v.player_id
+        ) AS rk
+    FROM v_wire_starts v
+    JOIN v_first_start_over f
+        ON f.year = v.year
+        AND f.player_id = v.player_id
+        AND f.week = v.week
+    WHERE v.points >= 15
+) ranked
+WHERE rk = 1;
+
+-- Snapshot: week/season/records distinction boards. Computing live is ~9s
+-- (correlated weekly maxima over the full union, including wire starts).
+CREATE MATERIALIZED VIEW v_marks_weeks AS
 SELECT
     r.year,
     r.week,
@@ -100,6 +184,7 @@ LEFT JOIN managers om ON om.id = g.opponent_id
 WHERE g.kind = 'regular'
     AND g.opponent_id IS NOT NULL
     AND g.manager_id < g.opponent_id
+    AND abs(g.margin) <= 5
     AND abs(g.margin) = (
         SELECT min(abs(x.margin))
         FROM v_games x
@@ -131,6 +216,7 @@ LEFT JOIN managers om ON om.id = g.opponent_id
 WHERE g.kind = 'regular'
     AND g.opponent_id IS NOT NULL
     AND g.result = 'win'
+    AND abs(g.margin) >= 40
     AND abs(g.margin) = (
         SELECT max(abs(x.margin))
         FROM v_games x
@@ -208,7 +294,126 @@ WHERE mw.kind = 'regular'
         SELECT max(x.left_on_bench)
         FROM v_management_weeks x
         WHERE x.year = mw.year AND x.week = mw.week AND x.kind = 'regular'
-    );
+    )
+UNION ALL
+SELECT
+    v.year,
+    v.week,
+    'add',
+    v.manager_id,
+    v.manager_name,
+    NULL,
+    NULL,
+    v.transaction_id,
+    NULL,
+    NULL,
+    v.ros_vorp,
+    v.player_id,
+    v.player_name,
+    v.position
+FROM v_add_value v
+WHERE v.type IN ('waiver', 'free_agent')
+    AND v.ros_vorp IS NOT NULL
+    AND v.ros_vorp >= 10
+    AND EXISTS (
+        SELECT 1
+        FROM v_week_scores_ranked r
+        WHERE r.year = v.year AND r.week = v.week
+    )
+    AND v.ros_vorp = (
+        SELECT max(x.ros_vorp)
+        FROM v_add_value x
+        WHERE x.year = v.year
+            AND x.week = v.week
+            AND x.type IN ('waiver', 'free_agent')
+    )
+UNION ALL
+SELECT
+    v.year,
+    v.week,
+    'miss',
+    v.manager_id,
+    v.manager_name,
+    v.won_player_id,
+    v.won_player,
+    v.missed_transaction_id,
+    NULL,
+    NULL,
+    v.vorp_gap,
+    v.missed_player_id,
+    v.missed_player,
+    v.missed_position
+FROM v_waiver_misses v
+WHERE v.vorp_gap IS NOT NULL
+    AND v.vorp_gap >= 10
+    AND EXISTS (
+        SELECT 1
+        FROM v_week_scores_ranked r
+        WHERE r.year = v.year AND r.week = v.week
+    )
+    AND v.vorp_gap = (
+        SELECT max(x.vorp_gap)
+        FROM v_waiver_misses x
+        WHERE x.year = v.year
+            AND x.week = v.week
+    )
+UNION ALL
+SELECT
+    v.year,
+    v.week,
+    'dodge',
+    v.manager_id,
+    v.manager_name,
+    v.lost_player_id,
+    v.lost_player,
+    v.won_transaction_id,
+    NULL,
+    NULL,
+    v.vorp_gap,
+    v.won_player_id,
+    v.won_player,
+    NULL
+FROM v_waiver_dodges v
+WHERE v.vorp_gap IS NOT NULL
+    AND v.vorp_gap >= 10
+    AND EXISTS (
+        SELECT 1
+        FROM v_week_scores_ranked r
+        WHERE r.year = v.year AND r.week = v.week
+    )
+    AND v.vorp_gap = (
+        SELECT max(x.vorp_gap)
+        FROM v_waiver_dodges x
+        WHERE x.year = v.year
+            AND x.week = v.week
+    )
+UNION ALL
+SELECT
+    v.year,
+    v.week,
+    'stream',
+    v.manager_id,
+    v.manager_name,
+    NULL,
+    NULL,
+    v.matchup_id,
+    v.points,
+    NULL,
+    v.points,
+    v.player_id,
+    v.player_name,
+    v.position
+FROM v_stream_weeks v
+WHERE EXISTS (
+        SELECT 1
+        FROM v_week_scores_ranked r
+        WHERE r.year = v.year AND r.week = v.week
+    )
+WITH NO DATA;
+
+CREATE INDEX v_marks_weeks_year_week ON v_marks_weeks (year, week);
+CREATE INDEX v_marks_weeks_manager ON v_marks_weeks (manager_id);
+CREATE INDEX v_marks_weeks_kind ON v_marks_weeks (kind);
 
 CREATE VIEW v_marks_holders AS
 SELECT

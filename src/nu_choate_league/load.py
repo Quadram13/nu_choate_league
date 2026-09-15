@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterable
 
 import psycopg
@@ -15,24 +16,35 @@ from .models import Matchup, Platform, SeasonBundle, Transaction
 from .players import PlayerIndex
 
 
+def _progress(message: str) -> None:
+    print(f"load: {message}", flush=True)
+
+
 def load_facts(*, year: int | None = None) -> list[str]:
-    bundles = ingest_all(year=year)
+    started = time.perf_counter()
+    bundles = ingest_all(year=year, progress=_progress)
     if not bundles:
         raise SystemExit("No seasons to load.")
     with connect() as conn:
-        apply_schema(conn, refresh=False)
+        apply_schema(conn, refresh=False, progress=_progress)
         if year is None:
+            _progress("truncate facts")
             _truncate_facts(conn)
         else:
             for bundle in bundles:
+                _progress(f"delete {bundle.season.year}")
                 conn.execute("DELETE FROM seasons WHERE year = %s", (bundle.season.year,))
+        _progress("upsert managers and players")
         _upsert_managers(conn)
         _upsert_players(conn, bundles)
         for bundle in bundles:
+            step = time.perf_counter()
             _insert_season(conn, bundle)
             _insert_stat_lines(conn, bundle)
-        refresh_analysis(conn)
+            _progress(f"insert {bundle.season.year} ({time.perf_counter() - step:.1f}s)")
+        refresh_analysis(conn, progress=_progress)
         conn.commit()
+    _progress(f"done ({time.perf_counter() - started:.1f}s)")
     lines: list[str] = []
     for bundle in bundles:
         lines.extend(_compare(bundle))

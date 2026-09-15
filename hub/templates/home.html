@@ -1,20 +1,46 @@
 {% extends "base.html" %}
 {% from "week_card.html" import week_card_block %}
-{% from "plaque_macros.html" import person_link %}
+{% from "plaque_macros.html" import person_link, plaque_free, highlight_chip %}
 {% macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
 {% endmacro %}
 {% block body %}
-<p class="kicker">Local warehouse</p>
 <h1>Nu Choate League</h1>
-<p class="lede">ESPN 2022–2023 and Sleeper 2024 onward, read live from the local warehouse.</p>
+
+{% if seasons %}
+<h2>Champions</h2>
+<div class="year-rail">
+    {% for row in seasons %}
+    <article class="year-card{% if loop.first %} podium{% endif %}">
+        <a class="year" href="/seasons/{{ row.year }}">{{ row.year }}</a>
+        <span class="chip platform">{{ row.platform }}</span>
+        <div class="champ">
+            <span>
+                <span class="role">Champion</span>
+                {{ person(row.champion_id, row.champion, row.champion_hue) }}
+                {% set champ_jersey = row.champion_team | flavor_team(row.champion) %}
+                {% if champ_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.champion_id }}">{{ champ_jersey }}</a></span>{% endif %}
+            </span>
+        </div>
+        <div class="last">
+            <span>
+                <span class="role">Should've done Artscon</span>
+                {{ person(row.last_chair_id, row.last_chair, row.last_chair_hue) }}
+                {% set last_jersey = row.last_chair_team | flavor_team(row.last_chair) %}
+                {% if last_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.last_chair_id }}">{{ last_jersey }}</a></span>{% endif %}
+            </span>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if year %}
 <section class="desk">
     <div class="desk-main">
-        <h2>{{ year }} official standings</h2>
+        <h2>{{ year }} · <a href="/seasons/{{ year }}">Season</a></h2>
         {% if current and current.vs_median %}
-        <p class="note">Official scoring this year is head-to-head plus a game vs the weekly median.</p>
+        <p class="note">H2H plus a game vs the weekly median.</p>
         {% endif %}
         {% if standings %}
         <div class="standings-wrap">
@@ -23,9 +49,12 @@
                 <tr>
                     <th class="num">#</th>
                     <th>Manager</th>
-                    <th data-type="num">Record</th>
+                    <th data-type="num">{% if current.vs_median %}Official{% else %}Record{% endif %}</th>
+                    {% if current.vs_median %}
+                    <th data-type="num">H2H</th>
+                    <th data-type="num">Median</th>
+                    {% endif %}
                     <th class="num">PF</th>
-                    <th class="num">PA</th>
                     <th data-type="num">All-play</th>
                     <th class="num">Luck</th>
                     <th class="num">vsExp</th>
@@ -35,10 +64,13 @@
                 {% for row in standings %}
                 <tr>
                     <td class="num">{{ row.rank }}</td>
-                    <td>{{ person(row.manager_id, row.display_name, row.hue) }}{% set jersey = row.team_name | flavor_team(row.display_name) %}{% if jersey %} <span class="team">{{ jersey }}</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.display_name, row.hue) }}</td>
                     <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
+                    {% if current.vs_median %}
+                    <td data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
+                    <td data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
+                    {% endif %}
                     <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
-                    <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
                     <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
                     <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
                     <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
@@ -49,24 +81,21 @@
         </div>
         {% endif %}
         <p>
-            <a href="/seasons/{{ year }}">{{ year }} season</a>
-            · <a href="/seasons/{{ year }}/desk">Schedule desk</a>
+            <a href="/seasons/{{ year }}">Full {{ year }}</a>
+            · <a href="/seasons/{{ year }}/desk">Desk</a>
             · <a href="/seasons/{{ year }}/marks">Distinctions</a>
-            · <a href="/seasons/{{ year }}/scoring">Scoring</a>
+            · <a href="/seasons/{{ year }}/moves">Moves</a>
         </p>
+        {% if highlights.season %}
+        <h2>{{ year }} highlights</h2>
+        <div class="plaque-grid recap-records">
+            {% for row in highlights.season %}
+            {{ highlight_chip(row) }}
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
     <aside class="desk-side">
-        {% if universes %}
-        <section class="universe-strip home-universes">
-            <p class="note universe-line" id="universes">
-                Other timeline
-                · Official {{ person(universes.official_champ_id, universes.official_champ) }}
-                · H2H {{ person(universes.h2h_champ_id, universes.h2h_champ) }}{% if universes.h2h_same is false %} differs{% endif %}
-                · Median {{ person(universes.median_champ_id, universes.median_champ) }}{% if universes.median_same is false %} differs{% endif %}
-                · <a href="/luck#universes">Luck</a>
-            </p>
-        </section>
-        {% endif %}
         {% if slate %}
         <h2>This week · <a href="/seasons/{{ slate.year }}/week/{{ slate.week }}">W{{ slate.week }}</a></h2>
         {% for group in slate.groups %}
@@ -97,25 +126,47 @@
 <p class="note">No scored standings yet. Run <code>uv run nu-choate-league load</code> after a dump.</p>
 {% endif %}
 
-<h2>Champions</h2>
-<div class="year-rail">
-    {% for row in seasons %}
-    <article class="year-card{% if loop.first %} podium{% endif %}">
-        <a class="year" href="/seasons/{{ row.year }}">{{ row.year }}</a>
-        <span class="chip platform">{{ row.platform }}</span>
-        <div class="champ">
-            <span>
-                <span class="role">Champion</span>
-                {{ person(row.champion_id, row.champion, row.champion_hue) }}
-            </span>
-        </div>
-        <div class="last">
-            <span>
-                <span class="role">Should've done Artscon</span>
-                {{ person(row.last_chair_id, row.last_chair, row.last_chair_hue) }}
-            </span>
-        </div>
-    </article>
-    {% endfor %}
-</div>
+<section>
+    <h2>All-time</h2>
+    <p class="note">
+        <a href="/members">Members</a>
+        · <a href="/versus">Versus</a>
+        · <a href="/records">Records</a>
+        · <a href="/players">Players</a>
+    </p>
+    {% if league_records %}
+    <div class="plaque-grid recap-records">
+        {% for row in league_records %}
+        {{ plaque_free(row.kicker, who=row.who, who_id=row.who_id, figure=row.figure, meta=row.meta, polarity=row.polarity, href=row.href, hue=row.hue) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if luck_plaques %}
+    <div class="plaque-grid recap-records">
+        {% for row in luck_plaques %}
+        {{ plaque_free(row.kicker, who=row.who, who_id=row.who_id, figure=row.figure, meta=row.meta, polarity=row.polarity, href=row.href, hue=row.hue) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if highlights.career %}
+    <div class="plaque-grid recap-records">
+        {% for row in highlights.career %}
+        {{ highlight_chip(row) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if rivalries %}
+    <h3>Top rivalries</h3>
+    <ul class="index">
+        {% for note in rivalries %}
+        <li>
+            <span class="label">{{ note.label }}</span>
+            <a href="{{ note.href }}">{{ note.left_name }} vs {{ note.right_name }}</a>
+            {% if note.detail %}<span>{{ note.detail }}</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
 {% endblock %}
+

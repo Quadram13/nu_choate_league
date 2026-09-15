@@ -1,7 +1,16 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import plaque_free, person_link %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official records stitched across platforms. All-play is every other roster that week. Streak is the current regular-season run. Drought is seasons since last playoff.</p>
+<p class="lede">Official records. H2H and median are always-H2H and always-median. Drought is seasons since last playoff.</p>
+{% if luck_plaques %}
+<div class="plaque-grid recap-records">
+    {% for row in luck_plaques %}
+    {{ plaque_free(row.kicker, who=row.who, who_id=row.who_id, figure=row.figure, meta=row.meta, polarity=row.polarity, href=row.href, hue=row.hue) }}
+    {% endfor %}
+</div>
+{% endif %}
+{% if career %}
 <div class="standings-wrap">
 <table class="js-sort sticky-first">
     <thead>
@@ -10,6 +19,8 @@
             <th class="num">Yrs</th>
             <th data-type="num">Record</th>
             <th class="num">Win%</th>
+            <th data-type="num">H2H</th>
+            <th data-type="num">Median</th>
             <th data-type="num">All-play</th>
             <th class="num">PF</th>
             <th class="num">PF/G</th>
@@ -20,8 +31,10 @@
             <th class="num">PO</th>
             <th class="num">TG</th>
             <th class="num">Drought</th>
-            <th class="num" title="Varsity Letter">Letter</th>
-            <th class="num" title="Varsity Farmer">Farmer</th>
+            <th class="num" title="Varsity Letters">Letters</th>
+            <th class="num" title="Varsity Farmers">Farmers</th>
+            <th class="num">Luck</th>
+            <th class="num">vsExp</th>
             <th class="num">PF+</th>
             <th data-type="num">Streak</th>
         </tr>
@@ -29,10 +42,12 @@
     <tbody>
         {% for row in career %}
         <tr>
-            <td>{% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}<a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person_link(row.manager_id, row.display_name, row.hue) }}</td>
             <td class="num">{{ row.seasons|int }}</td>
             <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
             <td class="num" data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+            <td data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
+            <td data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
             <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
             <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
             <td class="num">{% if row.pf_per_game is not none %}{{ "%.1f"|format(row.pf_per_game) }}{% endif %}</td>
@@ -45,6 +60,8 @@
             <td class="num">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% endif %}</td>
             <td class="num">{{ (row.first_chair or 0)|int }}</td>
             <td class="num">{{ (row.last_chair or 0)|int }}</td>
+            <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
             <td class="num">{{ row.most_points_titles|int }}</td>
             <td data-value="{% if row.streak_length %}{% if row.streak_result == 'win' %}{{ row.streak_length }}{% else %}-{{ row.streak_length }}{% endif %}{% else %}0{% endif %}">
                 {% if row.streak_length %}
@@ -56,4 +73,7 @@
     </tbody>
 </table>
 </div>
+{% else %}
+<p class="note">No career records yet. Load dumps into Postgres first.</p>
+{% endif %}
 {% endblock %}

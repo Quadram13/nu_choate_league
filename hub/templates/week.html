@@ -1,6 +1,10 @@
 {% extends "base.html" %}
-{% from "wire_macros.html" import claims_table, fa_table %}
+{% from "wire_macros.html" import claims_table %}
 {% from "week_card.html" import week_card_block %}
+{% from "plaque_macros.html" import person_link %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
@@ -29,14 +33,14 @@
     <header class="gc-score">
         <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
             <div class="who">
-                {% if game.home.id %}<a href="/members/{{ game.home.id }}">{{ game.home.name }}</a>{% else %}{{ game.home.name }}{% endif %}
+                {{ person(game.home.id, game.home.name) }}
                 {% if game.home.team %}<span class="team">{{ game.home.team }}</span>{% endif %}
             </div>
             <span class="num">{% if game.home.points is not none %}{{ "%.2f"|format(game.home.points) }}{% endif %}{% if game.home.pf_rank %}<span class="week-stat" title="{{ game.home.pf_ordinal }} of {{ game.home.teams }} in weekly points · {{ game.home.all_play }} all-play"><span class="rank">{{ game.home.pf_ordinal }}</span> · {{ game.home.all_play }}</span>{% endif %}</span>
         </div>
         <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
             <div class="who">
-                {% if game.away.id %}<a href="/members/{{ game.away.id }}">{{ game.away.name }}</a>{% else %}{{ game.away.name }}{% endif %}
+                {{ person(game.away.id, game.away.name) }}
                 {% if game.away.team %}<span class="team">{{ game.away.team }}</span>{% endif %}
             </div>
             <span class="num">{% if game.away.points is not none %}{{ "%.2f"|format(game.away.points) }}{% endif %}{% if game.away.pf_rank %}<span class="week-stat" title="{{ game.away.pf_ordinal }} of {{ game.away.teams }} in weekly points · {{ game.away.all_play }} all-play"><span class="rank">{{ game.away.pf_ordinal }}</span> · {{ game.away.all_play }}</span>{% endif %}</span>
@@ -46,23 +50,20 @@
 </article>
 {% endfor %}
 {% endfor %}
+{% if not gc.groups %}
+<p class="note">No scored games this week.</p>
+{% endif %}
 
 {% if gc.wire.claims or gc.wire.fa %}
 <h2 id="wire">Wire</h2>
 {% if gc.wire.faab %}
-<p class="note">FAAB bids. Ties then waiver order. Times are US Eastern, when the move was recorded.</p>
+<p class="note">FAAB bids. Times are US Eastern.</p>
 {% else %}
-<p class="note">Waiver order. FAAB started in 2026. Times are US Eastern, when the move was recorded.</p>
+<p class="note">Waiver order. Times are US Eastern.</p>
 {% endif %}
 {% for day in gc.wire.days %}
 <h3 class="wire-day">{{ day.label }}</h3>
-{% if day.claims %}
-{{ claims_table(current.year, day.claims, gc.wire.faab, gc.wire.show_order) }}
-{% endif %}
-{% if day.fa %}
-{% if day.claims %}<p class="note">Free agents</p>{% endif %}
-{{ fa_table(current.year, day.fa) }}
-{% endif %}
+{{ claims_table(current.year, day.rows, gc.wire.faab, gc.wire.show_order) }}
 {% endfor %}
 {% endif %}
 {% endblock %}

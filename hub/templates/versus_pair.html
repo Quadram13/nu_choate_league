@@ -9,8 +9,8 @@
 {% block body %}
 <p class="jump">
     <a href="/versus">Versus</a>
-    <a href="/members/{{ left.manager_id }}">{{ left.display_name }}</a>
-    <a href="/members/{{ right.manager_id }}">{{ right.display_name }}</a>
+    {{ person(left.manager_id, left.display_name, hue_left) }}
+    {{ person(right.manager_id, right.display_name, hue_right) }}
 </p>
 <section class="versus-hero">
     <div class="side">

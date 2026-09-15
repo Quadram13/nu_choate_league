@@ -5,7 +5,6 @@ DROP VIEW IF EXISTS
     v_player_index,
     v_player_season,
     v_ownership_season,
-    v_all_league,
     v_player_career,
     v_bench,
     v_vorp_season,
@@ -14,6 +13,9 @@ DROP VIEW IF EXISTS
     v_pool_weeks,
     v_player_weeks
 CASCADE;
+
+DROP MATERIALIZED VIEW IF EXISTS v_all_league CASCADE;
+DROP VIEW IF EXISTS v_all_league CASCADE;
 
 CREATE VIEW v_player_weeks AS
 SELECT
@@ -125,6 +127,8 @@ SELECT
     count(*) FILTER (WHERE NOT rostered) AS fa_weeks,
     coalesce(sum(points), 0) AS points,
     coalesce(sum(points) FILTER (WHERE started), 0) AS started_points,
+    count(*) FILTER (WHERE rostered AND NOT started) AS bench_weeks,
+    coalesce(sum(points) FILTER (WHERE rostered AND NOT started), 0) AS bench_points,
     coalesce(sum(vorp), 0) AS vorp,
     coalesce(sum(vorp) FILTER (WHERE started), 0) AS started_vorp,
     coalesce(sum(vorp) FILTER (WHERE NOT rostered), 0) AS fa_vorp
@@ -182,8 +186,30 @@ LEFT JOIN (
 ) tr ON tr.player_id = pw.player_id
 GROUP BY pw.player_id, p.display_name, p.position, d.times_drafted, mv.adds, mv.drops, tr.times_traded;
 
-CREATE VIEW v_all_league AS
-WITH started AS (
+-- Snapshot: week chairs and career chair counts. Computing live is ~0.8s.
+CREATE MATERIALIZED VIEW v_all_league AS
+WITH weeks AS (
+    SELECT
+        year,
+        week,
+        CASE
+            WHEN slot IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF') THEN slot
+            WHEN position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF') THEN position
+            WHEN position IN ('DB', 'CB', 'LB', 'DL', 'DE', 'DT', 'S', 'SS', 'FS', 'IDP') THEN 'WR'
+            WHEN position = 'FB' THEN 'RB'
+            ELSE NULL
+        END AS position,
+        player_id,
+        player_name,
+        manager_id,
+        manager_name,
+        points,
+        started,
+        kind
+    FROM v_player_weeks
+    WHERE kind IN ('regular', 'playoff')
+),
+started AS (
     SELECT
         year,
         week,
@@ -201,10 +227,9 @@ WITH started AS (
             PARTITION BY year, week, position
             ORDER BY points ASC, player_id
         ) AS low_rank
-    FROM v_player_weeks
+    FROM weeks
     WHERE started
-        AND position IS NOT NULL
-        AND kind IN ('regular', 'playoff')
+        AND position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
 ),
 best AS (
     SELECT year, week, position, points AS best_points
@@ -221,14 +246,13 @@ bench AS (
         pw.manager_id,
         pw.manager_name,
         pw.points
-    FROM v_player_weeks pw
+    FROM weeks pw
     JOIN best b
         ON b.year = pw.year
         AND b.week = pw.week
         AND b.position = pw.position
     WHERE NOT pw.started
-        AND pw.position IS NOT NULL
-        AND pw.kind IN ('regular', 'playoff')
+        AND pw.position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
         AND pw.points > b.best_points
 )
 SELECT
@@ -267,7 +291,12 @@ SELECT
     manager_id,
     manager_name,
     points
-FROM bench;
+FROM bench
+WITH NO DATA;
+
+CREATE INDEX v_all_league_year_week ON v_all_league (year, week);
+CREATE INDEX v_all_league_manager ON v_all_league (manager_id);
+CREATE INDEX v_all_league_kind ON v_all_league (kind);
 
 -- Who rostered a player, by season. A player can have several owners.
 CREATE VIEW v_ownership_season AS
@@ -297,6 +326,8 @@ SELECT
     v.fa_weeks,
     v.points,
     v.started_points,
+    v.bench_weeks,
+    v.bench_points,
     v.vorp,
     CASE
         WHEN v.weeks = 0 THEN NULL

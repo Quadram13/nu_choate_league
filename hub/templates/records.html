@@ -7,40 +7,45 @@
 {% endmacro %}
 {% block body %}
 <h1>Record book</h1>
-<p class="lede">
-    Regular-season head-to-head. Weekly highs and lows skip playoff and
-    consolation weeks (ESPN two-week finals would otherwise own the list).
-</p>
-<p class="jump">
-    <a href="#holders">Distinctions</a>
+<p class="lede">Regular-season H2H. Weekly highs and lows skip playoff weeks.</p>
+{% if not holders and not high_weeks %}
+<p class="note">No records yet. Load dumps into Postgres first.</p>
+{% endif %}
+<p class="jump sticky-jump">
+    <span class="jump-label" data-grain="career">Career</span>
+    <a href="#holders" data-grain="career">Distinctions</a>
+    <a href="#chairs" data-grain="career">Varsity</a>
+    <a href="#platform" data-grain="career">Platform</a>
+    <a href="#coach" data-grain="career">Coach</a>
+    <a href="#wins" data-grain="career">Win streaks</a>
+    <a href="#losses" data-grain="career">Loss streaks</a>
+    <a href="#current" data-grain="career">Current streaks</a>
+    <a href="#drought" data-grain="career">Droughts</a>
+    <a href="#eras" data-grain="career">Wire eras</a>
+    <span class="jump-label">By year</span>
     <a href="#season">Season</a>
     <a href="#playoff">Playoff</a>
     <a href="#high">Highest weeks</a>
     <a href="#low">Lowest weeks</a>
     <a href="#blowouts">Blowouts</a>
     <a href="#closest">Nail-biters</a>
-    <a href="#chairs">Varsity</a>
     <a href="#median">Median tax</a>
-    <a href="#platform">Platform</a>
-    <a href="#eras">Wire eras</a>
     <a href="#trades">Trades</a>
     <a href="#draft">Draft</a>
     <a href="#wire">Wire</a>
     <a href="#lineups">Bench</a>
-    <a href="#wins">Win streaks</a>
-    <a href="#losses">Loss streaks</a>
-    <a href="#current">Current streaks</a>
-    <a href="#drought">Droughts</a>
 </p>
-<p class="jump js-year-filter" hidden></p>
+<p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
 {% if holders %}
+<div data-grain="career">
 <h2 id="holders">Who owns the book</h2>
-<p class="note">Career weeks as WTF IS A MEDIAN???, At least we don't use all-play, the inch, the rout, H2H enjoyer, Median enjoyer, or Bench Waste.</p>
+<p class="note">Career weeks in each distinction.</p>
 <div class="holder-list">
     {% for row in holders %}
     {{ holder_row(row, kind_order, labels, meta) }}
     {% endfor %}
+</div>
 </div>
 {% endif %}
 
@@ -163,7 +168,7 @@
                 {% for row in season_luck.lucky %}
                 <tr data-year="{{ row.year }}">
                     <td class="num">{{ loop.index }}</td>
-                    <td><a href="/luck#seasons">{{ row.year }}</a></td>
+                    <td><a href="/seasons/{{ row.year }}#luck">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
                 </tr>
@@ -179,7 +184,7 @@
                 {% for row in season_luck.unlucky %}
                 <tr data-year="{{ row.year }}">
                     <td class="num">{{ loop.index }}</td>
-                    <td><a href="/luck#seasons">{{ row.year }}</a></td>
+                    <td><a href="/seasons/{{ row.year }}#luck">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
                 </tr>
@@ -256,6 +261,7 @@
 {% endif %}
 
 {% if chairs %}
+<div data-grain="career">
 <h2 id="chairs">Varsity</h2>
 <div class="notable-grid">
     <section>
@@ -290,7 +296,7 @@
     </section>
 </div>
 {% if chairs.sat %}
-<h3>Most Stephen Strasburg Treatments</h3>
+<h3>Most Beat the Freeze</h3>
 <table>
     <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
     <tbody>
@@ -304,11 +310,12 @@
     </tbody>
 </table>
 {% endif %}
+</div>
 {% endif %}
 
 {% if median_tax %}
 <h2 id="median">Median tax</h2>
-<p class="note">Vs-median is off through 2024 and on after. Extra wins from the median game; playoff flips vs a H2H-only board.</p>
+<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -338,8 +345,9 @@
 {% endif %}
 
 {% if platform %}
+<div data-grain="career">
 <h2 id="platform">Platform split</h2>
-<p class="note">ESPN 2022–23 vs Sleeper 2024 onward. Same people, two sites.</p>
+<p class="note">ESPN 2022–23 vs Sleeper 2024 onward.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -366,11 +374,13 @@
     </tbody>
 </table>
 </div>
+</div>
 {% endif %}
 
 {% if wire_eras %}
+<div data-grain="career">
 <h2 id="eras">Waiver era vs FAAB era</h2>
-<p class="note">Priority 2022–2025. FAAB from 2026. Claims are completed waiver adds.</p>
+<p class="note">Priority 2022–2025. FAAB from 2026.</p>
 <table>
     <thead>
         <tr>
@@ -395,6 +405,7 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 {% if fa_adds %}
 <h3>Most FA adds in a season</h3>
@@ -436,7 +447,7 @@
         {% for row in high_weeks %}
         <tr data-year="{{ row.year }}">
             <td class="num">{{ loop.index }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
             <td class="num">{{ "%.2f"|format(row.points) }}</td>
         </tr>
@@ -458,7 +469,7 @@
         {% for row in low_weeks %}
         <tr data-year="{{ row.year }}">
             <td class="num">{{ loop.index }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
             <td class="num">{{ "%.2f"|format(row.points) }}</td>
         </tr>
@@ -482,16 +493,16 @@
             <td class="num">{{ row.blowout_rank }}</td>
             <td>
                 {% if row.points >= row.opp_points %}
-                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ person(row.manager_id, row.manager_name) }}
                 {{ "%.1f"|format(row.points) }}
                 –
-                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ person(row.opponent_id, row.opponent_name) }}
                 {{ "%.1f"|format(row.opp_points) }}
                 {% else %}
-                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ person(row.opponent_id, row.opponent_name) }}
                 {{ "%.1f"|format(row.opp_points) }}
                 –
-                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ person(row.manager_id, row.manager_name) }}
                 {{ "%.1f"|format(row.points) }}
                 {% endif %}
             </td>
@@ -518,16 +529,16 @@
             <td class="num">{{ row.closest_rank }}</td>
             <td>
                 {% if row.points >= row.opp_points %}
-                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ person(row.manager_id, row.manager_name) }}
                 {{ "%.1f"|format(row.points) }}
                 –
-                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ person(row.opponent_id, row.opponent_name) }}
                 {{ "%.1f"|format(row.opp_points) }}
                 {% else %}
-                <a href="/members/{{ row.opponent_id }}">{{ row.opponent_name }}</a>
+                {{ person(row.opponent_id, row.opponent_name) }}
                 {{ "%.1f"|format(row.opp_points) }}
                 –
-                <a href="/members/{{ row.manager_id }}">{{ row.manager_name }}</a>
+                {{ person(row.manager_id, row.manager_name) }}
                 {{ "%.1f"|format(row.points) }}
                 {% endif %}
             </td>
@@ -539,7 +550,7 @@
 </table>
 
 <h2 id="trades">Most lopsided trades</h2>
-<p class="note">Rest-of-season starter VORP of what each side received. Winner listed first. Big win is 50+ with both sides at +15 or more. Fleece is 50+ with the other side under +15.</p>
+<p class="note">Rest-of-season starter VORP. Winner listed first.</p>
 <div class="trade-list">
     {% for row in trades %}
     {{ trade_card(row, show_year=True) }}
@@ -547,7 +558,7 @@
 </div>
 
 <h2 id="draft">Draft</h2>
-<p class="note">Starter VORP on the drafter's roster until someone else adds the player, versus that round's drafted average. <a href="/seasons">Season boards</a></p>
+<p class="note">Starter VORP vs that round’s average. <a href="/seasons">Season boards</a></p>
 <div class="notable-grid">
     <section>
         <h3>Best vs round</h3>
@@ -629,7 +640,7 @@
 {% endif %}
 
 <h2 id="wire">Wire</h2>
-<p class="note">Adds are starter VORP on that roster after the claim, until someone else gets the player. Misses are league ROS VORP of the failed claim vs what you actually got.</p>
+<p class="note">Starter VORP after the add. Misses are the failed claim vs what you got.</p>
 <div class="notable-grid">
     <section>
         <h3>Best adds</h3>
@@ -689,7 +700,7 @@
 </div>
 
 <h2 id="lineups">Bench</h2>
-<p class="note">Regular season. Points left on the bench vs that week's optimal lineup. <a href="/seasons">Season heatmaps</a></p>
+<p class="note">Points left on the bench vs optimal. <a href="/seasons">Season heatmaps</a></p>
 <div class="notable-grid">
     <section>
         <h3>Worst weeks</h3>
@@ -741,6 +752,40 @@
     </section>
 </div>
 
+{% if coaches %}
+<div data-grain="career">
+<h2 id="coach">Coaching</h2>
+<p class="note">Actual points over optimal lineups.</p>
+<div class="standings-wrap">
+<table class="js-sort sticky-first">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Yrs</th>
+            <th class="num">Weeks</th>
+            <th class="num">%</th>
+            <th class="num">Left</th>
+            <th class="num" title="Optimal starters who sat">Sat</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in coaches %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ (row.seasons or 0)|int }}</td>
+            <td class="num">{{ (row.weeks or 0)|int }}</td>
+            <td class="num">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% else %}—{% endif %}</td>
+            <td class="num">{% if row.left_on_bench is not none %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ (row.sat_starter or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+<div data-grain="career">
 <h2 id="wins">Longest win streaks</h2>
 <table>
     <thead>
@@ -755,7 +800,7 @@
         {% for row in win_streaks %}
         <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
             <td class="num">{{ loop.index }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
             <td>
                 <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
@@ -781,7 +826,7 @@
         {% for row in loss_streaks %}
         <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
             <td class="num">{{ loop.index }}</td>
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
             <td>
                 <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
@@ -805,7 +850,7 @@
     <tbody>
         {% for row in current_streaks %}
         <tr data-year-start="{{ row.start_year }}">
-            <td><a href="/members/{{ row.manager_id }}">{{ row.display_name }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td>{{ row.length }} {{ row.result }}{% if row.length != 1 %}s{% endif %}</td>
             <td>
                 <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
@@ -816,7 +861,7 @@
 </table>
 {% if title_droughts %}
 <h2 id="drought">Title droughts</h2>
-<p class="note">Years since last championship. Playoff drought is years since last playoff appearance.</p>
+<p class="note">Years since last title or playoff.</p>
 <table class="js-sort">
     <thead>
         <tr>
@@ -842,4 +887,5 @@
     </tbody>
 </table>
 {% endif %}
+</div>
 {% endblock %}

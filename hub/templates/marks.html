@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% from "week_card.html" import week_card_block %}
-{% from "plaque_macros.html" import holder_row %}
+{% from "plaque_macros.html" import holder_row, person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% block body %}
 <p class="jump">
@@ -20,7 +20,7 @@
     </label>
     <span class="lede">Distinctions</span>
 </p>
-<p class="note">Weekly awards from scored regular-season weeks.</p>
+<p class="note">Weekly awards.</p>
 
 {% if latest_card %}
 <p class="kicker">Last scored week</p>
@@ -44,7 +44,7 @@
         {% for row in chapter.weeks %}
         <li>
             <a href="/seasons/{{ current.year }}/week/{{ row.week }}">W{{ row.week }}</a>
-            <span>{{ person(row.manager_id, row.display_name) }}{% if row.opponent_id %} vs {{ person(row.opponent_id, row.opponent_name) }}{% endif %}</span>
+            <span>{{ person(row.manager_id, row.display_name) }}{% if row.opponent_id %} vs {{ person(row.opponent_id, row.opponent_name) }}{% endif %}{% if row.player_name %} · {% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}{% endif %}</span>
             <span class="num">
                 {% if row.href %}<a href="{{ row.href }}">{% endif %}
                 {{ row.figure }}

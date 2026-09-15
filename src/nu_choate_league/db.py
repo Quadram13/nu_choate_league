@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import time
+from collections.abc import Callable
 
 import psycopg
 from dotenv import load_dotenv
@@ -9,6 +11,8 @@ from .paths import project_root
 
 FACTS_FILE = "sql/facts.sql"
 ANALYSIS_DIR = "sql/analysis"
+
+Progress = Callable[[str], None]
 
 
 def load_env() -> None:
@@ -39,23 +43,39 @@ def schema_files() -> list:
     return files
 
 
-def apply_schema(conn: psycopg.Connection, *, refresh: bool = True) -> None:
+def apply_schema(
+    conn: psycopg.Connection,
+    *,
+    refresh: bool = True,
+    progress: Progress | None = None,
+) -> None:
     for path in schema_files():
+        started = time.perf_counter()
         sql = path.read_text(encoding="utf-8")
         for statement in _statements(sql):
             conn.execute(statement)
+        if progress:
+            progress(f"schema {path.name} ({time.perf_counter() - started:.1f}s)")
     if refresh:
-        refresh_analysis(conn)
+        refresh_analysis(conn, progress=progress)
 
 
-def refresh_analysis(conn: psycopg.Connection) -> None:
+def refresh_analysis(conn: psycopg.Connection, progress: Progress | None = None) -> None:
+    # Later snapshots depend on earlier ones (marks → assets / waivers / optimal).
     for name in (
         "v_asset_value",
         "v_optimal_slots",
         "v_universe_outcomes",
         "v_waiver_claims",
+        "v_all_league",
+        "v_marks_weeks",
     ):
+        started = time.perf_counter()
+        if progress:
+            progress(f"refresh {name}")
         conn.execute(f"REFRESH MATERIALIZED VIEW {name}")
+        if progress:
+            progress(f"refresh {name} ({time.perf_counter() - started:.1f}s)")
 
 
 def _statements(sql: str) -> list[str]:

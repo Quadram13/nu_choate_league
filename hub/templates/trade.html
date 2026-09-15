@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% macro pack_class(side, trade) -%}
 {% if trade.verdict.kind != 'even' and trade.winner_id %}{% if side.id == trade.winner_id %} won{% else %} lost{% endif %}{% endif %}
@@ -76,14 +77,14 @@
             {{ pack(trade.left, "home", trade) }}
             {{ pack(trade.right, "away", trade) }}
         </div>
-        <p class="note">What each side received, by rest-of-season starter VORP. Grade stops at the next acquisition of that player.</p>
+        <p class="note">Rest-of-season starter VORP. Grade stops at the next acquisition.</p>
     </article>
     {{ side_panel(trade.right, "away") }}
 </div>
 
 {% if trade.flips %}
 <h2>Flips</h2>
-<p class="note">Same manager later traded a player from this deal. The score above still stops at that flip. After is what they then did for the next owner.</p>
+<p class="note">Later flip of a player from this deal. The score above still stops here.</p>
 <table>
     <thead>
         <tr>

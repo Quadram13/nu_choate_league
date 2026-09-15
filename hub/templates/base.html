@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <meta name="description" content="Nu Choate League — ESPN 2022–2023 and Sleeper 2024 onward.">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:description" content="Nu Choate League. ESPN 2022–2023 and Sleeper 2024 onward.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/hub.css">
     <script src="/static/hub.js" defer></script>
 </head>
@@ -13,13 +18,13 @@
             <a class="wordmark" href="/">
                 <span class="wordmark-nu">Nu Choate</span><span class="wordmark-league">League</span>
             </a>
-            <nav>
+            <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
+            <nav id="site-nav">
                 <a href="/" {% if nav == "home" %}class="on"{% endif %}>Home</a>
                 <a href="/seasons" {% if nav == "seasons" %}class="on"{% endif %}>Seasons</a>
                 <a href="/members" {% if nav == "members" %}class="on"{% endif %}>Members</a>
                 <a href="/versus" {% if nav == "versus" %}class="on"{% endif %}>Versus</a>
                 <a href="/records" {% if nav == "records" %}class="on"{% endif %}>Records</a>
-                <a href="/luck" {% if nav == "luck" %}class="on"{% endif %}>Luck</a>
                 <a href="/players" {% if nav == "players" %}class="on"{% endif %}>Players</a>
             </nav>
         </header>

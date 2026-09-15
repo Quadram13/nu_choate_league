@@ -89,7 +89,7 @@ body {
 .mast {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 10px 28px;
     margin-bottom: 28px;
@@ -137,6 +137,33 @@ nav a {
 nav a:hover,
 nav a.on {
     color: var(--ink);
+}
+
+.nav-toggle {
+    display: none;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    margin-left: auto;
+}
+
+@media (max-width: 720px) {
+    .nav-toggle {
+        display: inline-block;
+    }
+
+    nav {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    nav.is-open {
+        display: flex;
+    }
 }
 
 h1 {
@@ -249,18 +276,6 @@ ul.index span {
     margin-bottom: 8px;
 }
 
-.medals-line {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    margin: 0 0 10px;
-}
-
-.medals-line .label {
-    color: #9ca3af;
-    font-size: 0.75rem;
-}
-
 .universe-line,
 .weeks-line {
     margin: 8px 0 0;
@@ -302,25 +317,6 @@ ul.index span {
     border: 1px solid var(--line);
     padding: 2px 8px;
     color-scheme: dark;
-}
-
-.medals {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin: 0 0 20px;
-}
-
-.medal {
-    border: 1px solid #2a3440;
-    padding: 10px 12px;
-}
-
-.medal .label {
-    display: block;
-    color: #9ca3af;
-    font-size: 0.75rem;
-    margin-bottom: 4px;
 }
 
 .season-grid {
@@ -373,14 +369,7 @@ ul.index span {
     font-weight: 600;
 }
 
-@media (max-width: 1000px) {
-    .medals {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
 @media (max-width: 800px) {
-    .medals,
     .season-grid,
     .universe-strip,
     .notable-grid {
@@ -662,9 +651,26 @@ table.js-sort th.sorted.desc::after {
     color: #d4d4d8;
 }
 
-.allpro {
+.honor-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    align-items: start;
     margin: 0 0 16px;
-    padding: 16px;
+}
+
+.honor-board {
+    width: max-content;
+    max-width: 100%;
+}
+
+.honor-board h2 {
+    margin-top: 16px;
+}
+
+.allpro {
+    margin: 0;
+    padding: 10px 12px;
     border: 1px solid #2a3440;
 }
 
@@ -676,13 +682,47 @@ table.js-sort th.sorted.desc::after {
 
 .allpro-teams {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    grid-template-columns: repeat(2, minmax(12.5rem, 16rem));
+    gap: 8px 20px;
 }
 
 .allpro-team h3 {
-    margin: 0 0 8px;
-    font-size: 0.9rem;
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+}
+
+.allpro .index li {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) 3rem;
+    column-gap: 8px;
+    align-items: baseline;
+    padding: 4px 0;
+}
+
+.allpro .index .label,
+.allpro .index .team,
+.allpro .index .num {
+    margin: 0;
+}
+
+.allpro .index .label {
+    grid-column: 1;
+}
+
+.allpro .index a {
+    grid-column: 2;
+    min-width: 0;
+}
+
+.allpro .index .team {
+    grid-column: 2;
+    font-size: 0.75rem;
+}
+
+.allpro .index .num {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
 }
 
 .allpro-team table {
@@ -701,7 +741,12 @@ table.js-sort th.sorted.desc::after {
 
 @media (max-width: 700px) {
     .allpro-teams {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .honor-board,
+    .allpro-teams {
+        width: 100%;
     }
 }
 
@@ -1125,6 +1170,16 @@ td.plus {
 .wire-time {
     color: #9ca3af;
     white-space: nowrap;
+    width: 7rem;
+}
+
+.wire-table {
+    width: 100%;
+}
+
+.wire-table th:last-child,
+.wire-table td.num {
+    width: 4.5rem;
 }
 
 .wire-day {
@@ -1508,9 +1563,47 @@ tr.this td {
     height: 0.55rem;
     border-radius: 50%;
     background: hsl(var(--hue, 200) 48% 52%);
-    margin-right: 0.35rem;
+    margin-right: 0;
     vertical-align: -0.05rem;
     flex: 0 0 auto;
+}
+
+.person {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 18px;
+    background: #1f2933;
+}
+
+.sticky-jump {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--bg);
+    padding: 8px 0;
+}
+
+.week-grid-row {
+    margin-bottom: 18px;
+}
+
+.week-grid-row h3 {
+    margin-top: 0;
+}
+
+.week-grid-games {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 8px;
 }
 
 .desk {
@@ -1558,9 +1651,47 @@ tr.podium td:nth-child(3) {
     margin: 10px 0 14px;
 }
 
+.plaque-grid.recap-records {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+    .plaque-grid.recap-records {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 800px) {
+    .plaque-grid.recap-records {
+        grid-template-columns: 1fr;
+    }
+}
+
 .plaque-grid.compact {
     grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
     gap: 8px;
+}
+
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    gap: 10px;
+    margin: 10px 0 16px;
+}
+
+.fold-table {
+    margin: 8px 0 18px;
+}
+
+.fold-table summary {
+    cursor: pointer;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.jump-label {
+    color: var(--muted);
+    margin-right: 4px;
 }
 
 .plaque {
@@ -1851,11 +1982,16 @@ tr.podium td:nth-child(3) {
 }
 
 .sticky-first thead th:first-child,
-.sticky-first tbody td:first-child {
+.sticky-first tbody td:first-child,
+.sticky-first tbody th:first-child {
     position: sticky;
     left: 0;
     z-index: 1;
     background: var(--bg);
+}
+
+.sticky-first thead th:first-child {
+    z-index: 2;
 }
 
 .versus-grid {

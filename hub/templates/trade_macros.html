@@ -1,5 +1,6 @@
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 
 {% macro trade_side(side, row) %}

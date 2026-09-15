@@ -8,7 +8,7 @@ You do **not** need to know how to code to get a working copy on your computer. 
 
 1. Raw season files on your machine (`data/`, not stored in GitHub).
 2. A local database (Postgres, running in Docker).
-3. A local hub in the browser: standings, records, season brackets, weekly scores, matchup lineups, trades, the waiver wire, and draft boards.
+3. A local hub in the browser: recap home, standings, records, versus, season brackets, weekly scores, matchup lineups, trades, the waiver wire, and draft boards.
 4. Commands that load dumps into the database and print the same numbers in the terminal.
 
 ## What to install first
@@ -123,7 +123,7 @@ uv run nu-choate-league query universes
 uv run nu-choate-league query luck --year 2025
 ```
 
-`load` reads `data/`, writes fact tables, creates the analysis views, and refreshes snapshots used by trades, draft, wire claims, lineups, and scoring universes. Re-run it after a new dump.
+`load` reads `data/`, writes fact tables, recreates analysis views, and refreshes snapshots used by trades, draft, wire claims, lineups, scoring universes, weekly distinctions, and chairs. It prints each step with elapsed time. A full reload is usually under 20 seconds. Stop `serve` first if the hub is running, so it does not query a half-rebuilt schema. Re-run `load` after a new dump.
 
 ## View the hub locally
 
@@ -139,18 +139,24 @@ What is there today:
 
 | Page | URL |
 | --- | --- |
-| Home (current standings and champions) | `/` |
+| Home (recap: all-time, records, standings, highlights, rivalries, champions) | `/` |
 | Seasons | `/seasons` |
 | One season (standings, scoring, playoffs, trades, wire, draft, lineups) | `/seasons/2025` |
 | Week scoreboard (games and wire) | `/seasons/2025/week/7` |
 | One matchup (lineups and bench) | `/seasons/2025/week/7/2025-w07-1` |
 | One trade | `/seasons/2024/trades/{id}` |
 | One waiver or FA claim | `/seasons/2025/wire/{id}` |
+| Chronological moves | `/seasons/2025/moves` |
 | Draft board | `/seasons/2025/draft` |
+| Distinctions | `/seasons/2025/marks` |
+| Schedule desk | `/seasons/2025/desk` |
+| Scoring sheet | `/seasons/2025/scoring` |
 | Members (all-time table and career yearbook) | `/members`, `/members/marcus-du` |
-| Record book (weeks, trades, draft, wire, bench, streaks) | `/records` |
-| Luck | `/luck` |
-| Players | `/players`, `/players/{id}` |
+| Versus (H2H grid and series) | `/versus`, `/versus/{left}/{right}` |
+| Record book (weeks, trades, draft, wire, bench, coach, streaks) | `/records` |
+| Players (career rankings; season fold) | `/players`, `/players/{id}` |
+
+`/luck` redirects to the latest season’s luck plaques. Universe ranks live on each season page.
 
 2022–2025 used waiver order. FAAB starts in 2026 (`faab` on that year in `maps/seasons.yaml`).
 
@@ -175,6 +181,7 @@ uv run nu-choate-league load --year 2025
 | ESPN dump 401 / 403 | Cookies expired. Copy `espn_s2` and `SWID` again. |
 | ESPN dump 404 for communication / `COMMUNICATION_GROUP_NOT_FOUND` | Expected. There is no league chat to download. Keep going. |
 | `inspect-managers` fails | New league member. Add them to `maps/managers.yaml`. |
+| Hub 503 / missing views during `load` | `load` is still running, or it was interrupted. Wait for `load: done`, then start `serve` again. |
 | Python version error | Run `uv python install 3.14` then `uv sync` again. |
 
 To stop the database later: `docker compose down`. Data stays in a Docker volume until you delete it on purpose.
@@ -197,10 +204,10 @@ data/          gitignored dumps: espn/{year}/, sleeper/{year}/
 sql/facts.sql  tables
 sql/analysis/  views, one file per domain, applied in numeric order:
                10 games · 20 standings · 30 records · 40 luck · 50 draft/moves
-               60 players · 65 management (materialized optimal lineups) ·
-               70 universes (materialized titles) · 80 assets (materialized
-               VORP snapshot) · 90 waivers (materialized claims). Snapshots
-               refresh on load.
+               60 players (materialized chairs) · 65 management (materialized
+               optimal lineups) · 70 universes (materialized titles) · 80 assets
+               (materialized VORP) · 90 waivers (materialized claims) · 95 marks
+               (materialized weekly distinctions). Snapshots refresh on load.
 hub/           local HTML, CSS, and fonts for `serve`
 src/nu_choate_league/  dump, ingest, load, query, web
 compose.yaml   Postgres 17 on localhost:5433

@@ -1,5 +1,6 @@
+{% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
+{{ person_link(id, name) }}
 {% endmacro %}
 {% macro player_link(id, name) %}
 {% if id %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
@@ -19,7 +20,7 @@
 {% endmacro %}
 {% macro claims_table(year, rows, faab, show_order) %}
 <div class="standings-wrap">
-<table>
+<table class="wire-table">
     <thead>
         <tr>
             <th>Time</th>
@@ -50,28 +51,4 @@
     </tbody>
 </table>
 </div>
-{% endmacro %}
-{% macro fa_table(year, rows) %}
-<table>
-    <thead>
-        <tr>
-            <th>Time</th>
-            <th>Manager</th>
-            <th>Player</th>
-            <th>Dropped</th>
-            <th class="num">VORP</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in rows %}
-        <tr>
-            <td class="wire-time">{% if row.at_label %}{{ row.at_label }}{% else %}—{% endif %}</td>
-            <td>{{ person(row.manager_id, row.manager_name) }}</td>
-            <td>{{ claim_link(year, row, row.player_name) }} <span class="team">{{ row.position or "" }}</span></td>
-            <td class="wire-drops">{{ drops(row.drops) }}</td>
-            <td class="num{% if row.league_vorp and row.league_vorp > 0 %} plus{% endif %}">{% if row.league_vorp is not none %}{{ "%+.1f"|format(row.league_vorp) }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
 {% endmacro %}

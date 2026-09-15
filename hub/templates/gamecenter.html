@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "plaque_macros.html" import person_link %}
 {% macro call_tag(row) -%}
 {% if row and row.call == "sit" %}<span class="call">sit</span>{% endif %}
 {% if row and row.call == "start" %}<span class="call">start {{ row.opt_slot }}</span>{% endif %}
@@ -8,7 +9,7 @@
 {%- endmacro %}
 {% macro who(side, face, winner_id) -%}
 <div class="who {{ face }}{% if winner_id and side.id == winner_id %} won{% elif winner_id %} lost{% endif %}">
-    {% if side.id %}<a href="/members/{{ side.id }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %}
+    {% if side.id %}{{ person_link(side.id, side.name) }}{% else %}{{ side.name }}{% endif %}
     {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
 </div>
 {%- endmacro %}
@@ -30,7 +31,7 @@
 {% macro lineup(side, show_starters=true) %}
 <div class="gc-lineup">
     <h3>
-        {% if side.id %}<a href="/members/{{ side.id }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %}
+        {% if side.id %}{{ person_link(side.id, side.name) }}{% else %}{{ side.name }}{% endif %}
         {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
     </h3>
     {% if (show_starters and side.starters) or side.bench %}
@@ -85,7 +86,7 @@
     {% endif %}
     {% if luck %}
     <div class="stat">
-        <span class="label"><a href="/luck">luck</a></span>
+        <span class="label"><a href="/seasons/{{ current.year }}#luck">luck</a></span>
         {% if luck.expected_win is not none %}<span class="value">xW {{ "%.0f"|format(luck.expected_win * 100) }}%</span>{% endif %}
         {% if luck.lucky_win or luck.unlucky_loss or luck.underdog_win or luck.favorite_loss %}
         <span class="flags">{{ luck_flags(luck) }}</span>
