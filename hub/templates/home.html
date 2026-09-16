@@ -57,7 +57,7 @@
 {% if year %}
 <section class="desk">
     <div class="desk-main">
-        <h2>{{ year }} · <a href="/seasons/{{ year }}">Season</a></h2>
+        <h2><a href="/seasons/{{ year }}">{{ year }}</a></h2>
         {% if current and current.vs_median %}
         <p class="note">H2H plus a game vs the weekly median.</p>
         {% endif %}
@@ -116,9 +116,10 @@
     </div>
     <aside class="desk-side">
         {% if slate %}
-        <h2>This week · <a href="/seasons/{{ slate.year }}/week/{{ slate.week }}">W{{ slate.week }}</a></h2>
+        {% set playoff_week = slate.groups | selectattr("kind", "equalto", "playoff") | first %}
+        <h2><a href="/seasons/{{ slate.year }}/week/{{ slate.week }}">W{{ slate.week }}{% if playoff_week %} (Playoffs){% endif %}</a></h2>
         {% for group in slate.groups %}
-        {% if slate.groups|length > 1 or group.kind != "regular" %}
+        {% if group.kind != "playoff" and (slate.groups|length > 1 or group.kind != "regular") %}
         <h3>{{ group.label }}</h3>
         {% endif %}
         {% for game in group.games %}

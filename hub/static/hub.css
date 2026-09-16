@@ -1651,6 +1651,15 @@ tr.this td {
     margin-bottom: 12px;
 }
 
+.desk h2 a {
+    color: inherit;
+}
+
+.desk h2 a:hover {
+    color: #93c5fd;
+    text-decoration: none;
+}
+
 .desk-side .week-card {
     margin-top: 16px;
 }
