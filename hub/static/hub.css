@@ -1201,6 +1201,104 @@ td.plus {
     font-size: 1rem;
 }
 
+.txn-feed .gc-match.compact {
+    margin: 10px 0 14px;
+}
+
+.txn-item {
+    display: grid;
+    grid-template-columns: 5.75rem minmax(0, 1fr) 4.25rem;
+    gap: 2px 12px;
+    align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.txn-item p {
+    margin: 0;
+    min-width: 0;
+    line-height: 1.45;
+}
+
+.txn-item .wire-time {
+    width: auto;
+}
+
+.txn-feed .person,
+.txn-feed .person a {
+    max-width: none;
+    align-items: baseline;
+}
+
+.txn-feed .avatar {
+    align-self: center;
+}
+
+.txn-feed .person-name {
+    flex: 0 1 auto;
+}
+
+.txn-item .team {
+    display: inline;
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.txn-chip {
+    white-space: nowrap;
+}
+
+.txn-feed .pos {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.txn-vorp {
+    text-align: right;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.txn-run.with-time {
+    display: grid;
+    grid-template-columns: 5.75rem minmax(0, 1fr);
+    gap: 2px 12px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.txn-run .wire-time {
+    width: auto;
+    padding-top: 0.55rem;
+}
+
+.txn-run-table {
+    min-width: 0;
+}
+
+.txn-feed .wire-table .pos {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.wire-table .wire-section td {
+    padding-top: 14px;
+    color: #e4e4e7;
+    font-weight: 600;
+    border-bottom-color: #374151;
+}
+
+.wire-table tbody tr.wire-section:first-child td {
+    padding-top: 8px;
+}
+
+.wire-table .wire-group td {
+    padding-top: 10px;
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
 tr.this td {
     background: #1a222c;
 }
@@ -1729,6 +1827,60 @@ tr.podium td:nth-child(3) {
     margin-top: 0;
 }
 
+.week-main .slate-match .gc-score {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 12px 16px;
+    align-items: center;
+}
+
+.week-main .slate-match .gc-score .side + .side {
+    padding-top: 0;
+    border-top: none;
+}
+
+.week-main .slate-match .gc-score .side:last-child .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+}
+
+.week-main .slate-match .gc-score .side:last-child .person,
+.week-main .slate-match .gc-score .side:last-child .person a {
+    flex-direction: row-reverse;
+}
+
+.week-bout-score {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.week-main .slate-match .week-bout-score .num {
+    display: block;
+    min-width: 4.5ch;
+}
+
+.week-bout-score .num:last-child {
+    text-align: left;
+}
+
+.week-bout-score .num:first-child {
+    text-align: right;
+}
+
+.week-bout-sep {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.week-bout-score .num.lost {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
 .week-standings {
     margin: 0 0 20px;
 }
@@ -1743,11 +1895,53 @@ tr.podium td:nth-child(3) {
     font-size: 0.82rem;
 }
 
+.week-standings .rank-cell {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.week-standings thead th:first-child {
+    text-align: right;
+    padding-right: calc(8px + 3.5ch + 0.35em);
+}
+
+.week-standings .rank-line {
+    display: inline-grid;
+    grid-template-columns: 3ch 3.5ch;
+    column-gap: 0.35em;
+    align-items: baseline;
+    vertical-align: middle;
+}
+
+.week-standings .rank-n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.rank-move {
+    font-size: 0.75em;
+    font-weight: 400;
+    text-align: left;
+    min-height: 1em;
+}
+
+.rank-move.up {
+    color: #86efac;
+}
+
+.rank-move.down {
+    color: #fca5a5;
+}
+
 .week-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
     gap: 20px 28px;
     align-items: start;
+}
+
+.week-awards .jump {
+    margin-bottom: 12px;
 }
 
 .week-awards h2 {

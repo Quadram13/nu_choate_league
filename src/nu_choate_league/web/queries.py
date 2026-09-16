@@ -402,10 +402,20 @@ def week_standings(year: int, week: int) -> dict[str, Any] | None:
     for row in rows:
         before = prev_rank.get(row["manager_id"])
         row["move"] = (before - int(row["rank"])) if before is not None else None
+    median = fetchone(
+        """
+        SELECT min(opp_points) AS week_median
+        FROM v_vs_median_effective
+        WHERE year = %(year)s AND week = %(week)s
+        """,
+        {"year": year, "week": week},
+    )
+    week_median = median.get("week_median") if median else None
     return {
         "rows": rows,
         "through": through,
         "frozen": bool(playoff),
+        "week_median": float(week_median) if week_median is not None else None,
     }
 
 
@@ -422,49 +432,101 @@ def _standings_through(year: int, through: int) -> list[dict[str, Any]]:
             x.wins,
             x.losses,
             x.ties,
+            x.win_pct,
+            x.h2h_wins,
+            x.h2h_losses,
+            x.h2h_ties,
+            x.h2h_win_pct,
+            x.median_wins,
+            x.median_losses,
+            x.median_ties,
+            x.median_win_pct,
             x.points_for,
-            x.win_pct
+            x.points_against
         FROM (
             SELECT
-                g.manager_id,
-                m.display_name,
-                ts.team_name,
-                count(*) FILTER (WHERE g.result = 'win') AS wins,
-                count(*) FILTER (WHERE g.result = 'loss') AS losses,
-                count(*) FILTER (WHERE g.result = 'tie') AS ties,
-                coalesce(sum(g.points) FILTER (WHERE g.kind = 'regular'), 0) AS points_for,
+                y.*,
                 CASE
-                    WHEN count(*) = 0 THEN NULL
-                    ELSE (
-                        count(*) FILTER (WHERE g.result = 'win')
-                        + 0.5 * count(*) FILTER (WHERE g.result = 'tie')
-                    ) / count(*)
+                    WHEN y.wins + y.losses + y.ties = 0 THEN NULL
+                    ELSE (y.wins + 0.5 * y.ties) / (y.wins + y.losses + y.ties)
                 END AS win_pct,
                 rank() OVER (
                     ORDER BY
                         CASE
-                            WHEN count(*) = 0 THEN 0
-                            ELSE (
-                                count(*) FILTER (WHERE g.result = 'win')
-                                + 0.5 * count(*) FILTER (WHERE g.result = 'tie')
-                            ) / count(*)
+                            WHEN y.wins + y.losses + y.ties = 0 THEN 0
+                            ELSE (y.wins + 0.5 * y.ties) / (y.wins + y.losses + y.ties)
                         END DESC,
-                        coalesce(sum(g.points) FILTER (WHERE g.kind = 'regular'), 0) DESC,
-                        count(*) FILTER (WHERE g.result = 'win') DESC,
-                        g.manager_id
+                        y.points_for DESC,
+                        y.wins DESC,
+                        y.manager_id
                 ) AS rank
-            FROM v_games g
-            JOIN managers m ON m.id = g.manager_id
-            JOIN team_seasons ts
-                ON ts.year = g.year AND ts.manager_id = g.manager_id
-            JOIN seasons s ON s.year = g.year
-            WHERE g.year = %(year)s
-                AND g.week <= %(through)s
-                AND (
-                    g.kind = 'regular'
-                    OR (s.vs_median AND g.kind = 'vs_median')
-                )
-            GROUP BY g.manager_id, m.display_name, ts.team_name
+            FROM (
+                SELECT
+                    h.manager_id,
+                    h.display_name,
+                    h.team_name,
+                    h.wins AS h2h_wins,
+                    h.losses AS h2h_losses,
+                    h.ties AS h2h_ties,
+                    CASE
+                        WHEN h.wins + h.losses + h.ties = 0 THEN NULL
+                        ELSE (h.wins + 0.5 * h.ties) / (h.wins + h.losses + h.ties)
+                    END AS h2h_win_pct,
+                    md.wins AS median_wins,
+                    md.losses AS median_losses,
+                    md.ties AS median_ties,
+                    CASE
+                        WHEN coalesce(md.wins, 0) + coalesce(md.losses, 0) + coalesce(md.ties, 0) = 0
+                            THEN NULL
+                        ELSE (md.wins + 0.5 * md.ties)
+                            / (md.wins + md.losses + md.ties)
+                    END AS median_win_pct,
+                    CASE
+                        WHEN s.vs_median THEN h.wins + coalesce(md.wins, 0)
+                        ELSE h.wins
+                    END AS wins,
+                    CASE
+                        WHEN s.vs_median THEN h.losses + coalesce(md.losses, 0)
+                        ELSE h.losses
+                    END AS losses,
+                    CASE
+                        WHEN s.vs_median THEN h.ties + coalesce(md.ties, 0)
+                        ELSE h.ties
+                    END AS ties,
+                    h.points_for,
+                    h.points_against
+                FROM (
+                    SELECT
+                        g.manager_id,
+                        m.display_name,
+                        ts.team_name,
+                        count(*) FILTER (WHERE g.result = 'win') AS wins,
+                        count(*) FILTER (WHERE g.result = 'loss') AS losses,
+                        count(*) FILTER (WHERE g.result = 'tie') AS ties,
+                        coalesce(sum(g.points), 0) AS points_for,
+                        coalesce(sum(g.opp_points), 0) AS points_against
+                    FROM v_games g
+                    JOIN managers m ON m.id = g.manager_id
+                    JOIN team_seasons ts
+                        ON ts.year = g.year AND ts.manager_id = g.manager_id
+                    WHERE g.year = %(year)s
+                        AND g.week <= %(through)s
+                        AND g.kind = 'regular'
+                    GROUP BY g.manager_id, m.display_name, ts.team_name
+                ) h
+                LEFT JOIN (
+                    SELECT
+                        manager_id,
+                        count(*) FILTER (WHERE result = 'win') AS wins,
+                        count(*) FILTER (WHERE result = 'loss') AS losses,
+                        count(*) FILTER (WHERE result = 'tie') AS ties
+                    FROM v_vs_median_effective
+                    WHERE year = %(year)s
+                        AND week <= %(through)s
+                    GROUP BY manager_id
+                ) md ON md.manager_id = h.manager_id
+                JOIN seasons s ON s.year = %(year)s
+            ) y
         ) x
         ORDER BY x.rank, x.manager_id
         """,
@@ -472,6 +534,10 @@ def _standings_through(year: int, through: int) -> list[dict[str, Any]]:
     )
     for row in rows:
         row["record"] = _record(int(row["wins"] or 0), int(row["losses"] or 0), int(row["ties"] or 0))
+        row["h2h"] = _maybe_record(row["h2h_wins"], row["h2h_losses"], row["h2h_ties"])
+        row["median"] = _maybe_record(
+            row["median_wins"], row["median_losses"], row["median_ties"]
+        )
         row["hue"] = manager_hue(row["manager_id"])
         row["team"] = flavor_team(row.get("display_name"), row.get("team_name"))
     return rows
@@ -1343,7 +1409,7 @@ def _wire_bid(row: dict[str, Any]) -> str | None:
         return f"${int(bid)}" if bid is not None else None
     priority = row.get("priority")
     if priority is not None:
-        return f"pri {int(priority)}"
+        return f"pri {int(priority) + 1}"
     return None
 
 
@@ -1407,44 +1473,249 @@ def _wire_when(value: Any) -> dict[str, Any]:
         return {"day_key": "", "day_label": "No timestamp", "at_label": None}
     return {
         "day_key": when.date().isoformat(),
-        "day_label": when.strftime("%a %b %d").replace(" 0", " "),
+        "day_label": f"{when.strftime('%a %b')} {when.day}",
         "at_label": when.strftime("%I:%M %p").lstrip("0"),
     }
 
 
-def _wire_days(
-    claims: list[dict[str, Any]],
-    fa: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    buckets: dict[str, dict[str, Any]] = {}
-    for kind, rows in (("claims", claims), ("fa", fa)):
-        for row in rows:
-            key = str(row.get("day_key") or "")
-            bucket = buckets.get(key)
-            if bucket is None:
-                bucket = {
-                    "key": key,
-                    "label": row.get("day_label") or "No timestamp",
-                    "claims": [],
-                    "fa": [],
-                }
-                buckets[key] = bucket
-            bucket[kind].append(row)
-    for bucket in buckets.values():
-        bucket["rows"] = sorted(
-            bucket["claims"] + bucket["fa"],
-            key=lambda row: (
-                row.get("at") is None,
-                row.get("at") or 0,
+def _txn_day_bucket(buckets: dict[str, dict[str, Any]], key: str, label: str) -> dict[str, Any]:
+    bucket = buckets.get(key)
+    if bucket is None:
+        bucket = {"key": key, "label": label or "No timestamp", "blocks": []}
+        buckets[key] = bucket
+    return bucket
+
+
+def _txn_sort_key(block: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        block.get("at") is None,
+        block.get("at") or 0,
+        block.get("manager_name") or "",
+        block.get("kind") or "",
+    )
+
+
+def _waiver_run_key(value: Any) -> tuple[str, str]:
+    when = _txn_at(value)
+    if when is None:
+        return "", "No timestamp"
+    floored = when.replace(second=0, microsecond=0)
+    return floored.isoformat(), f"{when.strftime('%a %b')} {when.day}"
+
+
+def _waiver_claim_sort_key(year: int):
+    faab = _uses_faab(year)
+
+    def key(row: dict[str, Any]) -> tuple[Any, ...]:
+        seq = row.get("seq")
+        if faab:
+            bid = row.get("bid")
+            return (
+                bid is None,
+                -(int(bid) if bid is not None else 0),
+                seq is None,
+                int(seq) if seq is not None else 0,
                 row.get("player_name") or "",
-            ),
+            )
+        priority = row.get("priority")
+        return (
+            priority is None,
+            int(priority) if priority is not None else 0,
+            seq is None,
+            int(seq) if seq is not None else 0,
+            row.get("manager_name") or "",
         )
-    days = list(buckets.values())
-    days.sort(key=lambda day: (day["key"] == "", day["key"]))
-    return days
+
+    return key
 
 
-def _week_wire(year: int, week: int) -> dict[str, Any]:
+def _waiver_row_bucket(row: dict[str, Any]) -> str:
+    if str(row.get("status") or "") == "complete":
+        return "won"
+    kind = str((row.get("outcome") or {}).get("kind") or "")
+    if kind == "lost":
+        return "lost"
+    if kind == "order":
+        return "roster"
+    return "failed"
+
+
+def _waiver_run_sections(rows: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
+    sort_key = _waiver_claim_sort_key(year)
+    won: list[dict[str, Any]] = []
+    lost: list[dict[str, Any]] = []
+    roster: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for row in rows:
+        bucket = _waiver_row_bucket(row)
+        if bucket == "won":
+            won.append(row)
+        elif bucket == "lost":
+            lost.append(row)
+        elif bucket == "roster":
+            roster.append(row)
+        else:
+            failed.append(row)
+    won.sort(key=sort_key)
+    roster.sort(key=sort_key)
+    failed.sort(key=sort_key)
+
+    won_order: list[str] = []
+    seen: set[str] = set()
+    for row in won:
+        pid = str(row.get("player_id") or row.get("player_name") or "")
+        if pid and pid not in seen:
+            seen.add(pid)
+            won_order.append(pid)
+
+    lost_by: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    lost_meta: dict[str, dict[str, Any]] = {}
+    for row in lost:
+        pid = str(row.get("player_id") or row.get("player_name") or "")
+        lost_by[pid].append(row)
+        if pid not in lost_meta:
+            lost_meta[pid] = {
+                "player_id": row.get("player_id"),
+                "player_name": row.get("player_name"),
+                "position": row.get("position"),
+            }
+    for group in lost_by.values():
+        group.sort(key=sort_key)
+
+    lost_order = [pid for pid in won_order if pid in lost_by]
+    leftover = sorted(
+        (pid for pid in lost_by if pid not in seen),
+        key=lambda pid: (lost_meta[pid].get("player_name") or ""),
+    )
+    lost_order.extend(leftover)
+
+    sections: list[dict[str, Any]] = []
+    if won:
+        sections.append({"kind": "section", "label": "Won", "rows": won})
+    if lost_order:
+        sections.append({"kind": "section", "label": "Lost on wire", "rows": []})
+        for pid in lost_order:
+            meta = lost_meta[pid]
+            sections.append(
+                {
+                    "kind": "player",
+                    "label": meta.get("player_name") or "Unknown",
+                    "position": meta.get("position"),
+                    "player_id": meta.get("player_id"),
+                    "rows": lost_by[pid],
+                }
+            )
+    if roster:
+        sections.append({"kind": "section", "label": "Roster limit", "rows": roster})
+    if failed:
+        sections.append({"kind": "section", "label": "Failed", "rows": failed})
+    return sections
+
+
+def _trade_cards_for_ids(ids: list[str]) -> dict[str, dict[str, Any]]:
+    if not ids:
+        return {}
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id, year, week, left_id, left_name, left_received, left_vorp,
+            right_id, right_name, right_received, right_vorp,
+            vorp_gap, winner_id
+        FROM v_trade_grades
+        WHERE transaction_id = ANY(%(ids)s)
+        """,
+        {"ids": ids},
+    )
+    for row in rows:
+        row["verdict"] = _trade_verdict(row.get("left_vorp"), row.get("right_vorp"))
+        row["home"], row["away"] = _trade_card_sides(row)
+    _attach_trade_card_players(rows)
+    return {row["transaction_id"]: row for row in rows}
+
+
+def _season_teams(year: int) -> dict[str, str | None]:
+    rows = fetchall(
+        """
+        SELECT ts.manager_id, ts.team_name, m.display_name
+        FROM team_seasons ts
+        JOIN managers m ON m.id = ts.manager_id
+        WHERE ts.year = %(year)s
+        """,
+        {"year": year},
+    )
+    return {
+        row["manager_id"]: flavor_team(row["display_name"], row["team_name"])
+        for row in rows
+    }
+
+
+def _pack_week_move(txn: dict[str, Any], teams: dict[str, str | None]) -> dict[str, Any]:
+    adds = txn["adds"]
+    drops = txn["drops"]
+    legs = adds + drops
+    manager_ids = {leg["manager_id"] for leg in legs}
+    lead = adds[0] if adds else drops[0]
+    packed = dict(txn)
+    packed.update(
+        {
+            "kind": "move",
+            "manager_id": lead.get("manager_id"),
+            "manager_name": lead.get("manager_name"),
+            "same_manager": len(manager_ids) <= 1,
+        }
+    )
+    packed.update(_wire_when(txn.get("at")))
+    packed["team"] = teams.get(packed["manager_id"])
+    for leg in packed["adds"] + packed["drops"]:
+        leg["team"] = teams.get(leg["manager_id"])
+    return packed
+
+
+def _week_move_txns(year: int, week: int) -> list[dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id, year, week, type, status, at, direction,
+            manager_id, manager_name, player_id, player_name, position,
+            bid, priority, seq, note
+        FROM v_moves
+        WHERE year = %(year)s
+            AND week = %(week)s
+            AND type IN ('free_agent', 'trade', 'commissioner')
+            AND status = 'complete'
+        ORDER BY
+            coalesce(at, 0),
+            transaction_id,
+            CASE direction WHEN 'add' THEN 0 ELSE 1 END,
+            manager_name,
+            player_name
+        """,
+        {"year": year, "week": week},
+    )
+    grouped: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = row["transaction_id"]
+        packed = grouped.get(key)
+        if packed is None:
+            packed = {
+                "transaction_id": key,
+                "year": year,
+                "week": row["week"],
+                "type": row["type"],
+                "status": row["status"],
+                "at": row["at"],
+                "adds": [],
+                "drops": [],
+            }
+            grouped[key] = packed
+            order.append(key)
+        bag = packed["adds"] if row["direction"] == "add" else packed["drops"]
+        bag.append(row)
+    return [grouped[key] for key in order]
+
+
+def _week_transactions(year: int, week: int) -> dict[str, Any]:
     claims = fetchall(
         f"""
         SELECT
@@ -1460,40 +1731,78 @@ def _week_wire(year: int, week: int) -> dict[str, Any]:
         """,
         {"year": year, "week": week},
     )
+    teams = _season_teams(year)
     for row in claims:
         row["type"] = "waiver"
-    fa = fetchall(
-        """
-        SELECT
-            mv.transaction_id, mv.year, mv.week, mv.status, mv.manager_id,
-            mv.manager_name, mv.player_id, mv.player_name, mv.position,
-            mv.bid, mv.priority, mv.seq, mv.note, mv.type, mv.at,
-            v.ros_starter AS league_ros,
-            v.ros_starts AS league_starts,
-            v.ros_vorp AS league_vorp
-        FROM v_moves mv
-        LEFT JOIN v_add_value v
-            ON v.transaction_id = mv.transaction_id
-            AND v.player_id = mv.player_id
-            AND v.manager_id = mv.manager_id
-        WHERE mv.year = %(year)s
-            AND mv.week = %(week)s
-            AND mv.type = 'free_agent'
-            AND mv.direction = 'add'
-            AND mv.status = 'complete'
-        ORDER BY mv.at NULLS LAST, v.ros_vorp DESC NULLS LAST, mv.player_name
-        """,
-        {"year": year, "week": week},
-    )
-    _attach_wire_drops(claims + fa)
+        row["team"] = teams.get(row["manager_id"])
+    _attach_wire_drops(claims)
     claims = [_annotate_wire_row(row) for row in claims]
-    fa = [_annotate_wire_row(row) for row in fa]
+
+    moves = _week_move_txns(year, week)
+    trade_cards = _trade_cards_for_ids(
+        [txn["transaction_id"] for txn in moves if txn["type"] == "trade"]
+    )
+    for card in trade_cards.values():
+        card["home"]["team"] = teams.get(card["home"]["id"])
+        card["away"]["team"] = teams.get(card["away"]["id"])
+
+    buckets: dict[str, dict[str, Any]] = {}
+    waiver_runs: dict[str, dict[str, Any]] = {}
+    for row in claims:
+        run_key, day_label = _waiver_run_key(row.get("at"))
+        when = _wire_when(row.get("at"))
+        day_key = str(when["day_key"] or "")
+        run = waiver_runs.get(run_key)
+        if run is None:
+            run = {
+                "kind": "waivers",
+                "at": row.get("at"),
+                "day_key": day_key,
+                "day_label": when["day_label"] or day_label,
+                "rows": [],
+            }
+            waiver_runs[run_key] = run
+        elif row.get("at") is not None and (
+            run["at"] is None or row["at"] < run["at"]
+        ):
+            run["at"] = row["at"]
+        run["rows"].append(row)
+    for run in waiver_runs.values():
+        run["sections"] = _waiver_run_sections(run["rows"], year)
+        run["rows"] = [row for section in run["sections"] for row in section["rows"]]
+        labels = {row.get("at_label") for row in run["rows"]}
+        run["same_time"] = len(labels) <= 1
+        run["at_label"] = next((row.get("at_label") for row in run["rows"] if row.get("at_label")), None)
+        _txn_day_bucket(buckets, str(run["day_key"]), str(run["day_label"]))[
+            "blocks"
+        ].append(run)
+
+    for txn in moves:
+        if not txn["adds"] and not txn["drops"]:
+            continue
+        when = _wire_when(txn.get("at"))
+        day_key = str(when["day_key"] or "")
+        bucket = _txn_day_bucket(buckets, day_key, str(when["day_label"]))
+        if txn["type"] == "trade" and txn["transaction_id"] in trade_cards:
+            bucket["blocks"].append(
+                {
+                    "kind": "trade",
+                    "at": txn.get("at"),
+                    "trade": trade_cards[txn["transaction_id"]],
+                }
+            )
+            continue
+        bucket["blocks"].append(_pack_week_move(txn, teams))
+
+    days = list(buckets.values())
+    for day in days:
+        day["blocks"].sort(key=_txn_sort_key)
+    days.sort(key=lambda day: (day["key"] == "", day["key"]))
     return {
-        "claims": claims,
-        "fa": fa,
-        "days": _wire_days(claims, fa),
+        "days": days,
         "faab": _uses_faab(year),
         "show_order": _uses_faab(year) or any(row.get("bid_label") for row in claims),
+        "has_waivers": bool(claims),
     }
 
 
@@ -1883,7 +2192,7 @@ def week_slate(year: int, week: int) -> dict[str, Any] | None:
     return {
         **_week_nav(year, week),
         "groups": _group_games(packed),
-        "wire": _week_wire(year, week),
+        "txns": _week_transactions(year, week),
         "card": week_card(year, week),
         "standings": week_standings(year, week),
     }
@@ -3668,7 +3977,7 @@ MARK_META = {
         "definition": "Highest points scored this week.",
     },
     "cellar": {
-        "label": "At least we don't use all-play",
+        "label": "At least we don't use all-play...",
         "unit": "PF",
         "polarity": "low",
         "definition": "Lowest points scored this week.",
@@ -4048,7 +4357,7 @@ def _decorate_mark(row: dict[str, Any], year: int | None = None) -> dict[str, An
 def _decorate_chair(row: dict[str, Any]) -> dict[str, Any]:
     row["label"] = CHAIR_KIND.get(row["kind"], row["kind"])
     row["polarity"] = "high" if row["kind"] == "all_league" else "low"
-    row["unit"] = "PF"
+    row["unit"] = "" if row["kind"] == "benched_all_star" else "PF"
     row["hue"] = manager_hue(row.get("manager_id"))
     row["team"] = flavor_team(row.get("manager_name"), row.get("team_name"))
     row["href"] = f"/players/{row['player_id']}" if row.get("player_id") else None

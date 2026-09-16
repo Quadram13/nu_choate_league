@@ -6,22 +6,37 @@
 {% macro week_card_block(card, year, on_week_page=false) %}
 {% if card %}
 {% if on_week_page %}
+{% set award_tabs = [card.marks, card.first_chairs, card.last_chairs, card.freeze] | select | list %}
+{% set default_tab = "award-marks" if card.marks else ("award-letters" if card.first_chairs else ("award-farmers" if card.last_chairs else "award-freeze")) %}
 <aside class="week-awards" id="card">
-    <h2>Weekly Distinctions</h2>
+    <h2 class="js-award-title">{% if default_tab == "award-marks" %}Weekly Distinctions{% elif default_tab == "award-letters" %}Varsity Letters{% elif default_tab == "award-farmers" %}Varsity Farmers{% else %}Beat the Freeze{% endif %}</h2>
+    {% if award_tabs|length > 1 %}
+    <p class="jump js-award-tabs">
+        {% if card.marks %}<button type="button" data-tab="award-marks" data-title="Weekly Distinctions"{% if default_tab == "award-marks" %} class="on" aria-pressed="true"{% else %} aria-pressed="false"{% endif %}>Distinctions</button>{% endif %}
+        {% if card.first_chairs %}<button type="button" data-tab="award-letters" data-title="Varsity Letters"{% if default_tab == "award-letters" %} class="on" aria-pressed="true"{% else %} aria-pressed="false"{% endif %}>Letters</button>{% endif %}
+        {% if card.last_chairs %}<button type="button" data-tab="award-farmers" data-title="Varsity Farmers"{% if default_tab == "award-farmers" %} class="on" aria-pressed="true"{% else %} aria-pressed="false"{% endif %}>Farmers</button>{% endif %}
+        {% if card.freeze %}<button type="button" data-tab="award-freeze" data-title="Beat the Freeze"{% if default_tab == "award-freeze" %} class="on" aria-pressed="true"{% else %} aria-pressed="false"{% endif %}>Beat the Freeze</button>{% endif %}
+    </p>
+    {% endif %}
     {% if card.marks %}
-    {{ plaque_grid(card.marks, year, stack=true) }}
+    <div class="js-award-pane" id="award-marks"{% if default_tab != "award-marks" %} hidden{% endif %}>
+        {{ plaque_grid(card.marks, year, stack=true) }}
+    </div>
     {% endif %}
     {% if card.first_chairs %}
-    <h3>Varsity Letters</h3>
-    {{ plaque_grid(card.first_chairs, year, compact=true, chair=true, stack=true) }}
+    <div class="js-award-pane" id="award-letters"{% if default_tab != "award-letters" %} hidden{% endif %}>
+        {{ plaque_grid(card.first_chairs, year, compact=true, chair=true, stack=true) }}
+    </div>
     {% endif %}
     {% if card.last_chairs %}
-    <h3>Varsity Farmers</h3>
-    {{ plaque_grid(card.last_chairs, year, compact=true, chair=true, stack=true) }}
+    <div class="js-award-pane" id="award-farmers"{% if default_tab != "award-farmers" %} hidden{% endif %}>
+        {{ plaque_grid(card.last_chairs, year, compact=true, chair=true, stack=true) }}
+    </div>
     {% endif %}
     {% if card.freeze %}
-    <h3>Beat the Freeze</h3>
-    {{ plaque_grid(card.freeze, year, compact=true, stack=true) }}
+    <div class="js-award-pane" id="award-freeze"{% if default_tab != "award-freeze" %} hidden{% endif %}>
+        {{ plaque_grid(card.freeze, year, compact=true, stack=true) }}
+    </div>
     {% endif %}
 </aside>
 {% else %}
