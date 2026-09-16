@@ -106,6 +106,7 @@ body {
 
 .wordmark:hover {
     color: var(--ink);
+    text-decoration: none;
 }
 
 .wordmark-nu {
@@ -219,8 +220,17 @@ h3 {
     cursor: pointer;
 }
 
+.note button:hover {
+    text-decoration: underline;
+}
+
 a {
     color: #93c5fd;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 table {
@@ -487,7 +497,7 @@ code {
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.3;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .seed.won {
@@ -608,9 +618,11 @@ table.js-sort th.sorted.desc::after {
     gap: 12px;
     font-weight: 600;
     align-items: flex-start;
+    min-width: 0;
 }
 
 .gc-score .who {
+    flex: 1 1 auto;
     font-family: var(--font-display);
     font-size: 0.95rem;
     font-weight: 600;
@@ -628,6 +640,8 @@ table.js-sort th.sorted.desc::after {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .gc-match.compact .gc-score .num {
@@ -1572,7 +1586,30 @@ tr.this td {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    max-width: 100%;
     min-width: 0;
+}
+
+.person a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.person a:hover {
+    text-decoration: none;
+}
+
+.person a:hover .person-name {
+    text-decoration: underline;
+}
+
+.person-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .avatar {
@@ -1619,7 +1656,46 @@ tr.this td {
 }
 
 .slate-match {
+    position: relative;
+    display: block;
     margin: 0 0 8px;
+}
+
+.slate-match .gc-score {
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.slate-match .gc-score .side + .side {
+    padding-top: 8px;
+    border-top: 1px solid #1f2933;
+}
+
+.slate-match-hit {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.slate-match-hit:hover {
+    text-decoration: none;
+}
+
+.slate-match .person,
+.slate-match .team {
+    position: relative;
+    z-index: 2;
+}
+
+.slate-match:hover {
+    border-color: #4b5a6a;
+}
+
+.slate-match .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
 }
 
 .chip {
@@ -1760,12 +1836,15 @@ tr.podium td:nth-child(3) {
 
 .year-rail {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
     gap: 10px;
     margin: 8px 0 20px;
 }
 
 .year-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     background: var(--surface);
     border: 1px solid var(--line);
     padding: 12px 14px;
@@ -1781,6 +1860,7 @@ tr.podium td:nth-child(3) {
 
 .year-card .year:hover {
     color: #93c5fd;
+    text-decoration: none;
 }
 
 .year-card .chip {
@@ -1791,15 +1871,27 @@ tr.podium td:nth-child(3) {
 .year-card .champ,
 .year-card .last {
     display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
+    flex-direction: column;
+    min-width: 0;
     margin-top: 8px;
-    overflow-wrap: anywhere;
+}
+
+.year-card .champ > span,
+.year-card .last > span {
+    min-width: 0;
 }
 
 .year-card .last {
     color: var(--muted);
     font-size: 0.85rem;
+}
+
+.year-card .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    min-height: 2.6em;
 }
 
 .year-card .role {

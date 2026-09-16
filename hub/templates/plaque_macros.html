@@ -1,8 +1,10 @@
-{% macro person_link(id, name, hue=none) %}
+{% macro person_link(id, name, hue=none, linked=true) %}
 {% set face = avatar_url(id) if id else none %}
 <span class="person">
+{% if linked and id and name %}<a href="/members/{{ id }}">{% endif %}
 {% if face %}<img class="avatar" src="{{ face }}" alt="" width="18" height="18" loading="lazy" onerror="this.remove()">{% elif hue is not none %}<span class="hue" style="--hue: {{ hue }}"></span>{% endif %}
-{% if id and name %}<a href="/members/{{ id }}">{{ name }}</a>{% elif name %}{{ name }}{% else %}—{% endif %}
+{% if name %}<span class="person-name">{{ name }}</span>{% else %}—{% endif %}
+{% if linked and id and name %}</a>{% endif %}
 </span>
 {% endmacro %}
 

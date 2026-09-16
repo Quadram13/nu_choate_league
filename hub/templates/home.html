@@ -19,7 +19,7 @@
                 <span class="role">Champion</span>
                 {{ person(row.champion_id, row.champion, row.champion_hue) }}
                 {% set champ_jersey = row.champion_team | flavor_team(row.champion) %}
-                {% if champ_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.champion_id }}">{{ champ_jersey }}</a></span>{% endif %}
+                {% if champ_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.champion_id }}" title="{{ champ_jersey }}">{{ champ_jersey }}</a></span>{% endif %}
             </span>
         </div>
         <div class="last">
@@ -27,13 +27,32 @@
                 <span class="role">Should've done Artscon</span>
                 {{ person(row.last_chair_id, row.last_chair, row.last_chair_hue) }}
                 {% set last_jersey = row.last_chair_team | flavor_team(row.last_chair) %}
-                {% if last_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.last_chair_id }}">{{ last_jersey }}</a></span>{% endif %}
+                {% if last_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.last_chair_id }}" title="{{ last_jersey }}">{{ last_jersey }}</a></span>{% endif %}
             </span>
         </div>
     </article>
     {% endfor %}
 </div>
 {% endif %}
+
+<div class="year-rail">
+    <article class="year-card">
+        <span class="year">Weekly newsletter</span>
+        <div class="champ">
+            <span>
+                <span class="role">Work in progress</span>
+            </span>
+        </div>
+    </article>
+    <article class="year-card">
+        <span class="year">Main wiki page</span>
+        <div class="champ">
+            <span>
+                <span class="role">Work in progress</span>
+            </span>
+        </div>
+    </article>
+</div>
 
 {% if year %}
 <section class="desk">
@@ -104,17 +123,25 @@
         {% endif %}
         {% for game in group.games %}
         <article class="gc-match compact slate-match">
+            <a class="slate-match-hit" href="/seasons/{{ slate.year }}/week/{{ slate.week }}/{{ game.id }}">
+                <span class="sr-only">{{ game.home.name }} vs {{ game.away.name }}</span>
+            </a>
             <header class="gc-score">
                 <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
-                    <div class="who">{{ person(game.home.id, game.home.name) }}</div>
+                    <div class="who">
+                        {{ person_link(game.home.id, game.home.name) }}
+                        {% if game.home.team %}<span class="team"><a href="/seasons/{{ slate.year }}#m-{{ game.home.id }}" title="{{ game.home.team }}">{{ game.home.team }}</a></span>{% endif %}
+                    </div>
                     <span class="num">{% if game.home.points is not none %}{{ "%.1f"|format(game.home.points) }}{% endif %}</span>
                 </div>
                 <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
-                    <div class="who">{{ person(game.away.id, game.away.name) }}</div>
+                    <div class="who">
+                        {{ person_link(game.away.id, game.away.name) }}
+                        {% if game.away.team %}<span class="team"><a href="/seasons/{{ slate.year }}#m-{{ game.away.id }}" title="{{ game.away.team }}">{{ game.away.team }}</a></span>{% endif %}
+                    </div>
                     <span class="num">{% if game.away.points is not none %}{{ "%.1f"|format(game.away.points) }}{% endif %}</span>
                 </div>
             </header>
-            <p class="open-gc"><a href="/seasons/{{ slate.year }}/week/{{ slate.week }}/{{ game.id }}">lineups</a></p>
         </article>
         {% endfor %}
         {% endfor %}
