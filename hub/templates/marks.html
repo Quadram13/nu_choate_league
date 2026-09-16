@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "week_card.html" import week_card_block %}
 {% from "plaque_macros.html" import holder_row, person_link %}
+
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}

@@ -1,9 +1,30 @@
 {% from "plaque_macros.html" import plaque, plaque_grid %}
+
 {% macro mark_line(row, year) %}
 {{ plaque(row, year, compact=true) }}
 {% endmacro %}
-{% macro week_card_block(card, year) %}
+{% macro week_card_block(card, year, on_week_page=false) %}
 {% if card %}
+{% if on_week_page %}
+<aside class="week-awards" id="card">
+    <h2>Weekly Distinctions</h2>
+    {% if card.marks %}
+    {{ plaque_grid(card.marks, year, stack=true) }}
+    {% endif %}
+    {% if card.first_chairs %}
+    <h3>Varsity Letters</h3>
+    {{ plaque_grid(card.first_chairs, year, compact=true, chair=true, stack=true) }}
+    {% endif %}
+    {% if card.last_chairs %}
+    <h3>Varsity Farmers</h3>
+    {{ plaque_grid(card.last_chairs, year, compact=true, chair=true, stack=true) }}
+    {% endif %}
+    {% if card.freeze %}
+    <h3>Beat the Freeze</h3>
+    {{ plaque_grid(card.freeze, year, compact=true, stack=true) }}
+    {% endif %}
+</aside>
+{% else %}
 <section class="week-card">
     <p class="kicker">Week card</p>
     <h2>{{ year }} W{{ card.week }}</h2>
@@ -27,5 +48,6 @@
     {{ plaque_grid(card.freeze, year, compact=true) }}
     {% endif %}
 </section>
+{% endif %}
 {% endif %}
 {% endmacro %}

@@ -1729,9 +1729,79 @@ tr.podium td:nth-child(3) {
     margin-top: 0;
 }
 
+.week-standings {
+    margin: 0 0 20px;
+}
+
+.week-standings h2 {
+    margin-top: 0;
+}
+
+.week-standings .team {
+    display: block;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.week-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: 20px 28px;
+    align-items: start;
+}
+
+.week-awards h2 {
+    margin-top: 0;
+}
+
+.week-awards h3 {
+    margin: 16px 0 8px;
+}
+
+.week-awards .plaque-grid {
+    margin-top: 8px;
+}
+
+.plaque.ticket .plaque-ticket {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.plaque.ticket .plaque-copy {
+    min-width: 0;
+}
+
+.plaque.ticket .plaque-figure {
+    margin: 0;
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 1.35rem;
+}
+
+.plaque.ticket.compact .plaque-figure {
+    font-size: 1.15rem;
+}
+
+.plaque-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    margin-top: 2px;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 900px) {
+    .week-split {
+        grid-template-columns: 1fr;
+    }
+}
+
 .plaque-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
     gap: 10px;
     margin: 10px 0 14px;
 }
@@ -1753,13 +1823,18 @@ tr.podium td:nth-child(3) {
 }
 
 .plaque-grid.compact {
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+    gap: 8px;
+}
+
+.plaque-grid.stack {
+    grid-template-columns: 1fr;
     gap: 8px;
 }
 
 .team-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
     gap: 10px;
     margin: 10px 0 16px;
 }
@@ -1780,10 +1855,12 @@ tr.podium td:nth-child(3) {
 }
 
 .plaque {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     background: var(--bg);
     border: 1px solid var(--line);
     padding: 10px 12px;
-    min-width: 0;
 }
 
 .plaque-high {
@@ -1801,14 +1878,22 @@ tr.podium td:nth-child(3) {
     line-height: 1.25;
     color: var(--ink);
     margin-bottom: 6px;
+    overflow-wrap: break-word;
 }
 
 .plaque-who {
     display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
+    flex-direction: column;
+    align-items: flex-start;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+}
+
+.plaque .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
 }
 
 .plaque-figure {

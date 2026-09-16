@@ -367,6 +367,116 @@ def standings(year: int) -> list[dict[str, Any]]:
     return rows
 
 
+def week_standings(year: int, week: int) -> dict[str, Any] | None:
+    last_regular = fetchone(
+        """
+        SELECT max(week) AS week
+        FROM matchups
+        WHERE year = %(year)s
+            AND kind = 'regular'
+            AND (home_points <> 0 OR away_points <> 0)
+        """,
+        {"year": year},
+    )
+    last_reg = int(last_regular["week"]) if last_regular and last_regular.get("week") is not None else None
+    playoff = fetchone(
+        """
+        SELECT 1 AS ok
+        FROM matchups
+        WHERE year = %(year)s
+            AND week = %(week)s
+            AND kind IN ('playoff', 'consolation')
+            AND (home_points <> 0 OR away_points <> 0)
+        LIMIT 1
+        """,
+        {"year": year, "week": week},
+    )
+    if last_reg is None:
+        return None
+    through = last_reg if playoff else min(week, last_reg)
+    rows = _standings_through(year, through)
+    if not rows:
+        return None
+    prev = _standings_through(year, through - 1) if through > 1 else []
+    prev_rank = {row["manager_id"]: int(row["rank"]) for row in prev}
+    for row in rows:
+        before = prev_rank.get(row["manager_id"])
+        row["move"] = (before - int(row["rank"])) if before is not None else None
+    return {
+        "rows": rows,
+        "through": through,
+        "frozen": bool(playoff),
+    }
+
+
+def _standings_through(year: int, through: int) -> list[dict[str, Any]]:
+    if through < 1:
+        return []
+    rows = fetchall(
+        """
+        SELECT
+            x.rank,
+            x.manager_id,
+            x.display_name,
+            x.team_name,
+            x.wins,
+            x.losses,
+            x.ties,
+            x.points_for,
+            x.win_pct
+        FROM (
+            SELECT
+                g.manager_id,
+                m.display_name,
+                ts.team_name,
+                count(*) FILTER (WHERE g.result = 'win') AS wins,
+                count(*) FILTER (WHERE g.result = 'loss') AS losses,
+                count(*) FILTER (WHERE g.result = 'tie') AS ties,
+                coalesce(sum(g.points) FILTER (WHERE g.kind = 'regular'), 0) AS points_for,
+                CASE
+                    WHEN count(*) = 0 THEN NULL
+                    ELSE (
+                        count(*) FILTER (WHERE g.result = 'win')
+                        + 0.5 * count(*) FILTER (WHERE g.result = 'tie')
+                    ) / count(*)
+                END AS win_pct,
+                rank() OVER (
+                    ORDER BY
+                        CASE
+                            WHEN count(*) = 0 THEN 0
+                            ELSE (
+                                count(*) FILTER (WHERE g.result = 'win')
+                                + 0.5 * count(*) FILTER (WHERE g.result = 'tie')
+                            ) / count(*)
+                        END DESC,
+                        coalesce(sum(g.points) FILTER (WHERE g.kind = 'regular'), 0) DESC,
+                        count(*) FILTER (WHERE g.result = 'win') DESC,
+                        g.manager_id
+                ) AS rank
+            FROM v_games g
+            JOIN managers m ON m.id = g.manager_id
+            JOIN team_seasons ts
+                ON ts.year = g.year AND ts.manager_id = g.manager_id
+            JOIN seasons s ON s.year = g.year
+            WHERE g.year = %(year)s
+                AND g.week <= %(through)s
+                AND (
+                    g.kind = 'regular'
+                    OR (s.vs_median AND g.kind = 'vs_median')
+                )
+            GROUP BY g.manager_id, m.display_name, ts.team_name
+        ) x
+        ORDER BY x.rank, x.manager_id
+        """,
+        {"year": year, "through": through},
+    )
+    for row in rows:
+        row["record"] = _record(int(row["wins"] or 0), int(row["losses"] or 0), int(row["ties"] or 0))
+        row["hue"] = manager_hue(row["manager_id"])
+        row["team"] = flavor_team(row.get("display_name"), row.get("team_name"))
+    return rows
+
+
 def season_schedule(year: int) -> dict[str, Any]:
     rows = fetchall(
         """
@@ -1775,6 +1885,7 @@ def week_slate(year: int, week: int) -> dict[str, Any] | None:
         "groups": _group_games(packed),
         "wire": _week_wire(year, week),
         "card": week_card(year, week),
+        "standings": week_standings(year, week),
     }
 
 
@@ -3587,7 +3698,7 @@ MARK_META = {
         "definition": "Lost while scoring in the top half.",
     },
     "pine": {
-        "label": "Bench Waste",
+        "label": "She's cheer captain and...",
         "unit": "bench",
         "polarity": "low",
         "definition": "Most points left on the bench.",
@@ -3864,6 +3975,10 @@ def _decorate_mark(row: dict[str, Any], year: int | None = None) -> dict[str, An
     row["polarity"] = spec.get("polarity", "")
     row["definition"] = spec.get("definition", "")
     row["hue"] = manager_hue(row.get("manager_id"))
+    row["team"] = flavor_team(
+        row.get("display_name") or row.get("manager_name"),
+        row.get("team_name"),
+    )
     if not row.get("manager_name"):
         row["manager_name"] = row.get("display_name")
     kind = row.get("kind")
@@ -3886,6 +4001,18 @@ def _decorate_mark(row: dict[str, Any], year: int | None = None) -> dict[str, An
     row["aside_label"] = None
     row["aside_name"] = None
     row["aside_id"] = None
+    raw_aside_vorp = row.get("aside_vorp")
+    row["aside_vorp"] = None
+    row["week_meta"] = None
+    row["week_href"] = None
+    if kind == "stream" and row.get("add_week") is not None and year is not None:
+        add_week = int(row["add_week"])
+        txn = row.get("add_transaction_id")
+        row["week_meta"] = f"added W{add_week}"
+        if txn:
+            row["week_href"] = f"/seasons/{year}/wire/{txn}"
+        else:
+            row["week_href"] = f"/seasons/{year}/week/{add_week}"
     if kind == "miss" and row.get("opponent_name"):
         row["aside_label"] = "got"
         row["aside_name"] = row["opponent_name"]
@@ -3894,6 +4021,8 @@ def _decorate_mark(row: dict[str, Any], year: int | None = None) -> dict[str, An
         row["aside_label"] = "dodged"
         row["aside_name"] = row["opponent_name"]
         row["aside_id"] = row.get("opponent_id")
+    if row.get("aside_name") and raw_aside_vorp is not None:
+        row["aside_vorp"] = f"{float(raw_aside_vorp):+.1f}"
     if kind == "pine" and value is not None:
         row["figure"] = f"{float(value):.1f}"
     elif kind in {"add", "miss", "dodge"} and value is not None:
@@ -3904,10 +4033,15 @@ def _decorate_mark(row: dict[str, Any], year: int | None = None) -> dict[str, An
             row["score"] = f"{float(points):.1f}–{float(opp):.1f}"
     elif kind in {"stolen", "punched"} and points is not None and opp is not None:
         row["figure"] = f"{float(points):.1f}–{float(opp):.1f}"
+        median = row.get("week_median")
+        if median is not None:
+            row["unit"] = f"median {float(median):.1f}"
     elif points is not None:
         row["figure"] = f"{float(points):.1f}"
     elif value is not None:
         row["figure"] = f"{float(value):.1f}"
+    if row.get("unit") in {"PF", "VORP", "bench", "margin"}:
+        row["unit"] = ""
     return row
 
 
@@ -3916,6 +4050,7 @@ def _decorate_chair(row: dict[str, Any]) -> dict[str, Any]:
     row["polarity"] = "high" if row["kind"] == "all_league" else "low"
     row["unit"] = "PF"
     row["hue"] = manager_hue(row.get("manager_id"))
+    row["team"] = flavor_team(row.get("manager_name"), row.get("team_name"))
     row["href"] = f"/players/{row['player_id']}" if row.get("player_id") else None
     row["figure"] = f"{float(row['points']):.1f}" if row.get("points") is not None else None
     row["score"] = None
@@ -3926,10 +4061,33 @@ def week_marks(year: int, week: int) -> list[dict[str, Any]]:
     rows = fetchall(
         """
         SELECT
-            year, week, kind, manager_id, display_name, opponent_id, opponent_name,
-            matchup_id, points, opp_points, value, player_id, player_name, position
-        FROM v_marks_weeks
-        WHERE year = %(year)s AND week = %(week)s
+            mw.year, mw.week, mw.kind, mw.manager_id, mw.display_name, mw.opponent_id, mw.opponent_name,
+            mw.matchup_id, mw.points, mw.opp_points, mw.value, mw.player_id, mw.player_name, mw.position,
+            ts.team_name, med.week_median, ws.add_week, ws.transaction_id AS add_transaction_id,
+            coalesce(miss.won_vorp, dodge.lost_vorp) AS aside_vorp
+        FROM v_marks_weeks mw
+        LEFT JOIN team_seasons ts
+            ON ts.year = mw.year AND ts.manager_id = mw.manager_id
+        LEFT JOIN (
+            SELECT year, week, min(opp_points) AS week_median
+            FROM v_vs_median_effective
+            GROUP BY year, week
+        ) med ON med.year = mw.year AND med.week = mw.week
+        LEFT JOIN v_wire_starts ws
+            ON mw.kind = 'stream'
+            AND ws.year = mw.year
+            AND ws.week = mw.week
+            AND ws.player_id = mw.player_id
+        LEFT JOIN v_waiver_misses miss
+            ON mw.kind = 'miss'
+            AND miss.missed_transaction_id = mw.matchup_id
+            AND miss.manager_id = mw.manager_id
+        LEFT JOIN v_waiver_dodges dodge
+            ON mw.kind = 'dodge'
+            AND dodge.won_transaction_id = mw.matchup_id
+            AND dodge.lost_player_id = mw.opponent_id
+            AND dodge.manager_id = mw.manager_id
+        WHERE mw.year = %(year)s AND mw.week = %(week)s
         ORDER BY
             CASE kind
                 WHEN 'high_water' THEN 0
@@ -3957,10 +4115,13 @@ def week_marks(year: int, week: int) -> list[dict[str, Any]]:
 def week_chairs(year: int, week: int) -> list[dict[str, Any]]:
     rows = fetchall(
         """
-        SELECT year, week, position, kind, player_id, player_name,
-               manager_id, manager_name, points
-        FROM v_all_league
-        WHERE year = %(year)s AND week = %(week)s
+        SELECT
+            al.year, al.week, al.position, al.kind, al.player_id, al.player_name,
+            al.manager_id, al.manager_name, al.points, ts.team_name
+        FROM v_all_league al
+        LEFT JOIN team_seasons ts
+            ON ts.year = al.year AND ts.manager_id = al.manager_id
+        WHERE al.year = %(year)s AND al.week = %(week)s
         ORDER BY
             CASE kind WHEN 'all_league' THEN 0 WHEN 'busch' THEN 1 ELSE 2 END,
             CASE position
@@ -3999,11 +4160,35 @@ def week_card(year: int, week: int) -> dict[str, Any] | None:
 def week_marks_season(year: int) -> dict[str, Any]:
     rows = fetchall(
         """
-        SELECT year, week, kind, manager_id, display_name, opponent_id, opponent_name,
-               matchup_id, points, opp_points, value, player_id, player_name, position
-        FROM v_marks_weeks
-        WHERE year = %(year)s
-        ORDER BY week, kind, manager_id
+        SELECT
+            mw.year, mw.week, mw.kind, mw.manager_id, mw.display_name, mw.opponent_id, mw.opponent_name,
+            mw.matchup_id, mw.points, mw.opp_points, mw.value, mw.player_id, mw.player_name, mw.position,
+            ts.team_name, med.week_median, ws.add_week, ws.transaction_id AS add_transaction_id,
+            coalesce(miss.won_vorp, dodge.lost_vorp) AS aside_vorp
+        FROM v_marks_weeks mw
+        LEFT JOIN team_seasons ts
+            ON ts.year = mw.year AND ts.manager_id = mw.manager_id
+        LEFT JOIN (
+            SELECT year, week, min(opp_points) AS week_median
+            FROM v_vs_median_effective
+            GROUP BY year, week
+        ) med ON med.year = mw.year AND med.week = mw.week
+        LEFT JOIN v_wire_starts ws
+            ON mw.kind = 'stream'
+            AND ws.year = mw.year
+            AND ws.week = mw.week
+            AND ws.player_id = mw.player_id
+        LEFT JOIN v_waiver_misses miss
+            ON mw.kind = 'miss'
+            AND miss.missed_transaction_id = mw.matchup_id
+            AND miss.manager_id = mw.manager_id
+        LEFT JOIN v_waiver_dodges dodge
+            ON mw.kind = 'dodge'
+            AND dodge.won_transaction_id = mw.matchup_id
+            AND dodge.lost_player_id = mw.opponent_id
+            AND dodge.manager_id = mw.manager_id
+        WHERE mw.year = %(year)s
+        ORDER BY mw.week, mw.kind, mw.manager_id
         """,
         {"year": year},
     )

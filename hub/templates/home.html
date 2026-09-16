@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "week_card.html" import week_card_block %}
 {% from "plaque_macros.html" import person_link, plaque_free, highlight_chip %}
 {% macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
@@ -105,14 +104,8 @@
             · <a href="/seasons/{{ year }}/marks">Distinctions</a>
             · <a href="/seasons/{{ year }}/moves">Moves</a>
         </p>
-        {% if highlights.season %}
         <h2>{{ year }} highlights</h2>
-        <div class="plaque-grid recap-records">
-            {% for row in highlights.season %}
-            {{ highlight_chip(row) }}
-            {% endfor %}
-        </div>
-        {% endif %}
+        <p class="note">Award unification work in progress.</p>
     </div>
     <aside class="desk-side">
         {% if slate %}
@@ -147,7 +140,11 @@
         {% endfor %}
         {% endfor %}
         {% endif %}
-        {{ week_card_block(preview, year) }}
+        <section class="week-card">
+            <p class="kicker">Week card</p>
+            <h2>{{ year }}{% if preview %} W{{ preview.week }}{% endif %}</h2>
+            <p class="note">Award unification work in progress.</p>
+        </section>
     </aside>
 </section>
 {% else %}
