@@ -181,6 +181,53 @@ CREATE TABLE IF NOT EXISTS player_week_stat_lines (
     misc_points DOUBLE PRECISION NOT NULL DEFAULT 0,
     PRIMARY KEY (year, week, player_id)
 );
+
+-- Counting box score beside player_week_stat_lines. Same player-weeks: a row
+-- exists only when fantasy point buckets are not all zero (byes and other
+-- all-zero stat objects are omitted). Columns are the fan box score, not
+-- every Sleeper key. def_int stores Sleeper's `int`.
+CREATE TABLE IF NOT EXISTS player_week_counting_stats (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    pass_cmp INTEGER NOT NULL DEFAULT 0,
+    pass_att INTEGER NOT NULL DEFAULT 0,
+    pass_yd INTEGER NOT NULL DEFAULT 0,
+    pass_td INTEGER NOT NULL DEFAULT 0,
+    pass_int INTEGER NOT NULL DEFAULT 0,
+    rush_att INTEGER NOT NULL DEFAULT 0,
+    rush_yd INTEGER NOT NULL DEFAULT 0,
+    rush_td INTEGER NOT NULL DEFAULT 0,
+    rec INTEGER NOT NULL DEFAULT 0,
+    rec_yd INTEGER NOT NULL DEFAULT 0,
+    rec_td INTEGER NOT NULL DEFAULT 0,
+    rec_tgt INTEGER NOT NULL DEFAULT 0,
+    fum_lost INTEGER NOT NULL DEFAULT 0,
+    pass_2pt INTEGER NOT NULL DEFAULT 0,
+    rush_2pt INTEGER NOT NULL DEFAULT 0,
+    rec_2pt INTEGER NOT NULL DEFAULT 0,
+    pass_fd INTEGER NOT NULL DEFAULT 0,
+    rush_fd INTEGER NOT NULL DEFAULT 0,
+    rec_fd INTEGER NOT NULL DEFAULT 0,
+    pass_rz_att INTEGER NOT NULL DEFAULT 0,
+    rush_rz_att INTEGER NOT NULL DEFAULT 0,
+    rec_rz_tgt INTEGER NOT NULL DEFAULT 0,
+    fgm INTEGER NOT NULL DEFAULT 0,
+    fga INTEGER NOT NULL DEFAULT 0,
+    xpm INTEGER NOT NULL DEFAULT 0,
+    xpa INTEGER NOT NULL DEFAULT 0,
+    fgm_50p INTEGER NOT NULL DEFAULT 0,
+    sack INTEGER NOT NULL DEFAULT 0,
+    def_int INTEGER NOT NULL DEFAULT 0,
+    fum_rec INTEGER NOT NULL DEFAULT 0,
+    def_td INTEGER NOT NULL DEFAULT 0,
+    st_td INTEGER NOT NULL DEFAULT 0,
+    blk_kick INTEGER NOT NULL DEFAULT 0,
+    safe INTEGER NOT NULL DEFAULT 0,
+    pts_allow INTEGER NOT NULL DEFAULT 0,
+    yds_allow INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (year, week, player_id)
+);
 -- v_moves / v_trades join transaction_moves back to transactions.
 CREATE INDEX IF NOT EXISTS transaction_moves_transaction_idx
     ON transaction_moves (transaction_id);
