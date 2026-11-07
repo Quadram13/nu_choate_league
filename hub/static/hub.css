@@ -1721,6 +1721,14 @@ tr.this td {
     margin-top: 1px;
 }
 
+.draft-market {
+    display: block;
+    margin-top: 2px;
+    color: #9ca3af;
+    font-size: 0.68rem;
+    line-height: 1.25;
+}
+
 .hue {
     display: inline-block;
     width: 0.55rem;

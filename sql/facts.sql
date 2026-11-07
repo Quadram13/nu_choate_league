@@ -184,3 +184,22 @@ CREATE TABLE IF NOT EXISTS player_week_stat_lines (
 -- v_moves / v_trades join transaction_moves back to transactions.
 CREATE INDEX IF NOT EXISTS transaction_moves_transaction_idx
     ON transaction_moves (transaction_id);
+
+-- ---------------------------------------------------------------------------
+-- ESPN market (issue #25). Own section so it stays clear of other fact DDL.
+-- Side table of player-card ownership fields, joined through players.espn_id.
+-- Carded players who never appear in this league are not in `players`, so
+-- there is no foreign key to that table.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS espn_market (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    espn_id INTEGER NOT NULL,
+    average_draft_position DOUBLE PRECISION,
+    percent_owned DOUBLE PRECISION,
+    percent_started DOUBLE PRECISION,
+    auction_value_average DOUBLE PRECISION,
+    PRIMARY KEY (year, espn_id)
+);
+
+CREATE INDEX IF NOT EXISTS espn_market_espn_id_idx ON espn_market (espn_id);

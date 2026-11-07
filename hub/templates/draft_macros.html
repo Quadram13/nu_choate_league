@@ -13,6 +13,10 @@
     <span class="draft-ovr">{{ pick.overall }}{% if pick.keeper %} K{% endif %}</span>
     <span class="draft-name">{% if pick.player_id %}<a href="/players/{{ pick.player_id }}">{{ pick.player_name }}</a>{% else %}{{ pick.player_name }}{% endif %}</span>
     <span class="team">{{ pick.position or "" }}{% if pick.vs_vorp is not none %} · <span class="{% if pick.vs_vorp > 0 %}plus{% elif pick.vs_vorp < 0 %}minus{% endif %}">{{ "%+.0f"|format(pick.vs_vorp) }}</span>{% endif %}{% if pick.adp is not none and (pick.times_drafted or 0) >= 2 %} · ADP {{ "%.0f"|format(pick.adp) }}{% endif %}</span>
+    {% if pick.market_adp is not none %}
+    <span class="draft-market">mkt {{ "%.1f"|format(pick.market_adp) }} · slot {{ pick.overall }}{% if pick.ros_vorp is not none %} · {{ "%+.1f"|format(pick.ros_vorp) }}{% endif %}</span>
+    <span class="draft-market">{{ pick.market_grade }}</span>
+    {% endif %}
 </td>
 {% else %}
 <td class="draft-cell empty"></td>
