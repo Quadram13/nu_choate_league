@@ -9,10 +9,19 @@ import psycopg
 from .build import _compare
 from .catalog import load_managers
 from .db import apply_schema, connect, refresh_analysis
-from .dumps import load_json, season_dir
+from .dumps import ESPN_POSITIONS, load_json, season_dir
 from .ingest import ingest_all
-from .ingest.score import score_sleeper_buckets
-from .models import Matchup, Platform, SeasonBundle, Transaction
+from .ingest.common import resolve_player
+from .ingest.espn import espn_id_backfill_pairs
+from .ingest.schedule import parse_pro_schedule
+from .ingest.score import (
+    COUNTING_STAT_FIELDS,
+    counting_stat_values,
+    counting_stat_values_espn,
+    espn_point_buckets,
+    score_sleeper_buckets,
+)
+from .models import EspnMarket, Matchup, Platform, Season, SeasonBundle, Transaction
 from .players import PlayerIndex
 
 
@@ -37,10 +46,14 @@ def load_facts(*, year: int | None = None) -> list[str]:
         _progress("upsert managers and players")
         _upsert_managers(conn)
         _upsert_players(conn, bundles)
+        _backfill_espn_ids(conn, bundles)
         for bundle in bundles:
             step = time.perf_counter()
             _insert_season(conn, bundle)
             _insert_stat_lines(conn, bundle)
+            _insert_espn_market(conn, bundle)
+            _insert_roster_extras(conn, bundle)
+            _insert_nfl_schedule(conn, bundle)
             _progress(f"insert {bundle.season.year} ({time.perf_counter() - step:.1f}s)")
         refresh_analysis(conn, progress=_progress)
         conn.commit()
@@ -61,7 +74,10 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             week_scores,
             player_week_scores,
             player_week_stat_lines,
+            player_week_counting_stats,
             draft_picks,
+            espn_market,
+            nfl_team_weeks,
             transactions,
             matchups,
             official_records,
@@ -418,30 +434,121 @@ def _scoring_settings(season) -> dict | list | None:
     return settings if settings is not None else None
 
 
+def _backfill_espn_ids(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -> None:
+    """Stamp players.espn_id from ESPN cards so market rows join draft picks.
+
+    Catalog espn ids already landed in `_upsert_players`. This only fills
+    nulls, and only when the card resolution is unambiguous. `espn:` player
+    ids that never matched a Sleeper record get the id embedded in their key.
+    """
+    rows: list[EspnMarket] = []
+    for bundle in bundles:
+        rows.extend(bundle.espn_market)
+    pairs = espn_id_backfill_pairs(rows)
+    _executemany(
+        conn,
+        """
+        UPDATE players AS p
+        SET espn_id = %s
+        WHERE p.id = %s
+          AND p.espn_id IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM players other
+              WHERE other.espn_id = %s AND other.id <> %s
+          )
+        """,
+        [(espn_id, player_id, espn_id, player_id) for espn_id, player_id in pairs],
+    )
+    conn.execute(
+        """
+        UPDATE players AS p
+        SET espn_id = substring(p.id FROM 6)::integer
+        WHERE p.espn_id IS NULL
+          AND p.id ~ '^espn:-?[0-9]+$'
+          AND NOT EXISTS (
+              SELECT 1 FROM players other
+              WHERE other.espn_id = substring(p.id FROM 6)::integer
+                AND other.id <> p.id
+          )
+        """
+    )
+    _progress(f"espn_id backfill candidates {len(pairs)}")
+
+
+def _insert_espn_market(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    if not bundle.espn_market:
+        return
+    season_year = bundle.season.year
+    conn.execute("DELETE FROM espn_market WHERE year = %s", (season_year,))
+    _executemany(
+        conn,
+        """
+        INSERT INTO espn_market (
+            year, espn_id, average_draft_position, percent_owned,
+            percent_started, auction_value_average
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (year, espn_id) DO UPDATE SET
+            average_draft_position = EXCLUDED.average_draft_position,
+            percent_owned = EXCLUDED.percent_owned,
+            percent_started = EXCLUDED.percent_started,
+            auction_value_average = EXCLUDED.auction_value_average
+        """,
+        [
+            (
+                row.year,
+                row.espn_id,
+                row.average_draft_position,
+                row.percent_owned,
+                row.percent_started,
+                row.auction_value_average,
+            )
+            for row in bundle.espn_market
+        ],
+    )
+    _progress(f"espn market {season_year}: {len(bundle.espn_market)} rows")
+
+
 def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
     season = bundle.season
-    if season.platform is not Platform.SLEEPER:
+    players = PlayerIndex()
+    if season.platform is Platform.SLEEPER:
+        line_rows, count_rows = _sleeper_stat_rows(season, through_week=bundle.through_week, players=players)
+    elif season.platform is Platform.ESPN:
+        line_rows, count_rows = _espn_stat_rows(season, through_week=bundle.through_week, players=players)
+    else:
         return
+    _write_stat_rows(conn, line_rows, count_rows)
+
+
+def _sleeper_stat_rows(
+    season: Season,
+    *,
+    through_week: int | None,
+    players: PlayerIndex,
+) -> tuple[list[tuple], list[tuple]]:
     folder = season_dir(season)
     league_path = folder / "league.json"
     try:
         league = load_json(league_path)
     except Exception:
-        return
+        return [], []
     settings = league.get("scoring_settings") if isinstance(league, dict) else None
     if not isinstance(settings, dict):
-        return
-    players = PlayerIndex()
-    through = bundle.through_week
+        return [], []
     weeks = folder / "weeks"
     if not weeks.is_dir():
-        return
-    rows: list[tuple] = []
+        return [], []
+    # Same gate for point buckets and counting stats: skip all-zero buckets
+    # (byes, inactives, and anyone who did not score). Counting columns may
+    # still be zero when the points came from a key outside the fan box score.
+    line_rows: list[tuple] = []
+    count_rows: list[tuple] = []
     for week_dir in sorted(weeks.iterdir()):
         if not week_dir.is_dir():
             continue
         week = int(week_dir.name)
-        if through is not None and week > through:
+        if through_week is not None and week > through_week:
             continue
         path = week_dir / "stats.json"
         if not path.is_file():
@@ -460,17 +567,137 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
                 continue
             meta = players.from_sleeper(str(player_id))
             canonical = meta.id if meta is not None else str(player_id)
-            rows.append(
-                (
-                    season.year,
-                    week,
-                    canonical,
-                    buckets["pass"],
-                    buckets["rush"],
-                    buckets["rec"],
-                    buckets["misc"],
-                )
-            )
+            line_rows.append(_line_tuple(season.year, week, canonical, buckets))
+            count_rows.append((season.year, week, canonical, *counting_stat_values(raw)))
+    return line_rows, count_rows
+
+
+def _espn_stat_rows(
+    season: Season,
+    *,
+    through_week: int | None,
+    players: PlayerIndex,
+) -> tuple[list[tuple], list[tuple]]:
+    """Boxscore actuals for one ESPN season.
+
+    A row is kept only when applied point buckets are not all zero — the same
+    gate as Sleeper, and the same (year, week, player_id) as the stat line.
+    Player ids go through PlayerIndex.resolve_espn, the same path as the pool.
+    That does not read players.espn_id, so it does not depend on ticket #25's
+    load-time backfill. Two ESPN ids that collapse to one canonical id keep
+    the line with the larger absolute point total. appliedTotalCeiling is a
+    projection and is not stored.
+    """
+    folder = season_dir(season)
+    weeks = folder / "weeks"
+    if not weeks.is_dir():
+        return [], []
+    chosen: dict[tuple[int, int, str], tuple[float, tuple, tuple]] = {}
+    for week_dir in sorted(weeks.iterdir()):
+        if not week_dir.is_dir():
+            continue
+        week = int(week_dir.name)
+        if through_week is not None and week > through_week:
+            continue
+        path = week_dir / "boxscore.json"
+        if not path.is_file():
+            continue
+        try:
+            payload = load_json(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for game in payload.get("schedule") or []:
+            if not isinstance(game, dict):
+                continue
+            for side_name in ("home", "away"):
+                side = game.get(side_name) or {}
+                if not isinstance(side, dict):
+                    continue
+                roster = side.get("rosterForCurrentScoringPeriod") or {}
+                if not isinstance(roster, dict):
+                    continue
+                entries = roster.get("entries") or []
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    parsed = _espn_roster_actual(entry, week)
+                    if parsed is None:
+                        continue
+                    espn_id, name, position, applied, raw = parsed
+                    buckets = espn_point_buckets(applied)
+                    if not any(buckets.values()):
+                        continue
+                    canonical, _display = resolve_player(players, Platform.ESPN, espn_id, name, position)
+                    key = (season.year, week, canonical)
+                    weight = sum(abs(value) for value in buckets.values())
+                    previous = chosen.get(key)
+                    if previous is not None and previous[0] >= weight:
+                        continue
+                    chosen[key] = (
+                        weight,
+                        _line_tuple(season.year, week, canonical, buckets),
+                        (season.year, week, canonical, *counting_stat_values_espn(raw)),
+                    )
+    line_rows = [row[1] for row in chosen.values()]
+    count_rows = [row[2] for row in chosen.values()]
+    return line_rows, count_rows
+
+
+def _espn_roster_actual(
+    entry: dict,
+    week: int,
+) -> tuple[int, str, str | None, dict, dict] | None:
+    pool = entry.get("playerPoolEntry") or {}
+    player = pool.get("player") if isinstance(pool, dict) else None
+    if not isinstance(player, dict):
+        player = {}
+    espn_id = player.get("id", entry.get("playerId"))
+    if not isinstance(espn_id, int):
+        return None
+    actual = None
+    for item in player.get("stats") or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("statSourceId") != 0 or item.get("statSplitTypeId") != 1:
+            continue
+        if item.get("scoringPeriodId") != week:
+            continue
+        actual = item
+    if actual is None:
+        return None
+    applied = actual.get("appliedStats") or {}
+    raw = actual.get("stats") or {}
+    if not isinstance(applied, dict):
+        applied = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    position_id = player.get("defaultPositionId")
+    position = ESPN_POSITIONS.get(int(position_id)) if isinstance(position_id, int) else None
+    name = str(player.get("fullName") or "")
+    return espn_id, name, position, applied, raw
+
+
+def _line_tuple(year: int, week: int, player_id: str, buckets: dict[str, float]) -> tuple:
+    return (
+        year,
+        week,
+        player_id,
+        buckets["pass"],
+        buckets["rush"],
+        buckets["rec"],
+        buckets["misc"],
+    )
+
+
+def _write_stat_rows(
+    conn: psycopg.Connection,
+    line_rows: list[tuple],
+    count_rows: list[tuple],
+) -> None:
     _executemany(
         conn,
         """
@@ -484,5 +711,99 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
             rec_points = EXCLUDED.rec_points,
             misc_points = EXCLUDED.misc_points
         """,
+        line_rows,
+    )
+    count_columns = [name for name, _key in COUNTING_STAT_FIELDS]
+    count_sql = """
+        INSERT INTO player_week_counting_stats (
+            year, week, player_id, {columns}
+        )
+        VALUES ({placeholders})
+        ON CONFLICT (year, week, player_id) DO UPDATE SET
+            {updates}
+    """.format(
+        columns=", ".join(count_columns),
+        placeholders=", ".join("%s" for _ in range(3 + len(count_columns))),
+        updates=", ".join(f"{name} = EXCLUDED.{name}" for name in count_columns),
+    )
+    _executemany(conn, count_sql, count_rows)
+
+
+def _insert_roster_extras(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    """Write Sleeper ppts, points-against, waiver slot, and move count.
+
+    The base official_records insert stays wins and fpts. These columns are
+    null on ESPN. A Sleeper 0 is written as 0, not left null.
+    """
+    rows = [
+        (
+            row.points_against,
+            row.ppts,
+            row.waiver_position,
+            row.total_moves,
+            bundle.season.year,
+            row.manager_id,
+        )
+        for row in bundle.official
+        if any(
+            value is not None
+            for value in (row.points_against, row.ppts, row.waiver_position, row.total_moves)
+        )
+    ]
+    _executemany(
+        conn,
+        """
+        UPDATE official_records
+        SET points_against = %s,
+            ppts = %s,
+            waiver_position = %s,
+            total_moves = %s
+        WHERE year = %s AND manager_id = %s
+        """,
         rows,
     )
+    if rows:
+        _progress(f"roster extras {bundle.season.year}: {len(rows)} managers")
+
+
+def _insert_nfl_schedule(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    """ESPN pro schedule for this season. Sleeper years have no dump, so skip."""
+    if bundle.season.platform is not Platform.ESPN:
+        return
+    clubs, weeks = parse_pro_schedule(bundle.season.year)
+    if not weeks:
+        return
+    _executemany(
+        conn,
+        """
+        INSERT INTO nfl_team_crosswalk (espn_pro_team_id, abbr, location, name)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (espn_pro_team_id) DO UPDATE SET
+            abbr = EXCLUDED.abbr,
+            location = EXCLUDED.location,
+            name = EXCLUDED.name
+        """,
+        [(club.espn_pro_team_id, club.abbr, club.location, club.name) for club in clubs],
+    )
+    conn.execute("DELETE FROM nfl_team_weeks WHERE year = %s", (bundle.season.year,))
+    _executemany(
+        conn,
+        """
+        INSERT INTO nfl_team_weeks (
+            year, week, espn_pro_team_id, opponent_espn_pro_team_id, is_home, is_bye
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        [
+            (
+                row.year,
+                row.week,
+                row.espn_pro_team_id,
+                row.opponent_espn_pro_team_id,
+                row.is_home,
+                row.is_bye,
+            )
+            for row in weeks
+        ],
+    )
+    _progress(f"nfl schedule {bundle.season.year}: {len(weeks)} team-weeks")

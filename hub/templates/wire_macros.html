@@ -21,6 +21,49 @@
 {% macro outcome(row) %}
 <span class="verdict {{ row.outcome.kind }}">{{ row.outcome.label }}</span>
 {% endmacro %}
+{% macro cost_cell(row) %}
+{% if row.cost_label %}{{ row.cost_label }}{% else %}—{% endif %}
+{% endmacro %}
+{% macro value_strip(year, rows, current_id=none) %}
+{% if rows %}
+<div class="value-strip">
+    <h3>Best value per priority</h3>
+    <p class="note">Completed waiver adds with a claim priority, ranked by ROS VORP ÷ pri. Pri 1 is that manager’s first claim in the run. Seq 0 is the first claim the league processed. No dollar cost before 2026.</p>
+    <div class="standings-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th class="num">Wk</th>
+                <th>Player</th>
+                <th>Manager</th>
+                <th>Cost</th>
+                <th class="num">VORP</th>
+                <th class="num">Per pri</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr{% if current_id and row.transaction_id == current_id %} class="this"{% endif %}>
+                <td class="num"><a href="/seasons/{{ year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
+                <td>
+                    {% if row.transaction_id %}<a href="/seasons/{{ year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                    {% if row.position %}<span class="team">{{ row.position }}</span>{% endif %}
+                </td>
+                <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                <td>{{ cost_cell(row) }}</td>
+                <td class="num plus">
+                    {% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}
+                    {% if row.tenure_vorp is not none and row.tenure_vorp != row.ros_vorp %}<span class="team">rostered {{ "%+.1f"|format(row.tenure_vorp) }}</span>{% endif %}
+                </td>
+                <td class="num">{{ "%.1f"|format(row.value_per_priority) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+{% endmacro %}
 {% macro txn_chip(id, name, position) %}
 <span class="txn-chip">{% if id %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}{% if position %} <span class="pos">{{ position }}</span>{% endif %}</span>
 {% endmacro %}

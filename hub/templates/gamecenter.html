@@ -5,7 +5,7 @@
 {% if row and row.call == "start" %}<span class="call">start {{ row.opt_slot }}</span>{% endif %}
 {%- endmacro %}
 {% macro player_name(row) -%}
-{% if row and row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name or "—" }}</a>{% elif row %}{{ row.player_name or "—" }}{% else %}—{% endif %}{{ call_tag(row) }}
+{% if row and row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name or "—" }}</a>{% elif row %}{{ row.player_name or "—" }}{% else %}—{% endif %}{% if row and row.nfl_opponent %} <span class="nfl-opp">{{ row.nfl_opponent }}</span>{% endif %}{{ call_tag(row) }}
 {%- endmacro %}
 {% macro who(side, face, winner_id) -%}
 <div class="who {{ face }}{% if winner_id and side.id == winner_id %} won{% elif winner_id %} lost{% endif %}">

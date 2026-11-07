@@ -37,7 +37,7 @@ def ingest_sleeper(
     starter_slots = [slot for slot in (league.get("roster_positions") or []) if slot != "BN"]
     playoff_start = int((league.get("settings") or {}).get("playoff_week_start") or 15)
     playoff_teams = int((league.get("settings") or {}).get("playoff_teams") or 0)
-    through_week = sleeper_through_week(league)
+    through_week = sleeper_through_week(league, _read_nfl_state(folder))
     matchups, week_scores = _matchups(
         season,
         folder,
@@ -55,13 +55,88 @@ def ingest_sleeper(
     return teams, matchups, official, draft_picks, transactions, week_scores, through_week
 
 
-def sleeper_through_week(league: dict[str, Any]) -> int | None:
-    last_scored = (league.get("settings") or {}).get("last_scored_leg")
-    if last_scored is not None:
-        return int(last_scored)
-    if league.get("status") != "complete":
+def sleeper_through_week(league: dict[str, Any], nfl_state: Any = None) -> int | None:
+    """Latest fantasy week that counts as played.
+
+    Finished seasons publish settings.last_scored_leg (17 in 2024 and 2025).
+    An in-progress season omits that key until the first week closes, and the
+    old fallback stored 0, which dropped every week-1 game. The live week is
+    nfl_state.leg when that file is this league's season and scores have
+    started, and settings.leg while status is in_season. Past-season folders
+    keep a copy of whatever /state/nfl returned at dump time, so a mismatched
+    season is ignored.
+    """
+    settings = league.get("settings") or {}
+    if league.get("status") == "complete":
+        last_raw = settings.get("last_scored_leg")
+        if last_raw is None:
+            return None
+        return int(last_raw)
+
+    closed = _week_number(settings.get("last_scored_leg"))
+    live = _live_nfl_leg(league, nfl_state)
+    if league.get("status") == "in_season":
+        live = max(live, _week_number(settings.get("leg")))
+    return max(closed, live)
+
+
+def _read_nfl_state(folder) -> dict[str, Any]:
+    path = folder / "nfl_state.json"
+    if not path.is_file():
+        return {}
+    payload = load_json(path)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _live_nfl_leg(league: dict[str, Any], nfl_state: Any) -> int:
+    if not isinstance(nfl_state, dict) or not nfl_state.get("season_has_scores"):
         return 0
-    return None
+    league_season = str(league.get("season") or "")
+    state_season = str(nfl_state.get("league_season") or nfl_state.get("season") or "")
+    if not league_season or league_season != state_season:
+        return 0
+    leg = nfl_state.get("leg")
+    if leg is None:
+        leg = nfl_state.get("week")
+    return _week_number(leg)
+
+
+def _week_number(value: Any) -> int:
+    if isinstance(value, bool) or value is None:
+        return 0
+    try:
+        week = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return week if week > 0 else 0
+
+
+def sleeper_roster_extras(settings: dict[str, Any]) -> dict[str, Any]:
+    """Season totals from a Sleeper roster settings object.
+
+    These dumps store ppts, fpts_against, waiver_position, and total_moves as
+    season scalars. The point fields use the same whole-plus-decimal split as
+    fpts. A missing key stays null. A present 0 is stored as 0.
+    """
+    return {
+        "points_against": _sleeper_points(settings, "fpts_against", "fpts_against_decimal"),
+        "ppts": _sleeper_points(settings, "ppts", "ppts_decimal"),
+        "waiver_position": _sleeper_int(settings, "waiver_position"),
+        "total_moves": _sleeper_int(settings, "total_moves"),
+    }
+
+
+def _sleeper_points(settings: dict[str, Any], whole: str, decimal: str) -> float | None:
+    if whole not in settings and decimal not in settings:
+        return None
+    return round_points(int(settings.get(whole) or 0) + int(settings.get(decimal) or 0) / 100)
+
+
+def _sleeper_int(settings: dict[str, Any], key: str) -> int | None:
+    value = settings.get(key) if key in settings else None
+    if value is None:
+        return None
+    return int(value)
 
 
 def _teams(
@@ -93,6 +168,7 @@ def _teams(
                 platform_team_id=str(roster_id),
             )
         )
+        extras = sleeper_roster_extras(settings)
         official.append(
             OfficialRecord(
                 manager_id=manager.id,
@@ -102,6 +178,10 @@ def _teams(
                 points_for=round_points(
                     int(settings.get("fpts") or 0) + int(settings.get("fpts_decimal") or 0) / 100
                 ),
+                points_against=extras["points_against"],
+                ppts=extras["ppts"],
+                waiver_position=extras["waiver_position"],
+                total_moves=extras["total_moves"],
             )
         )
     return teams, official, names, roster_owners

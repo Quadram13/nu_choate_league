@@ -256,6 +256,17 @@ td.num {
     font-variant-numeric: tabular-nums;
 }
 
+tr.sheet-group td {
+    padding-top: 14px;
+    color: #e4e4e7;
+    font-weight: 600;
+    border-bottom-color: #374151;
+}
+
+tbody tr.sheet-group:first-child td {
+    padding-top: 6px;
+}
+
 ul.index {
     list-style: none;
 }
@@ -314,6 +325,14 @@ ul.index span {
     }
 }
 
+.value-strip {
+    margin: 4px 0 18px;
+}
+
+.value-strip h3 {
+    margin-bottom: 4px;
+}
+
 .season-head .lede {
     margin-bottom: 0;
 }
@@ -358,6 +377,34 @@ ul.index span {
 
 .universe-card p {
     margin: 0;
+}
+
+.universe-brackets.brackets {
+    margin-top: 4px;
+}
+
+.matches-official {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.seed-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.seed-no {
+    color: var(--muted);
+    font-family: var(--font-data);
+    font-size: 0.75rem;
+    flex: none;
+}
+
+.bracket-match .tiebreak {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
 }
 
 .notable-grid {
@@ -931,6 +978,14 @@ table.js-sort th.sorted.desc::after {
     margin-left: 6px;
     font-size: 0.75rem;
     font-weight: 400;
+}
+
+.nfl-opp {
+    margin-left: 6px;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: 400;
+    white-space: nowrap;
 }
 
 .gc-row .sit .call,
@@ -1672,6 +1727,14 @@ tr.this td {
 
 .draft-cell .team {
     margin-top: 1px;
+}
+
+.draft-market {
+    display: block;
+    margin-top: 2px;
+    color: #9ca3af;
+    font-size: 0.68rem;
+    line-height: 1.25;
 }
 
 .hue {
@@ -2440,6 +2503,18 @@ tr.podium td:nth-child(3) {
 
 .versus-grid td.muted {
     color: #6b7280;
+}
+
+.versus-grid .deals {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #d6d3d1;
+}
+
+.pair-trades .note {
+    margin-bottom: 10px;
 }
 
 .rank-heat {

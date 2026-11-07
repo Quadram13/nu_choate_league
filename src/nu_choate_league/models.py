@@ -105,6 +105,11 @@ class OfficialRecord(BaseModel):
     losses: int
     ties: int
     points_for: float
+    # Sleeper roster settings. Null on ESPN, which does not publish these.
+    points_against: float | None = None
+    ppts: float | None = None
+    waiver_position: int | None = None
+    total_moves: int | None = None
 
 
 class DraftPick(BaseModel):
@@ -115,6 +120,19 @@ class DraftPick(BaseModel):
     player_id: str
     player_name: str
     keeper: bool = False
+
+
+class EspnMarket(BaseModel):
+    """One ESPN player-card ownership snapshot. `player_id` is the resolved
+    canonical id used to backfill `players.espn_id`; it is not a column."""
+
+    year: int
+    espn_id: int
+    average_draft_position: float | None = None
+    percent_owned: float | None = None
+    percent_started: float | None = None
+    auction_value_average: float | None = None
+    player_id: str | None = None
 
 
 class PlayerMove(BaseModel):
@@ -280,3 +298,4 @@ class SeasonBundle(BaseModel):
     outcome: SeasonOutcome | None = None
     week_scores: list[WeekScore] = Field(default_factory=list)
     player_weeks: list[PlayerWeek] = Field(default_factory=list)
+    espn_market: list[EspnMarket] = Field(default_factory=list)

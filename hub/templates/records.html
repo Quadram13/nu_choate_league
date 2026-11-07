@@ -22,7 +22,11 @@
     <a href="#current" data-grain="career">Current streaks</a>
     <a href="#drought" data-grain="career">Droughts</a>
     <a href="#eras" data-grain="career">Wire eras</a>
+    <a href="#draft-capital" data-grain="career">Draft capital</a>
+    <a href="#journeymen" data-grain="career">Journeymen</a>
+    <a href="#traded" data-grain="career">Most traded</a>
     <span class="jump-label">By year</span>
+    <a href="#awards">Awards</a>
     <a href="#season">Season</a>
     <a href="#playoff">Playoff</a>
     <a href="#high">Highest weeks</a>
@@ -34,6 +38,7 @@
     <a href="#draft">Draft</a>
     <a href="#wire">Wire</a>
     <a href="#lineups">Bench</a>
+    <a href="#counting">Counting</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -47,6 +52,33 @@
     {% endfor %}
 </div>
 </div>
+{% endif %}
+
+{% if awards %}
+<h2 id="awards">Season awards</h2>
+<p class="note">Champion, runner-up, regular-season champ, and most points. 2022–2025 are finished. 2026 is in progress, so those cells stay empty.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Champion</th>
+            <th>Runner-up</th>
+            <th>RS champ</th>
+            <th>Most PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in awards %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{% if row.champion_id %}{{ person(row.champion_id, row.champion) }}{% else %}—{% endif %}</td>
+            <td>{% if row.runner_up_id %}{{ person(row.runner_up_id, row.runner_up) }}{% else %}—{% endif %}</td>
+            <td>{% if row.regular_season_champion_id %}{{ person(row.regular_season_champion_id, row.regular_season_champion) }}{% else %}—{% endif %}</td>
+            <td>{% if row.most_points_id %}{{ person(row.most_points_id, row.most_points) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endif %}
 
 {% if season_pf %}
@@ -557,6 +589,49 @@
     {% endfor %}
 </div>
 
+{% if most_traded.rows %}
+<div data-grain="career">
+<h2 id="traded">Most traded</h2>
+<p class="note">{{ most_traded.moves }} player-moves in the book. The strip is the top 10.</p>
+<ul class="kind-strip">
+    {% for row in most_traded.rows %}
+    <li>
+        <span class="num">{{ loop.index }}</span>
+        <span><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</span>
+        <span class="num">{{ row.trades|int }}</span>
+    </li>
+    {% endfor %}
+</ul>
+</div>
+{% endif %}
+
+{% if journeymen %}
+<div data-grain="career">
+<h2 id="journeymen">Journeymen</h2>
+<p class="note">{{ journeymen|length }} players rostered by three or more managers, the same line the player page uses. Defenses and kickers count.</p>
+<table class="js-fold" data-fold="15">
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Managers</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in journeymen %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a></td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ row.managers|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
 <h2 id="draft">Draft</h2>
 <p class="note">Starter VORP vs that round’s average. <a href="/seasons">Season boards</a></p>
 <div class="notable-grid">
@@ -637,6 +712,41 @@
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
+
+{% if draft_capital %}
+<div data-grain="career">
+<h2 id="draft-capital">Career draft capital</h2>
+<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. Titles are championships.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Picks</th>
+            <th class="num">Hits</th>
+            <th class="num" title="Starter points versus the round average">vsPts</th>
+            <th class="num" title="VORP versus the round average">vsRnd</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+            <th class="num">Titles</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft_capital %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.picks }}">{{ (row.picks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.hits }}">{{ (row.hits or 0)|int }}</td>
+            <td class="num{% if row.vs_round and row.vs_round > 0 %} plus{% elif row.vs_round and row.vs_round < 0 %} minus{% endif %}" data-value="{{ row.vs_round if row.vs_round is not none else '' }}">{% if row.vs_round is not none %}{{ "%+.1f"|format(row.vs_round) }}{% else %}—{% endif %}</td>
+            <td class="num{% if row.vs_vorp and row.vs_vorp > 0 %} plus{% elif row.vs_vorp and row.vs_vorp < 0 %} minus{% endif %}" data-value="{{ row.vs_vorp if row.vs_vorp is not none else '' }}">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% else %}—{% endif %}</td>
+            <td class="num{% if row.ros_vorp and row.ros_vorp > 0 %} plus{% elif row.ros_vorp and row.ros_vorp < 0 %} minus{% endif %}" data-value="{{ row.ros_vorp if row.ros_vorp is not none else '' }}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.titles or 0 }}">{{ (row.titles or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
 {% endif %}
 
 <h2 id="wire">Wire</h2>
@@ -751,6 +861,40 @@
         </table>
     </section>
 </div>
+
+{% if counting_leaders %}
+<h2 id="counting">Counting stats</h2>
+<p class="note">Single-week highs by a rostered player. A week is stored when it scored fantasy points, so byes and other all-zero stat lines are left out.</p>
+<div class="notable-grid">
+    {% for board in counting_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}—{% endif %}</td>
+                    <td class="num">{{ row.value|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if coaches %}
 <div data-grain="career">

@@ -181,6 +181,114 @@ CREATE TABLE IF NOT EXISTS player_week_stat_lines (
     misc_points DOUBLE PRECISION NOT NULL DEFAULT 0,
     PRIMARY KEY (year, week, player_id)
 );
+
+-- Counting box score beside player_week_stat_lines. Same player-weeks: a row
+-- exists only when fantasy point buckets are not all zero (byes and other
+-- all-zero stat objects are omitted). Columns are the fan box score, not
+-- every source key. Sleeper reads stats.json. ESPN reads boxscore `stats`
+-- (counts); `appliedStats` is fantasy points and only feeds the bucket gate.
+-- ESPN has no red-zone stat id, so those three columns stay 0. def_int stores
+-- Sleeper's `int` and ESPN stat 95.
+CREATE TABLE IF NOT EXISTS player_week_counting_stats (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    pass_cmp INTEGER NOT NULL DEFAULT 0,
+    pass_att INTEGER NOT NULL DEFAULT 0,
+    pass_yd INTEGER NOT NULL DEFAULT 0,
+    pass_td INTEGER NOT NULL DEFAULT 0,
+    pass_int INTEGER NOT NULL DEFAULT 0,
+    rush_att INTEGER NOT NULL DEFAULT 0,
+    rush_yd INTEGER NOT NULL DEFAULT 0,
+    rush_td INTEGER NOT NULL DEFAULT 0,
+    rec INTEGER NOT NULL DEFAULT 0,
+    rec_yd INTEGER NOT NULL DEFAULT 0,
+    rec_td INTEGER NOT NULL DEFAULT 0,
+    rec_tgt INTEGER NOT NULL DEFAULT 0,
+    fum_lost INTEGER NOT NULL DEFAULT 0,
+    pass_2pt INTEGER NOT NULL DEFAULT 0,
+    rush_2pt INTEGER NOT NULL DEFAULT 0,
+    rec_2pt INTEGER NOT NULL DEFAULT 0,
+    pass_fd INTEGER NOT NULL DEFAULT 0,
+    rush_fd INTEGER NOT NULL DEFAULT 0,
+    rec_fd INTEGER NOT NULL DEFAULT 0,
+    pass_rz_att INTEGER NOT NULL DEFAULT 0,
+    rush_rz_att INTEGER NOT NULL DEFAULT 0,
+    rec_rz_tgt INTEGER NOT NULL DEFAULT 0,
+    fgm INTEGER NOT NULL DEFAULT 0,
+    fga INTEGER NOT NULL DEFAULT 0,
+    xpm INTEGER NOT NULL DEFAULT 0,
+    xpa INTEGER NOT NULL DEFAULT 0,
+    fgm_50p INTEGER NOT NULL DEFAULT 0,
+    sack INTEGER NOT NULL DEFAULT 0,
+    def_int INTEGER NOT NULL DEFAULT 0,
+    fum_rec INTEGER NOT NULL DEFAULT 0,
+    def_td INTEGER NOT NULL DEFAULT 0,
+    st_td INTEGER NOT NULL DEFAULT 0,
+    blk_kick INTEGER NOT NULL DEFAULT 0,
+    safe INTEGER NOT NULL DEFAULT 0,
+    pts_allow INTEGER NOT NULL DEFAULT 0,
+    yds_allow INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (year, week, player_id)
+);
 -- v_moves / v_trades join transaction_moves back to transactions.
 CREATE INDEX IF NOT EXISTS transaction_moves_transaction_idx
     ON transaction_moves (transaction_id);
+
+-- ---------------------------------------------------------------------------
+-- ESPN market (issue #25). Own section so it stays clear of other fact DDL.
+-- Side table of player-card ownership fields, joined through players.espn_id.
+-- Carded players who never appear in this league are not in `players`, so
+-- there is no foreign key to that table.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS espn_market (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    espn_id INTEGER NOT NULL,
+    average_draft_position DOUBLE PRECISION,
+    percent_owned DOUBLE PRECISION,
+    percent_started DOUBLE PRECISION,
+    auction_value_average DOUBLE PRECISION,
+    PRIMARY KEY (year, espn_id)
+);
+
+CREATE INDEX IF NOT EXISTS espn_market_espn_id_idx ON espn_market (espn_id);
+
+-- ---------------------------------------------------------------------------
+-- NFL schedule + Sleeper roster extras (issue #26).
+-- Schedule dumps are ESPN proTeamSchedules for 2022 and 2023 only.
+-- The crosswalk is maps/dst.yaml: ESPN proTeamId -> Sleeper abbreviation,
+-- the same codes stored on players.nfl_team (WAS, not ESPN's "Wsh").
+-- Roster extras are season totals on official_records. ESPN years stay null.
+-- points_against is Sleeper fpts_against + fpts_against_decimal/100.
+-- ppts is Sleeper ppts + ppts_decimal/100.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS points_against DOUBLE PRECISION;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS ppts DOUBLE PRECISION;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS waiver_position INTEGER;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS total_moves INTEGER;
+
+CREATE TABLE IF NOT EXISTS nfl_team_crosswalk (
+    espn_pro_team_id INTEGER PRIMARY KEY,
+    abbr TEXT NOT NULL UNIQUE,
+    location TEXT NOT NULL,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nfl_team_weeks (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    espn_pro_team_id INTEGER NOT NULL REFERENCES nfl_team_crosswalk (espn_pro_team_id),
+    opponent_espn_pro_team_id INTEGER REFERENCES nfl_team_crosswalk (espn_pro_team_id),
+    is_home BOOLEAN,
+    is_bye BOOLEAN NOT NULL,
+    PRIMARY KEY (year, week, espn_pro_team_id),
+    CHECK (
+        (is_bye AND opponent_espn_pro_team_id IS NULL AND is_home IS NULL)
+        OR (NOT is_bye AND opponent_espn_pro_team_id IS NOT NULL AND is_home IS NOT NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS nfl_team_weeks_opponent_idx
+    ON nfl_team_weeks (year, week, opponent_espn_pro_team_id);

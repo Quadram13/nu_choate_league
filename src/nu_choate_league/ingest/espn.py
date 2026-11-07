@@ -6,6 +6,7 @@ from ..catalog import IdentityIndex
 from ..dumps import ESPN_POSITIONS, DumpError, load_json, season_dir
 from ..models import (
     DraftPick,
+    EspnMarket,
     LineupSlot,
     Matchup,
     MatchupSide,
@@ -48,6 +49,14 @@ ESPN_TXN_TYPES = {
     "ROSTER": "drop",
 }
 ESPN_KEEP_STATUS = {"EXECUTED", "FAILED_INVALIDPLAYERSOURCE", "FAILED_PLAYERALREADYDROPPED", "FAILED_ROSTERLIMIT"}
+
+# players[].player.ownership on each player_cards/*.json file.
+_MARKET_FIELDS = (
+    "averageDraftPosition",
+    "percentOwned",
+    "percentStarted",
+    "auctionValueAverage",
+)
 
 
 def ingest_espn(
@@ -188,6 +197,85 @@ def _resolve_espn(
 ) -> tuple[str, str]:
     name, position = player_info.get(player_id, ("", None))
     return resolve_player(players, Platform.ESPN, player_id, name, position)
+
+
+def _market_number(value: object) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def load_espn_market(season: Season, players: PlayerIndex) -> list[EspnMarket]:
+    """Read ESPN market fields off player cards.
+
+    Path for each field is `players[].player.ownership.<field>`:
+    averageDraftPosition, percentOwned, percentStarted, auctionValueAverage.
+    """
+    folder = season_dir(season)
+    cards = folder / "player_cards"
+    if not cards.is_dir():
+        return []
+    rows: dict[int, EspnMarket] = {}
+    for path in sorted(cards.glob("*.json")):
+        payload = load_json(path)
+        for entry in payload.get("players") or []:
+            if not isinstance(entry, dict):
+                continue
+            player = entry.get("player")
+            if not isinstance(player, dict):
+                continue
+            espn_id = player.get("id")
+            if not isinstance(espn_id, int):
+                continue
+            ownership = player.get("ownership")
+            if not isinstance(ownership, dict):
+                continue
+            if not any(field in ownership for field in _MARKET_FIELDS):
+                continue
+            name = str(player.get("fullName") or "").strip()
+            position_id = player.get("defaultPositionId")
+            position = ESPN_POSITIONS.get(int(position_id)) if isinstance(position_id, int) else None
+            canonical_id, _display = resolve_player(players, Platform.ESPN, espn_id, name, position)
+            rows[espn_id] = EspnMarket(
+                year=season.year,
+                espn_id=espn_id,
+                average_draft_position=_market_number(ownership.get("averageDraftPosition")),
+                percent_owned=_market_number(ownership.get("percentOwned")),
+                percent_started=_market_number(ownership.get("percentStarted")),
+                auction_value_average=_market_number(ownership.get("auctionValueAverage")),
+                player_id=canonical_id,
+            )
+    return list(rows.values())
+
+
+def espn_id_backfill_pairs(rows: list[EspnMarket]) -> list[tuple[int, str]]:
+    """Unambiguous (espn_id, canonical player_id) stamps for players.espn_id.
+
+    A player claimed by two ESPN ids, or an ESPN id claimed by two Sleeper
+    ids, is left alone. When both an `espn:` id and a Sleeper id claim the
+    same ESPN id, the Sleeper id wins.
+    """
+    by_player: dict[str, set[int]] = {}
+    for row in rows:
+        if not row.player_id:
+            continue
+        by_player.setdefault(row.player_id, set()).add(row.espn_id)
+    by_espn: dict[int, set[str]] = {}
+    for player_id, espn_ids in by_player.items():
+        if len(espn_ids) != 1:
+            continue
+        espn_id = next(iter(espn_ids))
+        by_espn.setdefault(espn_id, set()).add(player_id)
+    chosen: list[tuple[int, str]] = []
+    for espn_id, player_ids in by_espn.items():
+        sleeper_ids = sorted(player_id for player_id in player_ids if not player_id.startswith("espn:"))
+        if len(sleeper_ids) == 1:
+            chosen.append((espn_id, sleeper_ids[0]))
+        elif not sleeper_ids and len(player_ids) == 1:
+            chosen.append((espn_id, next(iter(player_ids))))
+    return chosen
 
 
 def _draft(
