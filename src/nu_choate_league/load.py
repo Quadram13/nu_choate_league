@@ -13,6 +13,7 @@ from .dumps import ESPN_POSITIONS, load_json, season_dir
 from .ingest import ingest_all
 from .ingest.common import resolve_player
 from .ingest.espn import espn_id_backfill_pairs
+from .ingest.schedule import parse_pro_schedule
 from .ingest.score import (
     COUNTING_STAT_FIELDS,
     counting_stat_values,
@@ -51,6 +52,8 @@ def load_facts(*, year: int | None = None) -> list[str]:
             _insert_season(conn, bundle)
             _insert_stat_lines(conn, bundle)
             _insert_espn_market(conn, bundle)
+            _insert_roster_extras(conn, bundle)
+            _insert_nfl_schedule(conn, bundle)
             _progress(f"insert {bundle.season.year} ({time.perf_counter() - step:.1f}s)")
         refresh_analysis(conn, progress=_progress)
         conn.commit()
@@ -74,6 +77,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             player_week_counting_stats,
             draft_picks,
             espn_market,
+            nfl_team_weeks,
             transactions,
             matchups,
             official_records,
@@ -723,3 +727,83 @@ def _write_stat_rows(
         updates=", ".join(f"{name} = EXCLUDED.{name}" for name in count_columns),
     )
     _executemany(conn, count_sql, count_rows)
+
+
+def _insert_roster_extras(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    """Write Sleeper ppts, points-against, waiver slot, and move count.
+
+    The base official_records insert stays wins and fpts. These columns are
+    null on ESPN. A Sleeper 0 is written as 0, not left null.
+    """
+    rows = [
+        (
+            row.points_against,
+            row.ppts,
+            row.waiver_position,
+            row.total_moves,
+            bundle.season.year,
+            row.manager_id,
+        )
+        for row in bundle.official
+        if any(
+            value is not None
+            for value in (row.points_against, row.ppts, row.waiver_position, row.total_moves)
+        )
+    ]
+    _executemany(
+        conn,
+        """
+        UPDATE official_records
+        SET points_against = %s,
+            ppts = %s,
+            waiver_position = %s,
+            total_moves = %s
+        WHERE year = %s AND manager_id = %s
+        """,
+        rows,
+    )
+    if rows:
+        _progress(f"roster extras {bundle.season.year}: {len(rows)} managers")
+
+
+def _insert_nfl_schedule(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    """ESPN pro schedule for this season. Sleeper years have no dump, so skip."""
+    if bundle.season.platform is not Platform.ESPN:
+        return
+    clubs, weeks = parse_pro_schedule(bundle.season.year)
+    if not weeks:
+        return
+    _executemany(
+        conn,
+        """
+        INSERT INTO nfl_team_crosswalk (espn_pro_team_id, abbr, location, name)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (espn_pro_team_id) DO UPDATE SET
+            abbr = EXCLUDED.abbr,
+            location = EXCLUDED.location,
+            name = EXCLUDED.name
+        """,
+        [(club.espn_pro_team_id, club.abbr, club.location, club.name) for club in clubs],
+    )
+    conn.execute("DELETE FROM nfl_team_weeks WHERE year = %s", (bundle.season.year,))
+    _executemany(
+        conn,
+        """
+        INSERT INTO nfl_team_weeks (
+            year, week, espn_pro_team_id, opponent_espn_pro_team_id, is_home, is_bye
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        [
+            (
+                row.year,
+                row.week,
+                row.espn_pro_team_id,
+                row.opponent_espn_pro_team_id,
+                row.is_home,
+                row.is_bye,
+            )
+            for row in weeks
+        ],
+    )
+    _progress(f"nfl schedule {bundle.season.year}: {len(weeks)} team-weeks")

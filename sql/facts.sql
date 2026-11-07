@@ -253,3 +253,42 @@ CREATE TABLE IF NOT EXISTS espn_market (
 );
 
 CREATE INDEX IF NOT EXISTS espn_market_espn_id_idx ON espn_market (espn_id);
+
+-- ---------------------------------------------------------------------------
+-- NFL schedule + Sleeper roster extras (issue #26).
+-- Schedule dumps are ESPN proTeamSchedules for 2022 and 2023 only.
+-- The crosswalk is maps/dst.yaml: ESPN proTeamId -> Sleeper abbreviation,
+-- the same codes stored on players.nfl_team (WAS, not ESPN's "Wsh").
+-- Roster extras are season totals on official_records. ESPN years stay null.
+-- points_against is Sleeper fpts_against + fpts_against_decimal/100.
+-- ppts is Sleeper ppts + ppts_decimal/100.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS points_against DOUBLE PRECISION;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS ppts DOUBLE PRECISION;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS waiver_position INTEGER;
+ALTER TABLE official_records ADD COLUMN IF NOT EXISTS total_moves INTEGER;
+
+CREATE TABLE IF NOT EXISTS nfl_team_crosswalk (
+    espn_pro_team_id INTEGER PRIMARY KEY,
+    abbr TEXT NOT NULL UNIQUE,
+    location TEXT NOT NULL,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nfl_team_weeks (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    espn_pro_team_id INTEGER NOT NULL REFERENCES nfl_team_crosswalk (espn_pro_team_id),
+    opponent_espn_pro_team_id INTEGER REFERENCES nfl_team_crosswalk (espn_pro_team_id),
+    is_home BOOLEAN,
+    is_bye BOOLEAN NOT NULL,
+    PRIMARY KEY (year, week, espn_pro_team_id),
+    CHECK (
+        (is_bye AND opponent_espn_pro_team_id IS NULL AND is_home IS NULL)
+        OR (NOT is_bye AND opponent_espn_pro_team_id IS NOT NULL AND is_home IS NOT NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS nfl_team_weeks_opponent_idx
+    ON nfl_team_weeks (year, week, opponent_espn_pro_team_id);
