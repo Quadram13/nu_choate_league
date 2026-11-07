@@ -6,6 +6,7 @@ Historical record for agents and humans working on this repo. Every claim is dat
 
 - [2026-11-07 Wiki location](decisions/2026-11-07-wiki-location.md) — docs live in-repo under `docs/`; pattern ported selectively from hanlun_tools.
 - [2026-11-07 Orchestration](decisions/2026-11-07-orchestration.md) — Kimi K3 chief-of-staff + grok-4.7-high-fast implementers; worktree-per-ticket; Refs-only on parent issues.
+- [2026-11-07 Raw dumps first-class](decisions/2026-11-07-raw-dumps-first-class.md) — `data/` dump fields that never landed get ingest rework, then surfaces; one `load` at a time.
 
 ## Subsystems
 
