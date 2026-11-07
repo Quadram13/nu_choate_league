@@ -314,6 +314,14 @@ ul.index span {
     }
 }
 
+.value-strip {
+    margin: 4px 0 18px;
+}
+
+.value-strip h3 {
+    margin-bottom: 4px;
+}
+
 .season-head .lede {
     margin-bottom: 0;
 }
