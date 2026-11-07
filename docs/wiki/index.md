@@ -16,3 +16,4 @@ Historical record for agents and humans working on this repo. Every claim is dat
 ## Problems
 
 - [WatchFiles hang](problems/watchfiles-hang.md) — hub auto-reload hangs after `queries.py` edits (tracked as issue #11).
+- [Windows shell gotchas](problems/windows-shell-gotchas.md) — temp ps-script lock races, the `$home` reserved-variable near-miss, Start-Process orphans.
