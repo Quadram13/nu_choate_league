@@ -1238,10 +1238,15 @@ td.plus {
     flex: 0 1 auto;
 }
 
-.txn-item .team {
+.txn-item .team,
+.txn-feed .wire-table .team {
     display: inline;
     font-size: 0.75rem;
     font-weight: 400;
+}
+
+.txn-feed .wire-table .team {
+    white-space: nowrap;
 }
 
 .txn-chip {
@@ -1940,6 +1945,11 @@ tr.podium td:nth-child(3) {
     align-items: start;
 }
 
+.week-main,
+.week-awards {
+    min-width: 0;
+}
+
 .week-awards .jump {
     margin-bottom: 12px;
 }
@@ -1989,7 +1999,7 @@ tr.podium td:nth-child(3) {
 
 @media (max-width: 900px) {
     .week-split {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
