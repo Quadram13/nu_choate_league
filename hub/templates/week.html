@@ -18,7 +18,7 @@
     {% endif %}
     {% if gc.standings %}<a href="#standings">Standings</a>{% endif %}
     {% if gc.groups %}<a href="#matchups">Matchups</a>{% endif %}
-    {% if gc.card %}<a href="#card">Weekly Distinctions</a>{% endif %}
+    {% if gc.card %}<a href="#card">{% if gc.card.marks %}Weekly Distinctions{% elif gc.card.first_chairs %}Varsity Letters{% elif gc.card.last_chairs %}Varsity Farmers{% else %}Beat the Freeze{% endif %}</a>{% endif %}
     {% if gc.txns.days %}<a href="#transactions">Transactions</a>{% endif %}
 </p>
 <h1>{{ current.year }} week {{ gc.week }}</h1>
@@ -115,6 +115,7 @@
         {% endif %}
 
         {% if gc.txns.days %}
+        <div id="wire">
         <h2 id="transactions">Transactions</h2>
         <p class="note">{% if gc.txns.has_waivers %}Waiver claims are listed when the wire ran{% if gc.txns.faab %} (FAAB){% else %} (waiver order){% endif %}. Free-agent times are when the roster moved. {% endif %}Times are US Eastern.</p>
         <div class="txn-feed">
@@ -134,6 +135,7 @@
         {% endif %}
         {% endfor %}
         {% endfor %}
+        </div>
         </div>
         {% endif %}
 </div>

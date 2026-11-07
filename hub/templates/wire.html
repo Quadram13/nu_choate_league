@@ -4,7 +4,7 @@
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
     <a href="/seasons/{{ current.year }}#wire">wire</a>
-    <a href="/seasons/{{ current.year }}/week/{{ claim.week }}#wire">week {{ claim.week }}</a>
+    <a href="/seasons/{{ current.year }}/week/{{ claim.week }}#transactions">week {{ claim.week }}</a>
     {% if claim.prev %}
     <a href="/seasons/{{ current.year }}/wire/{{ claim.prev.id }}">← {{ claim.prev.label }}</a>
     {% endif %}

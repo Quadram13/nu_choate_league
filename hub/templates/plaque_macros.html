@@ -8,11 +8,11 @@
 </span>
 {% endmacro %}
 
-{% macro jersey_line(year, manager_id, team) %}
-{% if team %}
+{% macro jersey_line(year, manager_id, team) -%}
+{%- if team -%}
 <span class="team">{% if year and manager_id %}<a href="/seasons/{{ year }}#m-{{ manager_id }}" title="{{ team }}">{{ team }}</a>{% else %}{{ team }}{% endif %}</span>
-{% endif %}
-{% endmacro %}
+{%- endif -%}
+{%- endmacro %}
 
 {% macro plaque(row, year=none, compact=false, chair=false) %}
 {% if row %}
