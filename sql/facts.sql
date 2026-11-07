@@ -185,7 +185,10 @@ CREATE TABLE IF NOT EXISTS player_week_stat_lines (
 -- Counting box score beside player_week_stat_lines. Same player-weeks: a row
 -- exists only when fantasy point buckets are not all zero (byes and other
 -- all-zero stat objects are omitted). Columns are the fan box score, not
--- every Sleeper key. def_int stores Sleeper's `int`.
+-- every source key. Sleeper reads stats.json. ESPN reads boxscore `stats`
+-- (counts); `appliedStats` is fantasy points and only feeds the bucket gate.
+-- ESPN has no red-zone stat id, so those three columns stay 0. def_int stores
+-- Sleeper's `int` and ESPN stat 95.
 CREATE TABLE IF NOT EXISTS player_week_counting_stats (
     year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
     week INTEGER NOT NULL,
