@@ -17,3 +17,4 @@ Historical record for agents and humans working on this repo. Every claim is dat
 
 - [WatchFiles hang](problems/watchfiles-hang.md) — hub auto-reload hangs after `queries.py` edits (tracked as issue #11).
 - [Windows shell gotchas](problems/windows-shell-gotchas.md) — temp ps-script lock races, the `$home` reserved-variable near-miss, Start-Process orphans.
+- [Data junction worktree-remove](problems/data-junction-worktree-remove.md) — `git worktree remove` followed a `data/` junction and deleted the real dumps; junction handling rules.
