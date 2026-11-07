@@ -1767,6 +1767,20 @@ tr.this td {
     margin-top: 16px;
 }
 
+.week-card.week-live {
+    border-style: dashed;
+    background: transparent;
+}
+
+.week-recap-links {
+    color: var(--muted);
+    margin-top: 12px;
+}
+
+.week-card .jump {
+    margin-bottom: 12px;
+}
+
 .slate-match {
     position: relative;
     display: block;
@@ -2146,6 +2160,18 @@ tr.podium td:nth-child(3) {
     background: var(--surface);
     border: 1px solid var(--line);
     padding: 12px 14px;
+}
+
+.year-card.deferred,
+.year-card.unfinished {
+    border-style: dashed;
+    background: transparent;
+}
+
+.stub-copy {
+    color: var(--muted);
+    margin-top: 8px;
+    font-size: 0.85rem;
 }
 
 .year-card .year {
