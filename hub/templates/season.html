@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "trade_macros.html" import trade_got %}
 {% from "draft_macros.html" import pick_link %}
+{% from "wire_macros.html" import value_strip, cost_cell %}
 {% from "plaque_macros.html" import plaque_free, person_link, highlight_chip %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
@@ -146,7 +147,7 @@
     <a href="#standings" data-tab="standings">Standings</a>
     <a href="#weeks" data-tab="weeks">Weeks</a>
     {% if schedule.winners_tree or schedule.consolation_tree or path %}<a href="#playoffs" data-tab="playoffs">Playoffs</a>{% endif %}
-    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
+    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
     {% if draft.managers or draft.hits or draft.misses %}<a href="#draft" data-tab="draft">Draft</a>{% endif %}
     {% if lineups and lineups.coaches %}<a href="#lineups" data-tab="lineups">Lineups</a>{% endif %}
     {% if all_pro %}<a href="#allpro">All-pro</a>{% endif %}
@@ -654,9 +655,9 @@
 </div>
 {% endif %}
 
-{% if wire.managers or wire.adds or wire.misses or wire.dodges %}
+{% if wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority %}
 <h2 id="wire">Wire</h2>
-<p class="note">Starter VORP after the add. Misses are the failed claim vs what you got.</p>
+<p class="note">Starter VORP after the add. Cost is waiver priority and processing seq. ESPN seasons have neither, so the cost is a dash. Misses are the failed claim vs what you got.</p>
 {% if wire.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -695,6 +696,7 @@
 </table>
 </div>
 {% endif %}
+{{ value_strip(current.year, wire.value_per_priority) }}
 {% if wire.adds or wire.misses or wire.dodges %}
 <div class="notable-grid wire-grid">
     {% if wire.adds %}
@@ -706,6 +708,7 @@
                     <th class="num">Wk</th>
                     <th>Player</th>
                     <th>Manager</th>
+                    <th>Cost</th>
                     <th class="num">VORP</th>
                 </tr>
             </thead>
@@ -715,9 +718,10 @@
                     <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
                     <td>
                         {% if row.transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
-                        <span class="team">{{ row.kind }}{% if row.bid_label %} {{ row.bid_label }}{% endif %}</span>
+                        <span class="team">{{ row.kind }}</span>
                     </td>
                     <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td>{{ cost_cell(row) }}</td>
                     <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
                 </tr>
                 {% endfor %}

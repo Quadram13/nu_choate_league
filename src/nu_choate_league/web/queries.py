@@ -1530,7 +1530,13 @@ def _season_wire(year: int) -> dict[str, Any]:
         """,
         {"year": year},
     )
-    return {"adds": adds, "misses": misses, "dodges": dodges, "managers": managers}
+    return {
+        "adds": adds,
+        "misses": misses,
+        "dodges": dodges,
+        "managers": managers,
+        "value_per_priority": _wire_value_per_priority(year),
+    }
 
 
 def _wire_add_highlights(
@@ -1544,7 +1550,7 @@ def _wire_add_highlights(
         SELECT
             v.year, v.week, v.type, v.transaction_id, v.manager_id, v.manager_name,
             v.player_id, v.player_name, v.position, v.ros_vorp,
-            mv.bid, mv.priority
+            mv.bid, mv.priority, mv.seq
         FROM v_add_value v
         LEFT JOIN v_moves mv
             ON mv.transaction_id = v.transaction_id
@@ -1561,11 +1567,56 @@ def _wire_add_highlights(
     for row in rows:
         row["kind"] = "wav" if row["type"] == "waiver" else "FA"
         row["bid_label"] = _wire_bid(row)
+        row["cost_label"] = _wire_cost(row)
     return rows
 
 
 def _season_wire_adds(year: int) -> list[dict[str, Any]]:
     return _wire_add_highlights(year=year, limit=5)
+
+
+def _wire_value_per_priority(year: int, limit: int = 5) -> list[dict[str, Any]]:
+    """Waiver adds ranked by ROS VORP per claim priority.
+
+    Joins v_add_value to transactions. priority is 0-based (the page prints
+    pri N as priority + 1, the manager's first claim that run). The rank is
+    ros_vorp / (priority + 1). seq is the league processing order (0 is first)
+    and is shown beside the rank, not used as the divisor. Bids are ignored:
+    historical bid is 0 or null, and the one real dollar bid is 2026.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            v.year,
+            v.week,
+            v.transaction_id,
+            v.manager_id,
+            v.manager_name,
+            v.player_id,
+            v.player_name,
+            v.position,
+            v.ros_vorp,
+            v.tenure_vorp,
+            t.priority,
+            t.seq,
+            t.bid,
+            v.ros_vorp / (t.priority + 1) AS value_per_priority
+        FROM v_add_value v
+        JOIN transactions t ON t.id = v.transaction_id
+        WHERE v.year = %(year)s
+            AND v.type = 'waiver'
+            AND t.priority IS NOT NULL
+            AND v.ros_vorp > 0
+        ORDER BY v.ros_vorp / (t.priority + 1) DESC,
+            v.ros_vorp DESC,
+            v.player_name
+        LIMIT %(limit)s
+        """,
+        {"year": year, "limit": limit},
+    )
+    for row in rows:
+        row["cost_label"] = _wire_cost(row)
+    return rows
 
 
 def _claim_outcome(row: dict[str, Any]) -> dict[str, str]:
@@ -1598,6 +1649,34 @@ def _wire_bid(row: dict[str, Any]) -> str | None:
     if priority is not None:
         return f"pri {int(priority) + 1}"
     return None
+
+
+def _wire_cost(row: dict[str, Any]) -> str | None:
+    """Priority and seq, or a 2026 dollar bid. None renders as an em dash.
+
+    ESPN stores bid 0 on every row. That is not a price, so years before
+    FAAB never print a dollar.
+    """
+    parts: list[str] = []
+    if _uses_faab(row.get("year")):
+        bid = row.get("bid")
+        if bid is not None:
+            parts.append(f"${int(bid)}")
+    priority = row.get("priority")
+    if priority is not None:
+        parts.append(f"pri {int(priority) + 1}")
+    seq = row.get("seq")
+    if seq is not None:
+        parts.append(f"seq {int(seq)}")
+    return " · ".join(parts) if parts else None
+
+
+def _value_per_priority(row: dict[str, Any]) -> float | None:
+    priority = row.get("priority")
+    ros = row.get("ros_vorp")
+    if priority is None or ros is None:
+        return None
+    return float(ros) / (int(priority) + 1)
 
 
 def _claim_order_sql(year: int) -> str:
@@ -1634,6 +1713,7 @@ def _annotate_wire_row(row: dict[str, Any]) -> dict[str, Any]:
     packed = dict(row)
     packed["outcome"] = _claim_outcome(packed)
     packed["bid_label"] = _wire_bid(packed)
+    packed["cost_label"] = _wire_cost(packed)
     packed.update(_wire_when(packed.get("at")))
     if "drops" not in packed:
         packed["drops"] = []
@@ -2054,6 +2134,7 @@ def wire_page(year: int, transaction_id: str) -> dict[str, Any] | None:
         packed["ros_vorp"] = tenure.get("ros_vorp")
         packed["ros_starter"] = tenure.get("ros_starter")
         packed["ros_starts"] = tenure.get("ros_starts")
+    packed["value_per_priority"] = _value_per_priority(packed)
     rivals: list[dict[str, Any]] = []
     if kind == "waiver" and packed.get("player_id"):
         rivals = fetchall(
@@ -2081,7 +2162,13 @@ def wire_page(year: int, transaction_id: str) -> dict[str, Any] | None:
         _attach_wire_drops(rivals)
         rivals = [_annotate_wire_row(row) for row in rivals]
     nav = _wire_nav(year, transaction_id)
-    return {**packed, "rivals": rivals, "faab": _uses_faab(year), **nav}
+    return {
+        **packed,
+        "rivals": rivals,
+        "faab": _uses_faab(year),
+        "priority_value": _wire_value_per_priority(year),
+        **nav,
+    }
 
 
 def _wire_nav(year: int, transaction_id: str) -> dict[str, Any]:
