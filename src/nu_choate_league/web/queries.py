@@ -5288,6 +5288,10 @@ def records_page() -> dict[str, Any]:
         "fa_adds": _record_fa_adds(),
         "wire_eras": _wire_eras(),
         "coaches": management_career(),
+        "draft_capital": _record_draft_capital(),
+        "awards": _record_awards(),
+        "journeymen": _record_journeymen(),
+        "most_traded": _record_most_traded(),
     }
 
 
@@ -5538,6 +5542,87 @@ def _record_fa_adds(limit: int = 10) -> list[dict[str, Any]]:
         """,
         {"limit": limit},
     )
+
+
+def _record_draft_capital() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            d.manager_id,
+            max(d.manager_name) AS manager_name,
+            sum(d.picks) AS picks,
+            sum(d.vs_vorp) AS vs_vorp,
+            sum(d.vs_round) AS vs_round,
+            sum(d.hits) AS hits,
+            sum(d.ros_vorp) AS ros_vorp,
+            c.titles
+        FROM v_draft_manager d
+        LEFT JOIN v_career c ON c.manager_id = d.manager_id
+        GROUP BY d.manager_id, c.titles
+        ORDER BY sum(d.vs_vorp) DESC NULLS LAST, max(d.manager_name), d.manager_id
+        """
+    )
+
+
+def _record_awards() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            s.year,
+            o.champion AS champion_id,
+            ch.display_name AS champion,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up,
+            o.regular_season_champion AS regular_season_champion_id,
+            rs.display_name AS regular_season_champion,
+            o.most_points AS most_points_id,
+            mp.display_name AS most_points
+        FROM seasons s
+        LEFT JOIN season_outcomes o ON o.year = s.year
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        LEFT JOIN managers rs ON rs.id = o.regular_season_champion
+        LEFT JOIN managers mp ON mp.id = o.most_points
+        ORDER BY s.year
+        """
+    )
+
+
+def _record_journeymen() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            o.player_id,
+            coalesce(p.display_name, o.player_id) AS player_name,
+            p.position,
+            count(DISTINCT o.manager_id) AS managers
+        FROM v_ownership_season o
+        LEFT JOIN players p ON p.id = o.player_id
+        WHERE o.manager_id IS NOT NULL
+        GROUP BY o.player_id, p.display_name, p.position
+        HAVING count(DISTINCT o.manager_id) >= 3
+        ORDER BY count(DISTINCT o.manager_id) DESC, player_name, o.player_id
+        """
+    )
+
+
+def _record_most_traded(limit: int = 10) -> dict[str, Any]:
+    rows = fetchall(
+        """
+        SELECT
+            player_id,
+            max(player_name) AS player_name,
+            max(position) AS position,
+            count(*) AS trades
+        FROM v_trades
+        GROUP BY player_id
+        ORDER BY count(*) DESC, max(player_name), player_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    total = fetchone("SELECT count(*) AS moves FROM v_trades")
+    return {"rows": rows, "moves": int((total or {}).get("moves") or 0)}
 
 
 def _wire_eras() -> list[dict[str, Any]]:
