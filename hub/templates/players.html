@@ -14,8 +14,8 @@
 {% endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. Season rows are a fold. Highest weeks stay on <a href="/records">Records</a>. All-pro lives on each <a href="/seasons">season</a>.</p>
-{% if not career and not seasons %}
+<p class="lede">Career starter PF. Trades are times moved. Rings are playoff starts on the title roster. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP scored while unowned. Highest weeks stay on <a href="/records">Records</a>. All-pro lives on each <a href="/seasons">season</a>.</p>
+{% if not career and not seasons and not wire_leaders and not wire_unowned %}
 <p class="note">No player records yet. Load dumps into Postgres first.</p>
 {% endif %}
 <p class="jump js-year-filter" hidden></p>
@@ -41,6 +41,8 @@
             <th class="num">Own</th>
             <th class="num">Draft</th>
             <th class="num">Adds</th>
+            <th class="num">Trades</th>
+            <th class="num">Rings</th>
         </tr>
     </thead>
     <tbody>
@@ -56,6 +58,8 @@
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
             <td class="num">{{ (row.times_drafted or 0)|int }}</td>
             <td class="num">{{ (row.times_added or 0)|int }}</td>
+            <td class="num">{{ (row.times_traded or 0)|int }}</td>
+            <td class="num">{{ (row.rings or 0)|int }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -96,4 +100,69 @@
     </tbody>
 </table>
 </div>
+
+{% if wire_leaders or wire_unowned %}
+<h2 id="wire">Left on the wire</h2>
+<p class="note">Season VORP from weeks the player was unowned. Leaders are the top 15. Never rostered is a season with zero rostered weeks, a week of 15 or more, and positive FA VORP. Someone who was never on a roster is absent from the career table.</p>
+{% if wire_leaders %}
+<h3>Leaders</h3>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">FA</th>
+            <th class="num">Pts</th>
+            <th class="num">Best</th>
+            <th class="num">FA VORP</th>
+            <th class="num">Rstr</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire_leaders %}
+        <tr>
+            <td class="num">{{ row.year }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_week }}">{% if row.best_week is not none %}{{ "%.1f"|format(row.best_week) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% if wire_unowned %}
+<h3>Never rostered</h3>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">FA</th>
+            <th class="num">Pts</th>
+            <th class="num">Best</th>
+            <th class="num">FA VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire_unowned %}
+        <tr>
+            <td class="num">{{ row.year }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_week }}">{% if row.best_week is not none %}{{ "%.1f"|format(row.best_week) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
 {% endblock %}

@@ -33,9 +33,10 @@
 {% endif %}
 {% if rings %}
 <p class="note">
-    Started in a title week
+    {{ rings|length }} ring{{ "s" if rings|length != 1 else "" }}
+    · {{ "%.1f"|format(ring_points) }} title-week points
     {% for row in rings %}
-    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a> for {{ person(row.manager_id, row.manager_name) }}
+    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %} for {{ person(row.manager_id, row.manager_name) }}
     {% endfor %}
 </p>
 {% endif %}

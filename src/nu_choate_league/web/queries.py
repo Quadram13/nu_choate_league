@@ -3651,11 +3651,21 @@ def players_index() -> dict[str, Any]:
     career = fetchall(
         """
         SELECT
-            player_id, player_name, position, seasons, first_year, last_year,
-            starts, bench_weeks, starter_points, rostered_weeks, fa_weeks,
-            vorp, own_pct, times_drafted, times_added, times_traded
-        FROM v_player_index
-        ORDER BY starter_points DESC, vorp DESC, player_name
+            i.player_id, i.player_name, i.position, i.seasons, i.first_year, i.last_year,
+            i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
+            i.vorp, i.own_pct, i.times_drafted, i.times_added, i.times_traded,
+            coalesce(r.rings, 0) AS rings
+        FROM v_player_index i
+        LEFT JOIN (
+            SELECT pw.player_id, count(*) AS rings
+            FROM v_player_weeks pw
+            JOIN season_outcomes o ON o.year = pw.year AND o.champion = pw.manager_id
+            WHERE pw.started
+                AND pw.kind = 'playoff'
+                AND (o.playoff_start_week IS NULL OR pw.week >= o.playoff_start_week)
+            GROUP BY pw.player_id
+        ) r ON r.player_id = i.player_id
+        ORDER BY i.starter_points DESC, i.vorp DESC, i.player_name
         """
     )
     seasons = fetchall(
@@ -3672,10 +3682,60 @@ def players_index() -> dict[str, Any]:
         row["avg"] = _per_start(row.get("starter_points"), row.get("starts"))
     for row in seasons:
         row["avg"] = _per_start(row.get("started_points"), row.get("starts"))
+    wire = _fa_vorp_board()
     return {
         "career": career,
         "seasons": seasons,
+        "wire_leaders": wire["leaders"],
+        "wire_unowned": wire["unowned"],
     }
+
+
+def _fa_vorp_board(*, leader_limit: int = 15, unowned_points: float = 15) -> dict[str, list[dict[str, Any]]]:
+    """Season FA VORP while unowned, plus never-rostered producers the career index drops."""
+    base = """
+        SELECT
+            v.year,
+            v.player_id,
+            v.player_name,
+            v.position,
+            v.fa_weeks,
+            v.rostered_weeks,
+            v.fa_vorp,
+            fa.fa_points,
+            fa.best_week
+        FROM v_vorp_season v
+        JOIN (
+            SELECT
+                year,
+                player_id,
+                sum(points) AS fa_points,
+                max(points) AS best_week
+            FROM v_pool_weeks
+            WHERE NOT rostered
+            GROUP BY year, player_id
+        ) fa ON fa.year = v.year AND fa.player_id = v.player_id
+    """
+    leaders = fetchall(
+        base
+        + """
+        WHERE v.fa_weeks > 0
+        ORDER BY v.fa_vorp DESC, fa.fa_points DESC, v.player_name
+        LIMIT %(limit)s
+        """,
+        {"limit": leader_limit},
+    )
+    unowned = fetchall(
+        base
+        + """
+        WHERE v.rostered_weeks = 0
+            AND fa.best_week >= %(unowned_points)s
+            AND v.fa_vorp > 0
+        ORDER BY v.fa_vorp DESC, fa.best_week DESC, v.player_name
+        """,
+        {"unowned_points": unowned_points},
+    )
+    return {"leaders": leaders, "unowned": unowned}
 
 
 def _per_start(points: Any, starts: Any) -> float | None:
@@ -3905,6 +3965,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     by_line = {(row["year"], row["week"]): row for row in lines}
     for row in weeks:
         row["line"] = by_line.get((row["year"], row["week"]))
+    rings = _player_title_weeks(player_id)
     return {
         "player": identity,
         "seasons": seasons,
@@ -3914,7 +3975,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "owners": owners,
         "bio": _player_bio(player_id),
         "chairs": _player_chairs(player_id),
-        "rings": _player_title_weeks(player_id),
+        "rings": rings,
+        "ring_points": sum(float(row["points"] or 0) for row in rings),
         "lines": lines,
     }
 
