@@ -256,6 +256,17 @@ td.num {
     font-variant-numeric: tabular-nums;
 }
 
+tr.sheet-group td {
+    padding-top: 14px;
+    color: #e4e4e7;
+    font-weight: 600;
+    border-bottom-color: #374151;
+}
+
+tbody tr.sheet-group:first-child td {
+    padding-top: 6px;
+}
+
 ul.index {
     list-style: none;
 }
