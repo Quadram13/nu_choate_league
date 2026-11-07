@@ -56,6 +56,25 @@
     {% endif %}
 </article>
 {% endmacro %}
+{% macro universe_seed(manager_id, name, team, points, winner_id, seed_no) %}
+<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
+    <span class="who">
+        <span class="seed-line">
+            <span class="seed-no">{{ seed_no }}</span>
+            {{ person(manager_id, name) }}
+        </span>
+        {% if team %}<span class="team">{{ team }}</span>{% endif %}
+    </span>
+    <span class="num">{% if points is not none %}{{ "%.2f"|format(points) }}{% endif %}</span>
+</div>
+{% endmacro %}
+{% macro universe_match(match) %}
+<article class="bracket-match universe-game" data-round="{{ match.round }}" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}" data-home-seed="{{ match.home_seed }}" data-away-seed="{{ match.away_seed }}">
+    {{ universe_seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, match.home_seed) }}
+    {{ universe_seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, match.away_seed) }}
+    {% if match.tiebreak %}<p class="note tiebreak">Tiebreak: {{ match.tiebreak }}</p>{% endif %}
+</article>
+{% endmacro %}
 {% macro bracket(tree, heading, note, fragment, year) %}
 {% if tree %}
 <section>
@@ -264,9 +283,34 @@
     <p class="note universe-line" id="universes">
         Official {{ person(universes.official_champ_id, universes.official_champ) }}
         <span class="team">RS {{ person(universes.official_rs_id, universes.official_rs) }}</span>
-        · H2H {{ person(universes.h2h_champ_id, universes.h2h_champ) }}{% if universes.h2h_same is false %} differs{% endif %}
-        · Median {{ person(universes.median_champ_id, universes.median_champ) }}{% if universes.median_same is false %} differs{% endif %}
+        · H2H {{ person(universes.h2h_champ_id, universes.h2h_champ) }}{% if universes.h2h_same %} <span class="matches-official">matches official</span>{% elif universes.h2h_same is false %} differs{% endif %}
+        · Median {{ person(universes.median_champ_id, universes.median_champ) }}{% if universes.median_same %} <span class="matches-official">matches official</span>{% elif universes.median_same is false %} differs{% endif %}
     </p>
+    {% if universes.brackets %}
+    <h2 id="universe-brackets">Counterfactual brackets</h2>
+    <p class="note">Never-median is H2H only. Always-median adds a game against the weekly median. Points are that round's score, summed when the round covers more than one week.</p>
+    <div class="brackets universe-brackets">
+        {% for board in universes.brackets %}
+        <section class="universe-board" data-universe="{{ board.key }}" data-matches-official="{{ 'true' if board.matches_official else 'false' }}">
+            <h2>{{ board.label }}</h2>
+            {% if board.matches_official %}<p class="note matches-official">matches official</p>{% endif %}
+            <div class="bracket-tree tree">
+                <svg class="bracket-lines" aria-hidden="true"></svg>
+                {% for round in board.rounds %}
+                <div class="bracket-round">
+                    <h3>{{ round.label }} · {{ round.span }}</h3>
+                    <div class="bracket-slots">
+                        {% for match in round.matches %}
+                        {{ universe_match(match) }}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% endif %}
 
     {% if ranks %}

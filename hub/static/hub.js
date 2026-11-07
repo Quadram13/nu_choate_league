@@ -58,6 +58,7 @@ function enableSeasonTabs() {
         scoring: "standings",
         universes: "standings",
         "universe-ranks": "standings",
+        "universe-brackets": "standings",
         luck: "standings",
         allpro: "standings",
         allbench: "standings",

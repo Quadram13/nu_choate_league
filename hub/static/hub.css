@@ -379,6 +379,34 @@ ul.index span {
     margin: 0;
 }
 
+.universe-brackets.brackets {
+    margin-top: 4px;
+}
+
+.matches-official {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.seed-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.seed-no {
+    color: var(--muted);
+    font-family: var(--font-data);
+    font-size: 0.75rem;
+    flex: none;
+}
+
+.bracket-match .tiebreak {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+}
+
 .notable-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

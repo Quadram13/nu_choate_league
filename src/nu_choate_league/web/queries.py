@@ -972,6 +972,7 @@ def _season_universes(year: int) -> dict[str, Any] | None:
         return None
     if not packed.get("official_champ") and not packed.get("h2h_champ") and not packed.get("median_champ"):
         return None
+    packed["brackets"] = universe_brackets(year)
     return packed
 
 
@@ -3713,6 +3714,142 @@ def luck_flagged_weeks() -> list[dict[str, Any]]:
     for row in rows:
         row["flag"] = "H2H enjoyer" if row["lucky_win"] else "Median enjoyer"
     return rows
+
+
+UNIVERSE_LABELS = {
+    "never_median": "Never-median",
+    "always_median": "Always-median",
+}
+UNIVERSE_ORDER = {"never_median": 0, "always_median": 1}
+ROUND_LABELS = {
+    "wildcard": "Wild card",
+    "semifinal": "Semifinals",
+    "championship": "Championship",
+}
+ROUND_ORDER = {"wildcard": 0, "semifinal": 1, "championship": 2}
+
+
+def _tiebreak_label(value: str | None) -> str | None:
+    if not value:
+        return None
+    if value == "higher_seed":
+        return "higher seed"
+    return value.replace("_", " ")
+
+
+def _week_span(start: int, end: int) -> str:
+    if start == end:
+        return f"week {start}"
+    return f"weeks {start}–{end}"
+
+
+def _universe_match(row: dict[str, Any]) -> dict[str, Any]:
+    home_name = row["home_name"]
+    away_name = row["away_name"]
+    return {
+        "round": row["round"],
+        "home_id": row["home_id"],
+        "home_name": home_name,
+        "home_team": flavor_team(home_name, row.get("home_team_name")),
+        "home_points": row["home_points"],
+        "home_seed": int(row["home_seed"]),
+        "away_id": row["away_id"],
+        "away_name": away_name,
+        "away_team": flavor_team(away_name, row.get("away_team_name")),
+        "away_points": row["away_points"],
+        "away_seed": int(row["away_seed"]),
+        "winner_id": row["winner_id"],
+        "tiebreak": _tiebreak_label(row.get("tiebreak")),
+    }
+
+
+def universe_brackets(year: int) -> list[dict[str, Any]]:
+    """Counterfactual playoff games for one finished season, both universes."""
+    rows = fetchall(
+        """
+        SELECT
+            g.universe,
+            g.round,
+            CASE
+                WHEN sh.shape = 'four' AND g.round = 'semifinal' THEN sh.semi_week
+                WHEN sh.shape = 'four' AND g.round = 'championship' THEN sh.semi_last_week + 1
+                ELSE g.week
+            END AS week_start,
+            CASE
+                WHEN sh.shape = 'four' AND g.round = 'semifinal' THEN sh.semi_last_week
+                WHEN sh.shape = 'four' AND g.round = 'championship' THEN sh.final_week
+                ELSE g.week
+            END AS week_end,
+            g.home_seed,
+            g.home_id,
+            hm.display_name AS home_name,
+            ht.team_name AS home_team_name,
+            g.home_points,
+            g.away_seed,
+            g.away_id,
+            am.display_name AS away_name,
+            at.team_name AS away_team_name,
+            g.away_points,
+            g.winner AS winner_id,
+            g.tiebreak,
+            o.matches_official
+        FROM v_universe_games g
+        JOIN v_universe_playoff_shape sh ON sh.year = g.year
+        JOIN managers hm ON hm.id = g.home_id
+        JOIN managers am ON am.id = g.away_id
+        LEFT JOIN team_seasons ht ON ht.year = g.year AND ht.manager_id = g.home_id
+        LEFT JOIN team_seasons at ON at.year = g.year AND at.manager_id = g.away_id
+        LEFT JOIN v_universe_outcomes o
+            ON o.universe = g.universe AND o.year = g.year
+        WHERE g.year = %(year)s
+        ORDER BY
+            CASE g.universe WHEN 'never_median' THEN 0 ELSE 1 END,
+            CASE g.round
+                WHEN 'wildcard' THEN 0
+                WHEN 'semifinal' THEN 1
+                ELSE 2
+            END,
+            g.home_seed
+        """,
+        {"year": year},
+    )
+    boards: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = row["universe"]
+        board = boards.get(key)
+        if board is None:
+            board = {
+                "key": key,
+                "label": UNIVERSE_LABELS.get(key, key),
+                "matches_official": bool(row["matches_official"]),
+                "rounds": {},
+            }
+            boards[key] = board
+            order.append(key)
+        round_key = row["round"]
+        packed_round = board["rounds"].get(round_key)
+        if packed_round is None:
+            start = int(row["week_start"])
+            end = int(row["week_end"])
+            packed_round = {
+                "key": round_key,
+                "label": ROUND_LABELS.get(round_key, round_key),
+                "week": start,
+                "week_end": end,
+                "span": _week_span(start, end),
+                "matches": [],
+            }
+            board["rounds"][round_key] = packed_round
+        packed_round["matches"].append(_universe_match(row))
+    packed: list[dict[str, Any]] = []
+    for key in sorted(order, key=lambda item: UNIVERSE_ORDER.get(item, 9)):
+        board = boards[key]
+        rounds = list(board["rounds"].values())
+        rounds.sort(key=lambda item: ROUND_ORDER.get(item["key"], 9))
+        board["rounds"] = rounds
+        packed.append(board)
+    return packed
 
 
 def universe_titles(year: int | None = None) -> list[dict[str, Any]]:
