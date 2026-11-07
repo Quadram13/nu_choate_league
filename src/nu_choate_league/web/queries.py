@@ -4641,6 +4641,129 @@ def marks_page() -> dict[str, Any]:
     }
 
 
+def _trade_pair_counts() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            left_id, left_name, right_id, right_name,
+            count(*) AS deals,
+            sum(left_vorp_edge) AS left_edge
+        FROM v_trade_grades
+        GROUP BY left_id, left_name, right_id, right_name
+        """
+    )
+
+
+def _most_deals_note(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not rows:
+        return None
+    top = max(
+        rows,
+        key=lambda row: (
+            int(row["deals"]),
+            abs(float(row["left_edge"] or 0)),
+            row["left_name"],
+            row["right_name"],
+        ),
+    )
+    count = int(top["deals"])
+    noun = "deal" if count == 1 else "deals"
+    return {
+        "kind": "deals",
+        "label": "Most deals",
+        "left_id": top["left_id"],
+        "left_name": top["left_name"],
+        "right_id": top["right_id"],
+        "right_name": top["right_name"],
+        "detail": f"{count} {noun}",
+        "href": f"/versus/{top['left_id']}/{top['right_id']}",
+    }
+
+
+def _pair_trade_ledger(left_id: str, right_id: str) -> dict[str, Any]:
+    """Trades between a versus pair, signed from the page's left manager.
+
+    ``v_trade_grades.left_id`` is the lower manager id. ``left_vorp_edge`` is
+    the ROS VORP that side received minus the other side. The edge flips when
+    the page's left manager was stored as ``right_id``.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id,
+            year,
+            week,
+            winner_id,
+            winner_name,
+            round(vorp_gap::numeric, 1) AS gap,
+            round(signed::numeric, 1) AS edge,
+            count(*) OVER () AS deals,
+            round((sum(signed) OVER ())::numeric, 1) AS net_vorp,
+            count(*) FILTER (WHERE winner_id = %(left)s) OVER () AS left_wins,
+            count(*) FILTER (WHERE winner_id = %(right)s) OVER () AS right_wins,
+            count(*) FILTER (WHERE winner_id IS NULL) OVER () AS pushes
+        FROM (
+            SELECT
+                transaction_id,
+                year,
+                week,
+                winner_id,
+                winner_name,
+                vorp_gap,
+                CASE
+                    WHEN left_id = %(left)s THEN left_vorp_edge
+                    ELSE -left_vorp_edge
+                END AS signed
+            FROM v_trade_grades
+            WHERE (left_id = %(left)s AND right_id = %(right)s)
+               OR (left_id = %(right)s AND right_id = %(left)s)
+        ) graded
+        ORDER BY year, week, transaction_id
+        """,
+        {"left": left_id, "right": right_id},
+    )
+    if not rows:
+        return {
+            "deals": 0,
+            "net_vorp": 0,
+            "left_wins": 0,
+            "right_wins": 0,
+            "pushes": 0,
+            "table_winner": None,
+            "rows": [],
+        }
+    head = rows[0]
+    left_wins = int(head["left_wins"] or 0)
+    right_wins = int(head["right_wins"] or 0)
+    if left_wins > right_wins:
+        table_winner = "left"
+    elif right_wins > left_wins:
+        table_winner = "right"
+    else:
+        table_winner = None
+    return {
+        "deals": int(head["deals"] or 0),
+        "net_vorp": head["net_vorp"],
+        "left_wins": left_wins,
+        "right_wins": right_wins,
+        "pushes": int(head["pushes"] or 0),
+        "table_winner": table_winner,
+        "rows": [
+            {
+                "transaction_id": row["transaction_id"],
+                "year": int(row["year"]),
+                "week": int(row["week"]),
+                "href": f"/seasons/{row['year']}/trades/{row['transaction_id']}",
+                "edge": row["edge"],
+                "gap": row["gap"],
+                "winner_id": row["winner_id"],
+                "winner_name": row["winner_name"],
+            }
+            for row in rows
+        ],
+    }
+
+
 def versus_grid() -> dict[str, Any]:
     managers = fetchall(
         """
@@ -4660,6 +4783,12 @@ def versus_grid() -> dict[str, Any]:
         FROM v_h2h
         """
     )
+    trade_pairs = _trade_pair_counts()
+    deal_counts = {
+        (row["left_id"], row["right_id"]): int(row["deals"])
+        for row in trade_pairs
+    }
+    deal_counts.update({(right, left): count for (left, right), count in list(deal_counts.items())})
     cells: dict[tuple[str, str], dict[str, Any]] = {}
     for row in pairs:
         left = row["left_id"]
@@ -4701,9 +4830,14 @@ def versus_grid() -> dict[str, Any]:
             cell = cells.get((left["manager_id"], right["manager_id"]), {"games": 0, "record": None, "win_pct": None})
             cell = dict(cell)
             cell["href"] = f"/versus/{left['manager_id']}/{right['manager_id']}"
+            cell["deals"] = deal_counts.get((left["manager_id"], right["manager_id"]), 0)
             cells_row.append(cell)
         grid.append({"manager": left, "cells": cells_row, "hue": manager_hue(left["manager_id"])})
-    return {"managers": managers, "grid": grid, "ids": ids, "notes": _versus_notes(pairs)}
+    notes = _versus_notes(pairs)
+    deals_note = _most_deals_note(trade_pairs)
+    if deals_note:
+        notes.append(deals_note)
+    return {"managers": managers, "grid": grid, "ids": ids, "notes": notes}
 
 
 def _versus_notes(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -4847,6 +4981,7 @@ def versus_pair(left_id: str, right_id: str) -> dict[str, Any] | None:
         "streak": streak,
         "closest": closest,
         "blowout": blowout,
+        "trades": _pair_trade_ledger(left_id, right_id),
         "hue_left": manager_hue(left_id),
         "hue_right": manager_hue(right_id),
     }

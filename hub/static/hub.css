@@ -2442,6 +2442,18 @@ tr.podium td:nth-child(3) {
     color: #6b7280;
 }
 
+.versus-grid .deals {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #d6d3d1;
+}
+
+.pair-trades .note {
+    margin-bottom: 10px;
+}
+
 .rank-heat {
     font-size: 0.75rem;
 }
