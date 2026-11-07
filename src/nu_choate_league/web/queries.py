@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from psycopg.rows import dict_row
 
 from ..db import database_url
+from ..ingest.score import COUNTING_STAT_FIELDS
 from . import brackets
 from .names import flavor_team, manager_hue
 
@@ -5729,15 +5730,142 @@ def _player_title_weeks(player_id: str) -> list[dict[str, Any]]:
 
 
 def _player_stat_lines(player_id: str) -> list[dict[str, Any]]:
-    return fetchall(
-        """
-        SELECT year, week, pass_points, rush_points, rec_points, misc_points
-        FROM player_week_stat_lines
-        WHERE player_id = %(player_id)s
-        ORDER BY year, week
+    counting = ", ".join(f"c.{name}" for name, _key in COUNTING_STAT_FIELDS)
+    rows = fetchall(
+        f"""
+        SELECT
+            l.year,
+            l.week,
+            l.pass_points,
+            l.rush_points,
+            l.rec_points,
+            l.misc_points,
+            {counting}
+        FROM player_week_stat_lines l
+        LEFT JOIN player_week_counting_stats c
+            ON c.year = l.year
+            AND c.week = l.week
+            AND c.player_id = l.player_id
+        WHERE l.player_id = %(player_id)s
+        ORDER BY l.year, l.week
         """,
         {"player_id": player_id},
     )
+    for row in rows:
+        row["counting_note"] = _counting_note(row)
+    return rows
+
+
+def _counting_note(row: dict[str, Any]) -> str | None:
+    def n(key: str) -> int:
+        try:
+            return int(row.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    parts: list[str] = []
+    att = n("pass_att")
+    completions = n("pass_cmp")
+    if att or completions:
+        parts.append(f"{completions}/{att}")
+    if n("pass_int"):
+        parts.append(f"{n('pass_int')} INT")
+    if n("rush_att"):
+        parts.append(f"{n('rush_att')} rush")
+    twos: list[str] = []
+    if n("pass_2pt"):
+        twos.append(f"{n('pass_2pt')} pass")
+    if n("rush_2pt"):
+        twos.append(f"{n('rush_2pt')} rush")
+    if n("rec_2pt"):
+        twos.append(f"{n('rec_2pt')} rec")
+    if twos:
+        parts.append(", ".join(twos) + " 2pt")
+    first_downs = n("pass_fd") + n("rush_fd") + n("rec_fd")
+    if first_downs:
+        parts.append(f"{first_downs} FD")
+    red_zone = n("pass_rz_att") + n("rush_rz_att") + n("rec_rz_tgt")
+    if red_zone:
+        parts.append(f"{red_zone} RZ")
+    if n("fum_lost"):
+        parts.append(f"{n('fum_lost')} FL")
+    made = n("fgm")
+    attempted = n("fga")
+    extra_made = n("xpm")
+    extra_att = n("xpa")
+    if made or attempted or extra_made or extra_att:
+        kick = f"{made}/{attempted} FG"
+        if n("fgm_50p"):
+            kick += f", {n('fgm_50p')} from 50+"
+        kick += f", {extra_made}/{extra_att} XP"
+        parts.append(kick)
+    defense: list[str] = []
+    if n("sack"):
+        defense.append(f"{n('sack')} sack")
+    if n("def_int"):
+        defense.append(f"{n('def_int')} DEF INT")
+    if n("fum_rec"):
+        defense.append(f"{n('fum_rec')} FR")
+    if n("def_td"):
+        defense.append(f"{n('def_td')} DTD")
+    if n("st_td"):
+        defense.append(f"{n('st_td')} ST TD")
+    if n("blk_kick"):
+        defense.append(f"{n('blk_kick')} blk")
+    if n("safe"):
+        defense.append(f"{n('safe')} sfty")
+    if n("yds_allow"):
+        defense.append(f"{n('pts_allow')} PA")
+        defense.append(f"{n('yds_allow')} YA")
+    elif n("pts_allow"):
+        defense.append(f"{n('pts_allow')} PA")
+    parts.extend(defense)
+    return " · ".join(parts) or None
+
+
+# Single-week highs among rostered players. Column names are a fixed whitelist.
+COUNTING_LEADER_BOARDS: tuple[tuple[str, str, str], ...] = (
+    ("rush_yd", "Rushing yards", "Yds"),
+    ("rec_yd", "Receiving yards", "Yds"),
+    ("pass_yd", "Passing yards", "Yds"),
+    ("rec_tgt", "Targets", "Tgt"),
+)
+
+
+def _record_counting_leaders(limit: int = 10) -> list[dict[str, Any]]:
+    boards: list[dict[str, Any]] = []
+    allowed = {column for column, _label, _unit in COUNTING_LEADER_BOARDS}
+    for column, label, unit in COUNTING_LEADER_BOARDS:
+        if column not in allowed or not column.isidentifier():
+            continue
+        rows = fetchall(
+            f"""
+            SELECT
+                c.year,
+                c.week,
+                c.player_id,
+                coalesce(p.display_name, s.player_name, c.player_id) AS player_name,
+                coalesce(s.position, p.position) AS position,
+                c.{column} AS value,
+                s.manager_id,
+                m.display_name AS manager_name
+            FROM player_week_counting_stats c
+            JOIN player_week_scores s
+                ON s.year = c.year
+                AND s.week = c.week
+                AND s.player_id = c.player_id
+            LEFT JOIN players p ON p.id = c.player_id
+            LEFT JOIN managers m ON m.id = s.manager_id
+            WHERE s.rostered
+                AND c.{column} > 0
+            ORDER BY c.{column} DESC, c.year, c.week, c.player_id
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+        if rows:
+            boards.append({"key": column, "label": label, "unit": unit, "rows": rows})
+    return boards
 
 
 def _position_key(position: str) -> tuple[int, str]:
@@ -5944,6 +6072,7 @@ def records_page() -> dict[str, Any]:
         "awards": _record_awards(),
         "journeymen": _record_journeymen(),
         "most_traded": _record_most_traded(),
+        "counting_leaders": _record_counting_leaders(),
     }
 
 

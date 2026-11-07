@@ -6,6 +6,9 @@
 {% macro pct(value) %}
 {% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
 {% endmacro %}
+{% macro cell(line, key) -%}
+{%- if line and line[key] -%}{{ line[key]|int }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
 {% block body %}
 <p class="jump">
     <a href="/players">Players</a>
@@ -118,6 +121,7 @@
 </table>
 
 <h2 id="weeks">Weeks</h2>
+<div class="standings-wrap">
 <table>
     <thead>
         <tr>
@@ -125,6 +129,15 @@
             <th>Manager</th>
             <th>Role</th>
             <th class="num">PF</th>
+            <th class="num" title="Pass yards">P yd</th>
+            <th class="num" title="Pass touchdowns">P TD</th>
+            <th class="num" title="Rush yards">Ru yd</th>
+            <th class="num" title="Rush touchdowns">Ru TD</th>
+            <th class="num" title="Receptions">Rec</th>
+            <th class="num" title="Targets">Tgt</th>
+            <th class="num" title="Receiving yards">Rec yd</th>
+            <th class="num" title="Receiving touchdowns">Rec TD</th>
+            <th title="Attempts, turnovers, first downs, red zone, kicking, defense">Count</th>
             <th>Line</th>
         </tr>
     </thead>
@@ -143,6 +156,15 @@
             </td>
             <td>{% if row.started %}start{% elif row.rostered %}bench{% else %}FA{% endif %}</td>
             <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td class="num">{{ cell(row.line, "pass_yd") }}</td>
+            <td class="num">{{ cell(row.line, "pass_td") }}</td>
+            <td class="num">{{ cell(row.line, "rush_yd") }}</td>
+            <td class="num">{{ cell(row.line, "rush_td") }}</td>
+            <td class="num">{{ cell(row.line, "rec") }}</td>
+            <td class="num">{{ cell(row.line, "rec_tgt") }}</td>
+            <td class="num">{{ cell(row.line, "rec_yd") }}</td>
+            <td class="num">{{ cell(row.line, "rec_td") }}</td>
+            <td>{% if row.line and row.line.counting_note %}{{ row.line.counting_note }}{% else %}—{% endif %}</td>
             <td>
                 {% if row.line %}
                 {% if row.line.pass_points %}pass {{ "%.1f"|format(row.line.pass_points) }}{% endif %}
@@ -157,4 +179,5 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endblock %}

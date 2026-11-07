@@ -38,6 +38,7 @@
     <a href="#draft">Draft</a>
     <a href="#wire">Wire</a>
     <a href="#lineups">Bench</a>
+    <a href="#counting">Counting</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -860,6 +861,40 @@
         </table>
     </section>
 </div>
+
+{% if counting_leaders %}
+<h2 id="counting">Counting stats</h2>
+<p class="note">Single-week highs by a rostered player. A week is stored when it scored fantasy points, so byes and other all-zero stat lines are left out.</p>
+<div class="notable-grid">
+    {% for board in counting_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}—{% endif %}</td>
+                    <td class="num">{{ row.value|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if coaches %}
 <div data-grain="career">

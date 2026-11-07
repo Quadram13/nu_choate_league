@@ -11,7 +11,7 @@ from .catalog import load_managers
 from .db import apply_schema, connect, refresh_analysis
 from .dumps import load_json, season_dir
 from .ingest import ingest_all
-from .ingest.score import score_sleeper_buckets
+from .ingest.score import COUNTING_STAT_FIELDS, counting_stat_values, score_sleeper_buckets
 from .models import Matchup, Platform, SeasonBundle, Transaction
 from .players import PlayerIndex
 
@@ -61,6 +61,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             week_scores,
             player_week_scores,
             player_week_stat_lines,
+            player_week_counting_stats,
             draft_picks,
             transactions,
             matchups,
@@ -436,7 +437,11 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
     weeks = folder / "weeks"
     if not weeks.is_dir():
         return
-    rows: list[tuple] = []
+    # Same gate for point buckets and counting stats: skip all-zero buckets
+    # (byes, inactives, and anyone who did not score). Counting columns may
+    # still be zero when the points came from a key outside the fan box score.
+    line_rows: list[tuple] = []
+    count_rows: list[tuple] = []
     for week_dir in sorted(weeks.iterdir()):
         if not week_dir.is_dir():
             continue
@@ -460,7 +465,7 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
                 continue
             meta = players.from_sleeper(str(player_id))
             canonical = meta.id if meta is not None else str(player_id)
-            rows.append(
+            line_rows.append(
                 (
                     season.year,
                     week,
@@ -471,6 +476,7 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
                     buckets["misc"],
                 )
             )
+            count_rows.append((season.year, week, canonical, *counting_stat_values(raw)))
     _executemany(
         conn,
         """
@@ -484,5 +490,19 @@ def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
             rec_points = EXCLUDED.rec_points,
             misc_points = EXCLUDED.misc_points
         """,
-        rows,
+        line_rows,
     )
+    count_columns = [name for name, _key in COUNTING_STAT_FIELDS]
+    count_sql = """
+        INSERT INTO player_week_counting_stats (
+            year, week, player_id, {columns}
+        )
+        VALUES ({placeholders})
+        ON CONFLICT (year, week, player_id) DO UPDATE SET
+            {updates}
+    """.format(
+        columns=", ".join(count_columns),
+        placeholders=", ".join("%s" for _ in range(3 + len(count_columns))),
+        updates=", ".join(f"{name} = EXCLUDED.{name}" for name in count_columns),
+    )
+    _executemany(conn, count_sql, count_rows)
