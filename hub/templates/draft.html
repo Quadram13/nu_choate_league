@@ -17,7 +17,7 @@
     <span class="lede">Snake. Each column is one manager.</span>
 </p>
 <h1>{{ current.year }} draft</h1>
-<p class="note">Starter VORP vs that round’s average. Green is above, red is below.</p>
+<p class="note">Starter VORP vs that round’s average. Green is above, red is below.{% if draft.has_market %} Market ADP is ESPN’s average draft position on the player card, set beside the slot and the pick’s ROS VORP.{% endif %}</p>
 {% if draft.board and draft.board.rows %}
 <div class="draft-board-wrap">
 <table class="draft-board">
@@ -49,6 +49,38 @@
 </div>
 {% else %}
 <p class="note">No draft board stored for this season.</p>
+{% endif %}
+{% if draft.has_market %}
+<h2>Vs market</h2>
+<p class="note">Negative vs market means this league took him before ESPN’s average draft position. The grade uses that gap in rounds and whether the pick was a hit (eight or more starts). ROS VORP sits beside it.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Slot</th>
+            <th>Player</th>
+            <th>Manager</th>
+            <th class="num">Market ADP</th>
+            <th class="num">vs market</th>
+            <th>Grade</th>
+            <th class="num">ROS VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft.picks %}
+        <tr id="m{{ row.overall }}">
+            <td class="num">{{ pick_link(current.year, row, row.overall) }}</td>
+            <td>{{ pick_link(current.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num">{% if row.market_adp is not none %}{{ "%.1f"|format(row.market_adp) }}{% else %}—{% endif %}</td>
+            <td class="num{% if row.pick_vs_market is not none and row.pick_vs_market > 0 %} plus{% elif row.pick_vs_market is not none and row.pick_vs_market < 0 %} minus{% endif %}">{% if row.pick_vs_market is not none %}{{ "%+.1f"|format(row.pick_vs_market) }}{% else %}—{% endif %}</td>
+            <td>{% if row.market_grade %}{{ row.market_grade }}{% else %}—{% endif %}</td>
+            <td class="num{% if row.ros_vorp is not none and row.ros_vorp > 0 %} plus{% elif row.ros_vorp is not none and row.ros_vorp < 0 %} minus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
 {% endif %}
 {% if draft.board.extras %}
 <p class="note">Not on the snake (extra pick in a round):

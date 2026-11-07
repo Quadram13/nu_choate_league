@@ -8,7 +8,7 @@ from ..history import attach_outcomes
 from ..models import Platform, Season, SeasonBundle
 from ..players import PlayerIndex
 from ..records import sort_standings
-from .espn import ingest_espn
+from .espn import ingest_espn, load_espn_market
 from .pool import player_week_pool
 from .sleeper import ingest_sleeper
 
@@ -41,6 +41,7 @@ def ingest_season(
         through_week=through_week,
         week_scores=week_scores,
         player_weeks=player_week_pool(season, matchups, players, through_week=through_week),
+        espn_market=load_espn_market(season, players) if season.platform is Platform.ESPN else [],
     )
 
 

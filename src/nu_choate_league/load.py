@@ -11,8 +11,9 @@ from .catalog import load_managers
 from .db import apply_schema, connect, refresh_analysis
 from .dumps import load_json, season_dir
 from .ingest import ingest_all
+from .ingest.espn import espn_id_backfill_pairs
 from .ingest.score import COUNTING_STAT_FIELDS, counting_stat_values, score_sleeper_buckets
-from .models import Matchup, Platform, SeasonBundle, Transaction
+from .models import EspnMarket, Matchup, Platform, SeasonBundle, Transaction
 from .players import PlayerIndex
 
 
@@ -37,10 +38,12 @@ def load_facts(*, year: int | None = None) -> list[str]:
         _progress("upsert managers and players")
         _upsert_managers(conn)
         _upsert_players(conn, bundles)
+        _backfill_espn_ids(conn, bundles)
         for bundle in bundles:
             step = time.perf_counter()
             _insert_season(conn, bundle)
             _insert_stat_lines(conn, bundle)
+            _insert_espn_market(conn, bundle)
             _progress(f"insert {bundle.season.year} ({time.perf_counter() - step:.1f}s)")
         refresh_analysis(conn, progress=_progress)
         conn.commit()
@@ -63,6 +66,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             player_week_stat_lines,
             player_week_counting_stats,
             draft_picks,
+            espn_market,
             transactions,
             matchups,
             official_records,
@@ -417,6 +421,81 @@ def _scoring_settings(season) -> dict | list | None:
         return settings if isinstance(settings, dict) else None
     settings = (league.get("settings") or {}).get("scoringSettings")
     return settings if settings is not None else None
+
+
+def _backfill_espn_ids(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -> None:
+    """Stamp players.espn_id from ESPN cards so market rows join draft picks.
+
+    Catalog espn ids already landed in `_upsert_players`. This only fills
+    nulls, and only when the card resolution is unambiguous. `espn:` player
+    ids that never matched a Sleeper record get the id embedded in their key.
+    """
+    rows: list[EspnMarket] = []
+    for bundle in bundles:
+        rows.extend(bundle.espn_market)
+    pairs = espn_id_backfill_pairs(rows)
+    _executemany(
+        conn,
+        """
+        UPDATE players AS p
+        SET espn_id = %s
+        WHERE p.id = %s
+          AND p.espn_id IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM players other
+              WHERE other.espn_id = %s AND other.id <> %s
+          )
+        """,
+        [(espn_id, player_id, espn_id, player_id) for espn_id, player_id in pairs],
+    )
+    conn.execute(
+        """
+        UPDATE players AS p
+        SET espn_id = substring(p.id FROM 6)::integer
+        WHERE p.espn_id IS NULL
+          AND p.id ~ '^espn:-?[0-9]+$'
+          AND NOT EXISTS (
+              SELECT 1 FROM players other
+              WHERE other.espn_id = substring(p.id FROM 6)::integer
+                AND other.id <> p.id
+          )
+        """
+    )
+    _progress(f"espn_id backfill candidates {len(pairs)}")
+
+
+def _insert_espn_market(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    if not bundle.espn_market:
+        return
+    season_year = bundle.season.year
+    conn.execute("DELETE FROM espn_market WHERE year = %s", (season_year,))
+    _executemany(
+        conn,
+        """
+        INSERT INTO espn_market (
+            year, espn_id, average_draft_position, percent_owned,
+            percent_started, auction_value_average
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (year, espn_id) DO UPDATE SET
+            average_draft_position = EXCLUDED.average_draft_position,
+            percent_owned = EXCLUDED.percent_owned,
+            percent_started = EXCLUDED.percent_started,
+            auction_value_average = EXCLUDED.auction_value_average
+        """,
+        [
+            (
+                row.year,
+                row.espn_id,
+                row.average_draft_position,
+                row.percent_owned,
+                row.percent_started,
+                row.auction_value_average,
+            )
+            for row in bundle.espn_market
+        ],
+    )
+    _progress(f"espn market {season_year}: {len(bundle.espn_market)} rows")
 
 
 def _insert_stat_lines(conn: psycopg.Connection, bundle: SeasonBundle) -> None:

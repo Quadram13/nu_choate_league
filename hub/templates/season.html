@@ -837,7 +837,7 @@
 <section class="js-season-pane" id="draft" data-tab="draft">
 {% if draft.managers or draft.hits or draft.misses %}
 <h2>Draft</h2>
-<p class="note">Starter VORP vs that round’s average. <a href="/seasons/{{ current.year }}/draft">Full board</a></p>
+<p class="note">Starter VORP vs that round’s average. <a href="/seasons/{{ current.year }}/draft">Full board</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
 {% if draft.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -894,6 +894,7 @@
                     <th>Manager</th>
                     <th class="num">vsRnd</th>
                     <th class="num">ADP</th>
+                    {% if draft.has_market %}<th class="num">Mkt</th><th class="num">vs mkt</th><th class="num">ROS</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -904,6 +905,11 @@
                     <td>{{ person(row.manager_id, row.manager_name) }}</td>
                     <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
                     <td class="num">{% if row.adp is not none and (row.times_drafted or 0) >= 2 %}{{ "%.0f"|format(row.adp) }}{% else %}—{% endif %}</td>
+                    {% if draft.has_market %}
+                    <td class="num">{% if row.market_adp is not none %}{{ "%.1f"|format(row.market_adp) }}{% else %}—{% endif %}</td>
+                    <td class="num{% if row.pick_vs_market is not none and row.pick_vs_market > 0 %} plus{% elif row.pick_vs_market is not none and row.pick_vs_market < 0 %} minus{% endif %}">{% if row.pick_vs_market is not none %}{{ "%+.1f"|format(row.pick_vs_market) }}{% else %}—{% endif %}{% if row.market_grade %}<span class="team">{{ row.market_grade }}</span>{% endif %}</td>
+                    <td class="num{% if row.ros_vorp is not none and row.ros_vorp > 0 %} plus{% elif row.ros_vorp is not none and row.ros_vorp < 0 %} minus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -921,6 +927,7 @@
                     <th>Manager</th>
                     <th class="num">vsRnd</th>
                     <th class="num">ADP</th>
+                    {% if draft.has_market %}<th class="num">Mkt</th><th class="num">vs mkt</th><th class="num">ROS</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -931,6 +938,11 @@
                     <td>{{ person(row.manager_id, row.manager_name) }}</td>
                     <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
                     <td class="num">{% if row.adp is not none and (row.times_drafted or 0) >= 2 %}{{ "%.0f"|format(row.adp) }}{% else %}—{% endif %}</td>
+                    {% if draft.has_market %}
+                    <td class="num">{% if row.market_adp is not none %}{{ "%.1f"|format(row.market_adp) }}{% else %}—{% endif %}</td>
+                    <td class="num{% if row.pick_vs_market is not none and row.pick_vs_market > 0 %} plus{% elif row.pick_vs_market is not none and row.pick_vs_market < 0 %} minus{% endif %}">{% if row.pick_vs_market is not none %}{{ "%+.1f"|format(row.pick_vs_market) }}{% else %}—{% endif %}{% if row.market_grade %}<span class="team">{{ row.market_grade }}</span>{% endif %}</td>
+                    <td class="num{% if row.ros_vorp is not none and row.ros_vorp > 0 %} plus{% elif row.ros_vorp is not none and row.ros_vorp < 0 %} minus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>

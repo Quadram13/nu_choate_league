@@ -2208,16 +2208,38 @@ def _wire_nav(year: int, transaction_id: str) -> dict[str, Any]:
     }
 
 
+def _market_lateral(alias: str) -> str:
+    if alias != "g":
+        raise ValueError(alias)
+    return """
+        LEFT JOIN LATERAL (
+            SELECT
+                m.average_draft_position AS market_adp,
+                m.percent_owned AS market_owned,
+                m.percent_started AS market_started,
+                m.auction_value_average AS market_auction
+            FROM players pl
+            JOIN espn_market m
+                ON m.espn_id = pl.espn_id
+               AND m.year = g.year
+            WHERE pl.id = g.player_id
+            LIMIT 1
+        ) mkt ON true
+    """
+
+
 def draft_page(year: int) -> dict[str, Any] | None:
     picks = fetchall(
-        """
+        f"""
         SELECT
             g.year, g.round, g.overall, g.manager_id, g.manager_name,
             t.team_name, g.player_id, g.player_name, g.position, g.keeper,
             g.ros_starter, g.ros_starts, g.ros_vorp, g.vs_vorp, g.round_vorp,
-            g.adp, g.times_drafted, g.pick_vs_adp, g.hit
+            g.adp, g.times_drafted, g.pick_vs_adp, g.hit,
+            mkt.market_adp, mkt.market_owned, mkt.market_started, mkt.market_auction
         FROM v_draft_grades g
         JOIN team_seasons t ON t.year = g.year AND t.manager_id = g.manager_id
+        {_market_lateral("g")}
         WHERE g.year = %(year)s
         ORDER BY g.overall
         """,
@@ -2231,30 +2253,39 @@ def draft_page(year: int) -> dict[str, Any] | None:
         50.0,
         max((abs(float(row["vs_vorp"] or 0)) for row in picks), default=0.0),
     )
+    teams = len({row["manager_id"] for row in picks})
     for row in picks:
+        _annotate_market(row, teams)
         _annotate_draft_pick(row, scale)
     return {
         "board": _draft_snake(picks),
+        "picks": picks,
         "years": years,
         "prev_year": years[index - 1] if index > 0 else None,
         "next_year": years[index + 1] if 0 <= index < len(years) - 1 else None,
         "has_keepers": any(row.get("keeper") for row in picks),
+        "has_market": any(row.get("market_adp") is not None for row in picks),
     }
 
 
 def _season_draft(year: int) -> dict[str, Any]:
     rows = fetchall(
-        """
+        f"""
         SELECT
-            year, round, overall, manager_id, manager_name,
-            player_id, player_name, position, keeper,
-            ros_vorp, vs_vorp, ros_starts, hit, adp, times_drafted, pick_vs_adp
-        FROM v_draft_grades
-        WHERE year = %(year)s
-        ORDER BY vs_vorp DESC NULLS LAST, overall
+            g.year, g.round, g.overall, g.manager_id, g.manager_name,
+            g.player_id, g.player_name, g.position, g.keeper,
+            g.ros_vorp, g.vs_vorp, g.ros_starts, g.hit, g.adp, g.times_drafted, g.pick_vs_adp,
+            mkt.market_adp, mkt.market_owned, mkt.market_started, mkt.market_auction
+        FROM v_draft_grades g
+        {_market_lateral("g")}
+        WHERE g.year = %(year)s
+        ORDER BY g.vs_vorp DESC NULLS LAST, g.overall
         """,
         {"year": year},
     )
+    teams = len({row["manager_id"] for row in rows})
+    for row in rows:
+        _annotate_market(row, teams)
     ranked = [row for row in rows if row.get("vs_vorp") is not None]
     hits = ranked[:5]
     rest = ranked[5:]
@@ -2295,7 +2326,51 @@ def _season_draft(year: int) -> dict[str, Any]:
         "hits": hits,
         "misses": misses,
         "has_keepers": any(int(row.get("keepers") or 0) for row in managers),
+        "has_market": any(row.get("market_adp") is not None for row in rows),
     }
+
+
+def market_grade(overall: int, market_adp: float, *, hit: bool, teams: int) -> str:
+    """Slot versus ESPN average draft position, in rounds, plus the hit/bust.
+
+    Negative distance means the pick came before the market. `hit` is the
+    same flag as `v_draft_grades.hit` (eight or more rest-of-season starts).
+    """
+    league = teams if teams > 0 else 12
+    delta = float(overall) - float(market_adp)
+    rounds = abs(delta) / league
+    nearest = round(rounds)
+    direction = "before" if delta < 0 else "after"
+    if rounds < 0.5:
+        timing = "at the market"
+    elif nearest >= 1 and abs(rounds - nearest) < 0.15:
+        count = str(int(nearest))
+        unit = "round" if count == "1" else "rounds"
+        timing = f"{count} {unit} {direction} the market"
+    elif rounds < 1:
+        timing = f"{direction} the market"
+    else:
+        timing = f"{rounds:.1f} rounds {direction} the market"
+    if delta < 0 and rounds >= 0.5:
+        outcome = "still a hit" if hit else "reached and busted"
+    else:
+        outcome = "hit" if hit else "bust"
+    return f"{timing}, {outcome}"
+
+
+def _annotate_market(row: dict[str, Any], teams: int) -> None:
+    adp = row.get("market_adp")
+    if adp is None:
+        row["market_grade"] = None
+        row["pick_vs_market"] = None
+        return
+    row["pick_vs_market"] = float(row["overall"]) - float(adp)
+    row["market_grade"] = market_grade(
+        int(row["overall"]),
+        float(adp),
+        hit=bool(row.get("hit")),
+        teams=teams,
+    )
 
 
 def _annotate_draft_pick(row: dict[str, Any], scale: float) -> None:
@@ -2324,6 +2399,12 @@ def _annotate_draft_pick(row: dict[str, Any], scale: float) -> None:
         delta_f = float(delta)
         when = "later" if delta_f > 0 else "earlier"
         parts.append(f"ADP {float(adp):.1f} {when} {abs(delta_f):.1f}")
+    if row.get("market_adp") is not None:
+        parts.append(f"market ADP {float(row['market_adp']):.1f}")
+        if row.get("pick_vs_market") is not None:
+            parts.append(f"{float(row['pick_vs_market']):+.1f} vs market")
+        if row.get("market_grade"):
+            parts.append(str(row["market_grade"]))
     if row.get("keeper"):
         parts.append("keeper")
     row["tooltip"] = " · ".join(parts)
