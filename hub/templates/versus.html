@@ -5,7 +5,7 @@
 {% endmacro %}
 {% block body %}
 <h1>Versus</h1>
-<p class="lede">Regular-season records. Color is the row manager’s win%.</p>
+<p class="lede">Regular-season records. Color is the row manager’s win%. The figure under a record is how many times that pair has traded.</p>
 
 {% if notes %}
 <section class="series-notes">
@@ -40,9 +40,9 @@
             {% for cell in row.cells %}
             {% if cell.self %}
             <td class="self"></td>
-            {% elif cell.games %}
-            <td class="num versus-cell" style="--win: {{ '%.3f'|format(cell.win_pct or 0) }}">
-                <a href="{{ cell.href }}">{{ cell.record }}</a>
+            {% elif cell.games or cell.deals %}
+            <td class="num{% if cell.games %} versus-cell{% endif %}"{% if cell.games %} style="--win: {{ '%.3f'|format(cell.win_pct or 0) }}"{% endif %}>
+                <a href="{{ cell.href }}">{% if cell.games %}{{ cell.record }}{% else %}—{% endif %}{% if cell.deals %}<span class="deals" title="{{ cell.deals }} trade{% if cell.deals != 1 %}s{% endif %}">{{ cell.deals }}</span>{% endif %}</a>
             </td>
             {% else %}
             <td class="num muted">—</td>

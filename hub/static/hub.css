@@ -256,6 +256,17 @@ td.num {
     font-variant-numeric: tabular-nums;
 }
 
+tr.sheet-group td {
+    padding-top: 14px;
+    color: #e4e4e7;
+    font-weight: 600;
+    border-bottom-color: #374151;
+}
+
+tbody tr.sheet-group:first-child td {
+    padding-top: 6px;
+}
+
 ul.index {
     list-style: none;
 }
@@ -1238,10 +1249,15 @@ td.plus {
     flex: 0 1 auto;
 }
 
-.txn-item .team {
+.txn-item .team,
+.txn-feed .wire-table .team {
     display: inline;
     font-size: 0.75rem;
     font-weight: 400;
+}
+
+.txn-feed .wire-table .team {
+    white-space: nowrap;
 }
 
 .txn-chip {
@@ -1954,6 +1970,11 @@ tr.podium td:nth-child(3) {
     align-items: start;
 }
 
+.week-main,
+.week-awards {
+    min-width: 0;
+}
+
 .week-awards .jump {
     margin-bottom: 12px;
 }
@@ -2003,7 +2024,7 @@ tr.podium td:nth-child(3) {
 
 @media (max-width: 900px) {
     .week-split {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -2430,6 +2451,18 @@ tr.podium td:nth-child(3) {
 
 .versus-grid td.muted {
     color: #6b7280;
+}
+
+.versus-grid .deals {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #d6d3d1;
+}
+
+.pair-trades .note {
+    margin-bottom: 10px;
 }
 
 .rank-heat {

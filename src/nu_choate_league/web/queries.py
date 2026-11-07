@@ -95,22 +95,104 @@ SCORING_LABELS = {
     "yds_allow_100_199": "100–199 yards allowed",
     "yds_allow_200_299": "200–299 yards allowed",
     "pts_allow": "Points allowed",
-    "0": "Pass yards",
-    "1": "Pass TD",
-    "2": "Pass 2-pt",
-    "3": "INT",
-    "4": "Pass INT TD",
-    "20": "Rush yards",
-    "21": "Rush TD",
-    "23": "Rush 2-pt",
-    "24": "Rush 1st down",
-    "25": "Rush fumble",
+    # ESPN scoringItems stat ids. Sleeper weights above are named keys.
+    "0": "Pass attempts",
+    "1": "Pass completions",
+    "2": "Incomplete pass",
+    "3": "Pass yards",
+    "4": "Pass TD",
+    "19": "Pass 2-pt",
+    "20": "INT thrown",
+    "21": "Completion pct",
+    "23": "Rush attempts",
+    "24": "Rush yards",
+    "25": "Rush TD",
+    "26": "Rush 2-pt",
     "42": "Rec yards",
     "43": "Rec TD",
+    "44": "Rec 2-pt",
     "53": "Reception",
+    "63": "Fumble recovered for TD",
     "72": "Fumble lost",
-    "74": "Fumble TD",
-    "201": "2-pt conversion",
+    "74": "FG 50+",
+    "77": "FG 40–49",
+    "80": "FG 0–39",
+    "85": "FG miss",
+    "86": "XP made",
+    "89": "0 PA",
+    "90": "1–6 PA",
+    "91": "7–13 PA",
+    "92": "14–17 PA",
+    "93": "Blocked kick return TD",
+    "95": "D/ST INT",
+    "96": "Fumble recovery",
+    "97": "Blocked kick",
+    "98": "Safety",
+    "99": "Sack",
+    "101": "Kickoff return TD",
+    "102": "Punt return TD",
+    "103": "INT return TD",
+    "104": "Fumble return TD",
+    "123": "28–34 PA",
+    "124": "35–45 PA",
+    "125": "46+ PA",
+    "128": "0–99 yards allowed",
+    "129": "100–199 yards allowed",
+    "130": "200–299 yards allowed",
+    "132": "350–399 yards allowed",
+    "133": "400–449 yards allowed",
+    "134": "450–499 yards allowed",
+    "135": "500–549 yards allowed",
+    "136": "550+ yards allowed",
+    "198": "FG 50–59",
+    "201": "FG 60+",
+    "206": "2-pt return",
+    "209": "1-pt safety",
+}
+
+# ESPN pointsOverrides keys are roster slot ids, not stat ids.
+ESPN_SLOT_LABELS = {
+    "0": "QB",
+    "2": "RB",
+    "4": "WR",
+    "6": "TE",
+    "16": "D/ST",
+    "17": "K",
+    "23": "FLEX",
+}
+
+_ESPN_GROUP_ORDER = {
+    "Passing": 0,
+    "Rushing": 1,
+    "Receiving": 2,
+    "Fumbles": 3,
+    "Kicking": 4,
+    "Defense": 5,
+    "Special teams": 6,
+    "Other": 7,
+}
+
+_ESPN_KICK_ORDER = {
+    80: 0,
+    77: 1,
+    198: 2,
+    74: 3,
+    201: 4,
+    85: 5,
+    86: 6,
+}
+
+# Points-allowed tiers are not contiguous ids (89–92, then 123–125).
+_ESPN_PA_ORDER = {
+    89: 0,
+    90: 1,
+    91: 2,
+    92: 3,
+    121: 4,
+    122: 5,
+    123: 6,
+    124: 7,
+    125: 8,
 }
 
 
@@ -123,6 +205,111 @@ def _scoring_value(value: Any) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value)
+
+
+def _blank_points(value: Any) -> bool:
+    return value in (0, 0.0, None, "")
+
+
+def _espn_group(stat_id: int) -> str:
+    if stat_id <= 22:
+        return "Passing"
+    if stat_id <= 40:
+        return "Rushing"
+    if stat_id <= 61:
+        return "Receiving"
+    if stat_id <= 73:
+        return "Fumbles"
+    if stat_id <= 88 or stat_id in (74, 198, 199, 200, 201, 202, 203):
+        return "Kicking"
+    if 204 <= stat_id <= 209:
+        return "Special teams"
+    if 89 <= stat_id <= 136:
+        return "Defense"
+    return "Other"
+
+
+def _espn_sort_key(stat_id: int) -> tuple[int, int, int, int]:
+    group = _espn_group(stat_id)
+    if group == "Kicking":
+        section, inner = 0, _ESPN_KICK_ORDER.get(stat_id, stat_id)
+    elif stat_id in _ESPN_PA_ORDER:
+        section, inner = 0, _ESPN_PA_ORDER[stat_id]
+    elif 127 <= stat_id <= 136:
+        section, inner = 2, stat_id
+    else:
+        section, inner = 1, stat_id
+    return (_ESPN_GROUP_ORDER[group], section, inner, stat_id)
+
+
+def _espn_points(item: dict[str, Any]) -> str | None:
+    raw = item.get("points")
+    overrides = item.get("pointsOverrides") or {}
+    if not isinstance(overrides, dict):
+        overrides = {}
+    paired = [
+        (str(key), value)
+        for key, value in overrides.items()
+        if not _blank_points(value)
+    ]
+    base_blank = _blank_points(raw)
+    if base_blank and not paired:
+        return None
+    if not base_blank and all(value == raw for _, value in paired):
+        return _scoring_value(raw)
+    if base_blank and len(paired) == 1:
+        return _scoring_value(paired[0][1])
+    parts: list[str] = []
+    if not base_blank:
+        parts.append(_scoring_value(raw))
+    for key, value in paired:
+        slot = ESPN_SLOT_LABELS.get(key, key)
+        parts.append(f"{slot} {_scoring_value(value)}")
+    return " · ".join(parts)
+
+
+def _espn_scoring_rows(items: list[Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        raw_id = item.get("statId", item.get("id"))
+        try:
+            stat_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        points = _espn_points(item)
+        if points is None:
+            continue
+        key = str(stat_id)
+        rows.append(
+            {
+                "key": key,
+                "label": _scoring_label(key),
+                "value": points,
+                "group": _espn_group(stat_id),
+                "_sort": _espn_sort_key(stat_id),
+            }
+        )
+    rows.sort(key=lambda row: row["_sort"])
+    for row in rows:
+        del row["_sort"]
+    return rows
+
+
+def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
+    items = settings.get("scoringItems") if isinstance(settings, dict) else None
+    if isinstance(items, list) and items:
+        return _espn_scoring_rows(items)
+    if isinstance(settings, list):
+        return _espn_scoring_rows(settings)
+    rows: list[dict[str, Any]] = []
+    if isinstance(settings, dict):
+        for key, value in sorted(settings.items(), key=lambda item: str(item[0])):
+            if value in (0, 0.0, None, "", False):
+                continue
+            rows.append({"key": key, "label": _scoring_label(key), "value": _scoring_value(value)})
+    return rows
 
 
 RECORDS_TOP = 10
@@ -4641,6 +4828,129 @@ def marks_page() -> dict[str, Any]:
     }
 
 
+def _trade_pair_counts() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            left_id, left_name, right_id, right_name,
+            count(*) AS deals,
+            sum(left_vorp_edge) AS left_edge
+        FROM v_trade_grades
+        GROUP BY left_id, left_name, right_id, right_name
+        """
+    )
+
+
+def _most_deals_note(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not rows:
+        return None
+    top = max(
+        rows,
+        key=lambda row: (
+            int(row["deals"]),
+            abs(float(row["left_edge"] or 0)),
+            row["left_name"],
+            row["right_name"],
+        ),
+    )
+    count = int(top["deals"])
+    noun = "deal" if count == 1 else "deals"
+    return {
+        "kind": "deals",
+        "label": "Most deals",
+        "left_id": top["left_id"],
+        "left_name": top["left_name"],
+        "right_id": top["right_id"],
+        "right_name": top["right_name"],
+        "detail": f"{count} {noun}",
+        "href": f"/versus/{top['left_id']}/{top['right_id']}",
+    }
+
+
+def _pair_trade_ledger(left_id: str, right_id: str) -> dict[str, Any]:
+    """Trades between a versus pair, signed from the page's left manager.
+
+    ``v_trade_grades.left_id`` is the lower manager id. ``left_vorp_edge`` is
+    the ROS VORP that side received minus the other side. The edge flips when
+    the page's left manager was stored as ``right_id``.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            transaction_id,
+            year,
+            week,
+            winner_id,
+            winner_name,
+            round(vorp_gap::numeric, 1) AS gap,
+            round(signed::numeric, 1) AS edge,
+            count(*) OVER () AS deals,
+            round((sum(signed) OVER ())::numeric, 1) AS net_vorp,
+            count(*) FILTER (WHERE winner_id = %(left)s) OVER () AS left_wins,
+            count(*) FILTER (WHERE winner_id = %(right)s) OVER () AS right_wins,
+            count(*) FILTER (WHERE winner_id IS NULL) OVER () AS pushes
+        FROM (
+            SELECT
+                transaction_id,
+                year,
+                week,
+                winner_id,
+                winner_name,
+                vorp_gap,
+                CASE
+                    WHEN left_id = %(left)s THEN left_vorp_edge
+                    ELSE -left_vorp_edge
+                END AS signed
+            FROM v_trade_grades
+            WHERE (left_id = %(left)s AND right_id = %(right)s)
+               OR (left_id = %(right)s AND right_id = %(left)s)
+        ) graded
+        ORDER BY year, week, transaction_id
+        """,
+        {"left": left_id, "right": right_id},
+    )
+    if not rows:
+        return {
+            "deals": 0,
+            "net_vorp": 0,
+            "left_wins": 0,
+            "right_wins": 0,
+            "pushes": 0,
+            "table_winner": None,
+            "rows": [],
+        }
+    head = rows[0]
+    left_wins = int(head["left_wins"] or 0)
+    right_wins = int(head["right_wins"] or 0)
+    if left_wins > right_wins:
+        table_winner = "left"
+    elif right_wins > left_wins:
+        table_winner = "right"
+    else:
+        table_winner = None
+    return {
+        "deals": int(head["deals"] or 0),
+        "net_vorp": head["net_vorp"],
+        "left_wins": left_wins,
+        "right_wins": right_wins,
+        "pushes": int(head["pushes"] or 0),
+        "table_winner": table_winner,
+        "rows": [
+            {
+                "transaction_id": row["transaction_id"],
+                "year": int(row["year"]),
+                "week": int(row["week"]),
+                "href": f"/seasons/{row['year']}/trades/{row['transaction_id']}",
+                "edge": row["edge"],
+                "gap": row["gap"],
+                "winner_id": row["winner_id"],
+                "winner_name": row["winner_name"],
+            }
+            for row in rows
+        ],
+    }
+
+
 def versus_grid() -> dict[str, Any]:
     managers = fetchall(
         """
@@ -4660,6 +4970,12 @@ def versus_grid() -> dict[str, Any]:
         FROM v_h2h
         """
     )
+    trade_pairs = _trade_pair_counts()
+    deal_counts = {
+        (row["left_id"], row["right_id"]): int(row["deals"])
+        for row in trade_pairs
+    }
+    deal_counts.update({(right, left): count for (left, right), count in list(deal_counts.items())})
     cells: dict[tuple[str, str], dict[str, Any]] = {}
     for row in pairs:
         left = row["left_id"]
@@ -4701,9 +5017,14 @@ def versus_grid() -> dict[str, Any]:
             cell = cells.get((left["manager_id"], right["manager_id"]), {"games": 0, "record": None, "win_pct": None})
             cell = dict(cell)
             cell["href"] = f"/versus/{left['manager_id']}/{right['manager_id']}"
+            cell["deals"] = deal_counts.get((left["manager_id"], right["manager_id"]), 0)
             cells_row.append(cell)
         grid.append({"manager": left, "cells": cells_row, "hue": manager_hue(left["manager_id"])})
-    return {"managers": managers, "grid": grid, "ids": ids, "notes": _versus_notes(pairs)}
+    notes = _versus_notes(pairs)
+    deals_note = _most_deals_note(trade_pairs)
+    if deals_note:
+        notes.append(deals_note)
+    return {"managers": managers, "grid": grid, "ids": ids, "notes": notes}
 
 
 def _versus_notes(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -4847,6 +5168,7 @@ def versus_pair(left_id: str, right_id: str) -> dict[str, Any] | None:
         "streak": streak,
         "closest": closest,
         "blowout": blowout,
+        "trades": _pair_trade_ledger(left_id, right_id),
         "hue_left": manager_hue(left_id),
         "hue_right": manager_hue(right_id),
     }
@@ -5194,26 +5516,130 @@ def _player_stat_lines(player_id: str) -> list[dict[str, Any]]:
     )
 
 
+def _position_key(position: str) -> tuple[int, str]:
+    return (SLOT_ORDER.get(position, 100), position)
+
+
+def _replacement_landscape(year: int) -> dict[str, Any] | None:
+    averages = fetchall(
+        """
+        SELECT
+            position,
+            avg(replacement) AS replacement,
+            count(*) AS weeks,
+            avg(n_starters) AS starters
+        FROM v_replacement_weeks
+        GROUP BY position
+        """
+    )
+    if not averages:
+        return None
+    current_rows = fetchall(
+        """
+        SELECT DISTINCT ON (r.position)
+            r.position,
+            r.week,
+            r.replacement,
+            r.replacement_player_id AS player_id,
+            coalesce(p.display_name, r.replacement_player_id) AS player_name
+        FROM v_replacement_weeks r
+        LEFT JOIN players p ON p.id = r.replacement_player_id
+        WHERE r.year = %(year)s
+        ORDER BY r.position, r.week DESC
+        """,
+        {"year": year},
+    )
+    current = {row["position"]: row for row in current_rows}
+    rows = []
+    for row in sorted(averages, key=lambda item: _position_key(str(item["position"]))):
+        latest = current.get(row["position"]) or {}
+        rows.append(
+            {
+                "position": row["position"],
+                "replacement": float(row["replacement"]),
+                "weeks": int(row["weeks"]),
+                "starters": float(row["starters"]),
+                "week": int(latest["week"]) if latest.get("week") is not None else None,
+                "points": float(latest["replacement"]) if latest.get("replacement") is not None else None,
+                "player_id": latest.get("player_id"),
+                "player_name": latest.get("player_name"),
+            }
+        )
+    week_counts = {row["weeks"] for row in rows}
+    return {
+        "rows": rows,
+        "weeks": week_counts.pop() if len(week_counts) == 1 else None,
+    }
+
+
+def _week_spread(year: int) -> dict[str, Any] | None:
+    rows = fetchall(
+        """
+        SELECT
+            w.week,
+            min(w.points) AS low,
+            max(w.points) AS high,
+            avg(w.points) AS avg,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) AS median,
+            stddev_samp(w.points) AS spread
+        FROM week_scores w
+        JOIN seasons s ON s.year = w.year
+        WHERE w.year = %(year)s
+            AND w.paired
+            AND (s.through_week IS NULL OR w.week <= s.through_week)
+            AND EXISTS (
+                SELECT 1
+                FROM matchups m
+                WHERE m.year = w.year
+                    AND m.week = w.week
+                    AND m.kind = 'regular'
+                    AND (m.home_points <> 0 OR m.away_points <> 0)
+            )
+        GROUP BY w.week
+        ORDER BY w.week
+        """,
+        {"year": year},
+    )
+    weeks = []
+    for row in rows:
+        spread = row["spread"]
+        weeks.append(
+            {
+                "week": int(row["week"]),
+                "low": float(row["low"]),
+                "high": float(row["high"]),
+                "avg": float(row["avg"]),
+                "median": float(row["median"]),
+                "spread": float(spread) if spread is not None else None,
+            }
+        )
+    if not weeks:
+        return None
+    measured = [row["spread"] for row in weeks if row["spread"] is not None]
+    tight_value = min(measured) if measured else None
+    wild_value = max(measured) if measured else None
+    flat = tight_value is not None and tight_value == wild_value
+    for row in weeks:
+        row["mark"] = None
+        if flat or row["spread"] is None:
+            continue
+        if row["spread"] == tight_value:
+            row["mark"] = "tightest"
+        elif row["spread"] == wild_value:
+            row["mark"] = "wildest"
+    return {
+        "weeks": weeks,
+        "flat": flat,
+        "tightest": [] if flat else [row for row in weeks if row["mark"] == "tightest"],
+        "wildest": [] if flat else [row for row in weeks if row["mark"] == "wildest"],
+    }
+
+
 def scoring_sheet(year: int) -> dict[str, Any] | None:
     current = season_row(year)
     if current is None:
         return None
-    settings = current.get("scoring_settings")
-    rows: list[dict[str, Any]] = []
-    if isinstance(settings, dict):
-        for key, value in sorted(settings.items(), key=lambda item: str(item[0])):
-            if value in (0, 0.0, None, "", False):
-                continue
-            rows.append({"key": key, "label": _scoring_label(key), "value": _scoring_value(value)})
-    elif isinstance(settings, list):
-        for item in settings:
-            if not isinstance(item, dict):
-                continue
-            key = str(item.get("statId") or item.get("id") or "")
-            points = item.get("points")
-            if points in (0, 0.0, None, ""):
-                continue
-            rows.append({"key": key, "label": _scoring_label(key), "value": _scoring_value(points)})
+    rows = _scoring_rows(current.get("scoring_settings"))
     spent = []
     if current.get("faab_budget"):
         spent = fetchall(
@@ -5248,6 +5674,8 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
         "seasons": list_seasons(),
         "rows": rows,
         "faab": spent,
+        "replacement": _replacement_landscape(year),
+        "spread": _week_spread(year),
     }
 
 

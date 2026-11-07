@@ -767,7 +767,7 @@
                 {% for row in wire_adds %}
                 <tr data-year="{{ row.year }}">
                     <td class="num">{{ loop.index }}</td>
-                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
                     <td>
                         {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
                         <span class="team">{{ row.kind }}</span>
@@ -796,7 +796,7 @@
                 {% for row in wire_misses %}
                 <tr data-year="{{ row.year }}">
                     <td class="num">{{ loop.index }}</td>
-                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#wire">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
                     <td>{{ person(row.manager_id, row.manager_name) }} <span class="team">{{ row.flag }}</span></td>
                     <td>{% if row.missed_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}</td>
                     <td>{% if row.won_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
