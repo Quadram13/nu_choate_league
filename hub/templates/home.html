@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "plaque_macros.html" import person_link, plaque_free, highlight_chip %}
+{% from "week_card.html" import week_card_block %}
 {% macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
 {% endmacro %}
@@ -10,9 +11,10 @@
 <h2>Champions</h2>
 <div class="year-rail">
     {% for row in seasons %}
-    <article class="year-card{% if loop.first %} podium{% endif %}">
+    <article class="year-card{% if loop.first and row.champion_id %} podium{% endif %}{% if not row.champion_id %} unfinished{% endif %}">
         <a class="year" href="/seasons/{{ row.year }}">{{ row.year }}</a>
         <span class="chip platform">{{ row.platform }}</span>
+        {% if row.champion_id %}
         <div class="champ">
             <span>
                 <span class="role">Champion</span>
@@ -21,6 +23,15 @@
                 {% if champ_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.champion_id }}" title="{{ champ_jersey }}">{{ champ_jersey }}</a></span>{% endif %}
             </span>
         </div>
+        {% else %}
+        <div class="champ">
+            <span>
+                <span class="role">Season open</span>
+                No champion yet
+            </span>
+        </div>
+        {% endif %}
+        {% if row.last_chair_id %}
         <div class="last">
             <span>
                 <span class="role">Should've done Artscon</span>
@@ -29,27 +40,22 @@
                 {% if last_jersey %}<span class="team"><a href="/seasons/{{ row.year }}#m-{{ row.last_chair_id }}" title="{{ last_jersey }}">{{ last_jersey }}</a></span>{% endif %}
             </span>
         </div>
+        {% endif %}
     </article>
     {% endfor %}
 </div>
 {% endif %}
 
 <div class="year-rail">
-    <article class="year-card">
+    <article class="year-card deferred">
+        <p class="kicker">Coming soon</p>
         <span class="year">Weekly newsletter</span>
-        <div class="champ">
-            <span>
-                <span class="role">Work in progress</span>
-            </span>
-        </div>
+        <p class="stub-copy">Not published in the hub.</p>
     </article>
-    <article class="year-card">
+    <article class="year-card deferred">
+        <p class="kicker">Coming soon</p>
         <span class="year">Main wiki page</span>
-        <div class="champ">
-            <span>
-                <span class="role">Work in progress</span>
-            </span>
-        </div>
+        <p class="stub-copy">Not hosted in the hub.</p>
     </article>
 </div>
 
@@ -104,8 +110,14 @@
             · <a href="/seasons/{{ year }}/marks">Distinctions</a>
             · <a href="/seasons/{{ year }}/moves">Moves</a>
         </p>
+        {% if highlights.season %}
         <h2>{{ year }} highlights</h2>
-        <p class="note">Award unification work in progress.</p>
+        <div class="plaque-grid recap-records">
+            {% for row in highlights.season %}
+            {{ highlight_chip(row) }}
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
     <aside class="desk-side">
         {% if slate %}
@@ -140,11 +152,23 @@
         {% endfor %}
         {% endfor %}
         {% endif %}
-        <section class="week-card">
-            <p class="kicker">Week card</p>
-            <h2>{{ year }}{% if preview %} W{{ preview.week }}{% endif %}</h2>
-            <p class="note">Award unification work in progress.</p>
+        {% set slate_state = namespace(open=false) %}
+        {% if slate %}
+        {% for group in slate.groups %}
+        {% for game in group.games %}
+        {% if game.home.points is none or game.away.points is none %}{% set slate_state.open = true %}{% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endif %}
+        {% if slate and slate_state.open %}
+        <section class="week-card week-live">
+            <p class="kicker">Week recap</p>
+            <h2>{{ year }} W{{ slate.week }}</h2>
+            <p class="stub-copy">Posts when this week is final.</p>
         </section>
+        {% elif preview %}
+        {{ week_card_block(preview, year, recap=true) }}
+        {% endif %}
     </aside>
 </section>
 {% else %}

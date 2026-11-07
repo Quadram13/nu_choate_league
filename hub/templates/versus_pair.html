@@ -48,6 +48,46 @@
 </div>
 {% endif %}
 
+<section class="pair-trades">
+    <h2>Trades</h2>
+    {% if trades.deals %}
+    <p class="note">
+        {{ trades.deals }} deal{% if trades.deals != 1 %}s{% endif %}
+        · {{ record(trades.left_wins, trades.right_wins, trades.pushes) }}
+        · net {{ "%+.1f"|format(trades.net_vorp) }} ROS VORP for {{ left.display_name }}.
+        {% if trades.table_winner == "left" %}
+        {{ left.display_name }} has won the table.
+        {% elif trades.table_winner == "right" %}
+        {{ right.display_name }} has won the table.
+        {% else %}
+        The table is even.
+        {% endif %}
+    </p>
+    <table class="js-sort">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Winner</th>
+                <th class="num" data-type="num" title="ROS VORP {{ left.display_name }} received, minus {{ right.display_name }}">Edge</th>
+                <th class="num" data-type="num">Gap</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in trades.rows %}
+            <tr>
+                <td><a href="{{ row.href }}">{{ row.year }} W{{ row.week }}</a></td>
+                <td class="{% if row.winner_id == left.manager_id %}won{% elif row.winner_id == right.manager_id %}lost{% endif %}">{% if row.winner_name %}{{ row.winner_name }}{% else %}even{% endif %}</td>
+                <td class="num{% if row.edge > 0 %} plus{% elif row.edge < 0 %} minus{% endif %}">{{ "%+.1f"|format(row.edge) }}</td>
+                <td class="num">{{ "%.1f"|format(row.gap) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="note">No trades between these two.</p>
+    {% endif %}
+</section>
+
 {% if games %}
 <table class="js-sort">
     <thead>

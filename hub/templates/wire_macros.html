@@ -2,9 +2,9 @@
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
-{% macro txn_who(year, id, name, team) %}
+{% macro txn_who(year, id, name, team) -%}
 {{ person(id, name) }}{% if team %} ({{ jersey_line(year, id, team) }}){% endif %}
-{% endmacro %}
+{%- endmacro %}
 {% macro player_link(id, name) %}
 {% if id %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
 {% endmacro %}
