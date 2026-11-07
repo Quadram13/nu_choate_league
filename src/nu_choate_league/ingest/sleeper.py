@@ -351,7 +351,6 @@ def _sleeper_transaction(
     drops = _sleeper_moves(raw.get("drops") or {}, roster_owners, players)
     if not adds and not drops:
         return None
-    created = raw.get("created")
     settings = raw.get("settings") if isinstance(raw.get("settings"), dict) else {}
     meta = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
     return Transaction(
@@ -360,7 +359,7 @@ def _sleeper_transaction(
         week=int(raw.get("leg") or week),
         type=kind,
         status=status,
-        at=int(created) if isinstance(created, int) else None,
+        at=_sleeper_txn_at(kind, raw),
         seq=_optional_int(settings.get("seq")),
         priority=_optional_int(settings.get("priority")),
         bid=_optional_int(settings.get("waiver_bid")),
@@ -387,6 +386,17 @@ def _sleeper_moves(
         canonical_id, name = resolve_player(players, Platform.SLEEPER, player_id)
         moves.append(PlayerMove(player_id=canonical_id, player_name=name, manager_id=manager_id))
     return moves
+
+
+def _sleeper_txn_at(kind: str, raw: dict[str, Any]) -> int | None:
+    created = raw.get("created")
+    created_at = int(created) if isinstance(created, int) else None
+    if kind != "waiver":
+        return created_at
+    updated = raw.get("status_updated")
+    if isinstance(updated, int):
+        return int(updated)
+    return created_at
 
 
 def _optional_int(value: object) -> int | None:

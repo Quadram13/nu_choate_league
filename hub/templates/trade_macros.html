@@ -8,6 +8,7 @@
 <div class="side{% if kind != 'even' and row.winner_id %}{% if side.id == row.winner_id %} won{% else %} lost{% endif %}{% endif %}">
     <div class="who">
         {{ person(side.id, side.name) }}
+        {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
         {% if not side.players and side.received %}<span class="team">{{ side.received }}</span>{% endif %}
     </div>
     <span class="num">{% if side.vorp is not none %}{{ "%+.1f"|format(side.vorp) }}{% endif %}</span>
@@ -36,12 +37,12 @@
 {% endif %}
 {% endmacro %}
 
-{% macro trade_card(row, show_year=False) %}
+{% macro trade_card(row, show_year=False, show_week=True) %}
 <article class="gc-match compact" data-year="{{ row.year }}">
     <p class="note">
         {% if row.rank %}#{{ row.rank }} · {% endif %}
-        {% if show_year %}{{ row.year }} {% endif %}W{{ row.week }}
-        · <span class="verdict {{ row.verdict.kind }}">{{ row.verdict.label }}</span>
+        {% if show_year %}{{ row.year }} {% endif %}{% if show_week %}W{{ row.week }}
+        · {% endif %}<span class="verdict {{ row.verdict.kind }}">{{ row.verdict.label }}</span>
         · {{ "%.0f"|format(row.verdict.gap) }}
     </p>
     <header class="gc-score">

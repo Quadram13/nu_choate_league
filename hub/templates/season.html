@@ -591,7 +591,7 @@
             <th class="num">vsExp</th>
             <th class="num">Luck</th>
             <th class="num">Median</th>
-            <th class="num">Bench Waste</th>
+            <th class="num">She's cheer captain and...</th>
         </tr>
     </thead>
     <tbody>
@@ -712,7 +712,7 @@
             <tbody>
                 {% for row in wire.adds %}
                 <tr>
-                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#wire">{{ row.week }}</a></td>
+                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
                     <td>
                         {% if row.transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
                         <span class="team">{{ row.kind }}{% if row.bid_label %} {{ row.bid_label }}{% endif %}</span>
@@ -741,7 +741,7 @@
             <tbody>
                 {% for row in wire.misses %}
                 <tr>
-                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#wire">{{ row.week }}</a></td>
+                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
                     <td>{{ person(row.manager_id, row.manager_name) }} <span class="team">{{ row.flag }}</span></td>
                     <td>{% if row.missed_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% elif row.missed_player_id %}<a href="/players/{{ row.missed_player_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}</td>
                     <td>{% if row.won_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% elif row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
@@ -768,7 +768,7 @@
             <tbody>
                 {% for row in wire.dodges %}
                 <tr>
-                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#wire">{{ row.week }}</a></td>
+                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
                     <td>{{ person(row.manager_id, row.manager_name) }}</td>
                     <td>{% if row.lost_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.lost_transaction_id }}">{{ row.lost_player }}</a>{% elif row.lost_player_id %}<a href="/players/{{ row.lost_player_id }}">{{ row.lost_player }}</a>{% else %}{{ row.lost_player }}{% endif %}</td>
                     <td>{% if row.won_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% elif row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player }}{% endif %}</td>

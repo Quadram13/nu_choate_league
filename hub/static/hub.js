@@ -2,6 +2,7 @@
     enableNav();
     enableSeasonPicker();
     enableSeasonTabs();
+    enableAwardTabs();
     scrollH2hNow();
     document.querySelectorAll("table.js-sort").forEach(enableSort);
     enableFilters();
@@ -91,6 +92,39 @@ function enableSeasonTabs() {
     }
     window.addEventListener("hashchange", () => show(location.hash));
     show(location.hash);
+}
+
+function enableAwardTabs() {
+    const tabs = document.querySelector(".js-award-tabs");
+    if (!tabs) {
+        return;
+    }
+    const panes = [...document.querySelectorAll(".js-award-pane")];
+    const buttons = [...tabs.querySelectorAll("[data-tab]")];
+    if (!panes.length) {
+        return;
+    }
+    const title = document.querySelector(".js-award-title");
+    function show(target) {
+        buttons.forEach((button) => {
+            const on = button.dataset.tab === target;
+            button.classList.toggle("on", on);
+            button.setAttribute("aria-pressed", on ? "true" : "false");
+            if (on && title && button.dataset.title) {
+                title.textContent = button.dataset.title;
+            }
+        });
+        panes.forEach((pane) => {
+            pane.hidden = pane.id !== target;
+        });
+    }
+    tabs.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-tab]");
+        if (!button || !tabs.contains(button)) {
+            return;
+        }
+        show(button.dataset.tab);
+    });
 }
 
 function enableSort(table) {

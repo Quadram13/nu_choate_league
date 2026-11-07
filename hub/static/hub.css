@@ -106,6 +106,7 @@ body {
 
 .wordmark:hover {
     color: var(--ink);
+    text-decoration: none;
 }
 
 .wordmark-nu {
@@ -219,8 +220,17 @@ h3 {
     cursor: pointer;
 }
 
+.note button:hover {
+    text-decoration: underline;
+}
+
 a {
     color: #93c5fd;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 table {
@@ -487,7 +497,7 @@ code {
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.3;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .seed.won {
@@ -608,9 +618,11 @@ table.js-sort th.sorted.desc::after {
     gap: 12px;
     font-weight: 600;
     align-items: flex-start;
+    min-width: 0;
 }
 
 .gc-score .who {
+    flex: 1 1 auto;
     font-family: var(--font-display);
     font-size: 0.95rem;
     font-weight: 600;
@@ -628,6 +640,8 @@ table.js-sort th.sorted.desc::after {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .gc-match.compact .gc-score .num {
@@ -1187,6 +1201,109 @@ td.plus {
     font-size: 1rem;
 }
 
+.txn-feed .gc-match.compact {
+    margin: 10px 0 14px;
+}
+
+.txn-item {
+    display: grid;
+    grid-template-columns: 5.75rem minmax(0, 1fr) 4.25rem;
+    gap: 2px 12px;
+    align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.txn-item p {
+    margin: 0;
+    min-width: 0;
+    line-height: 1.45;
+}
+
+.txn-item .wire-time {
+    width: auto;
+}
+
+.txn-feed .person,
+.txn-feed .person a {
+    max-width: none;
+    align-items: baseline;
+}
+
+.txn-feed .avatar {
+    align-self: center;
+}
+
+.txn-feed .person-name {
+    flex: 0 1 auto;
+}
+
+.txn-item .team,
+.txn-feed .wire-table .team {
+    display: inline;
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.txn-feed .wire-table .team {
+    white-space: nowrap;
+}
+
+.txn-chip {
+    white-space: nowrap;
+}
+
+.txn-feed .pos {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.txn-vorp {
+    text-align: right;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.txn-run.with-time {
+    display: grid;
+    grid-template-columns: 5.75rem minmax(0, 1fr);
+    gap: 2px 12px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.txn-run .wire-time {
+    width: auto;
+    padding-top: 0.55rem;
+}
+
+.txn-run-table {
+    min-width: 0;
+}
+
+.txn-feed .wire-table .pos {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.wire-table .wire-section td {
+    padding-top: 14px;
+    color: #e4e4e7;
+    font-weight: 600;
+    border-bottom-color: #374151;
+}
+
+.wire-table tbody tr.wire-section:first-child td {
+    padding-top: 8px;
+}
+
+.wire-table .wire-group td {
+    padding-top: 10px;
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
 tr.this td {
     background: #1a222c;
 }
@@ -1572,7 +1689,30 @@ tr.this td {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    max-width: 100%;
     min-width: 0;
+}
+
+.person a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.person a:hover {
+    text-decoration: none;
+}
+
+.person a:hover .person-name {
+    text-decoration: underline;
+}
+
+.person-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .avatar {
@@ -1614,12 +1754,74 @@ tr.this td {
     margin-bottom: 12px;
 }
 
+.desk h2 a {
+    color: inherit;
+}
+
+.desk h2 a:hover {
+    color: #93c5fd;
+    text-decoration: none;
+}
+
 .desk-side .week-card {
     margin-top: 16px;
 }
 
+.week-card.week-live {
+    border-style: dashed;
+    background: transparent;
+}
+
+.week-recap-links {
+    color: var(--muted);
+    margin-top: 12px;
+}
+
+.week-card .jump {
+    margin-bottom: 12px;
+}
+
 .slate-match {
+    position: relative;
+    display: block;
     margin: 0 0 8px;
+}
+
+.slate-match .gc-score {
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.slate-match .gc-score .side + .side {
+    padding-top: 8px;
+    border-top: 1px solid #1f2933;
+}
+
+.slate-match-hit {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.slate-match-hit:hover {
+    text-decoration: none;
+}
+
+.slate-match .person,
+.slate-match .team {
+    position: relative;
+    z-index: 2;
+}
+
+.slate-match:hover {
+    border-color: #4b5a6a;
+}
+
+.slate-match .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
 }
 
 .chip {
@@ -1644,9 +1846,180 @@ tr.podium td:nth-child(3) {
     margin-top: 0;
 }
 
+.week-main .slate-match .gc-score {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 12px 16px;
+    align-items: center;
+}
+
+.week-main .slate-match .gc-score .side + .side {
+    padding-top: 0;
+    border-top: none;
+}
+
+.week-main .slate-match .gc-score .side:last-child .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+}
+
+.week-main .slate-match .gc-score .side:last-child .person,
+.week-main .slate-match .gc-score .side:last-child .person a {
+    flex-direction: row-reverse;
+}
+
+.week-bout-score {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.week-main .slate-match .week-bout-score .num {
+    display: block;
+    min-width: 4.5ch;
+}
+
+.week-bout-score .num:last-child {
+    text-align: left;
+}
+
+.week-bout-score .num:first-child {
+    text-align: right;
+}
+
+.week-bout-sep {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.week-bout-score .num.lost {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.week-standings {
+    margin: 0 0 20px;
+}
+
+.week-standings h2 {
+    margin-top: 0;
+}
+
+.week-standings .team {
+    display: block;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.week-standings .rank-cell {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.week-standings thead th:first-child {
+    text-align: right;
+    padding-right: calc(8px + 3.5ch + 0.35em);
+}
+
+.week-standings .rank-line {
+    display: inline-grid;
+    grid-template-columns: 3ch 3.5ch;
+    column-gap: 0.35em;
+    align-items: baseline;
+    vertical-align: middle;
+}
+
+.week-standings .rank-n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.rank-move {
+    font-size: 0.75em;
+    font-weight: 400;
+    text-align: left;
+    min-height: 1em;
+}
+
+.rank-move.up {
+    color: #86efac;
+}
+
+.rank-move.down {
+    color: #fca5a5;
+}
+
+.week-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: 20px 28px;
+    align-items: start;
+}
+
+.week-main,
+.week-awards {
+    min-width: 0;
+}
+
+.week-awards .jump {
+    margin-bottom: 12px;
+}
+
+.week-awards h2 {
+    margin-top: 0;
+}
+
+.week-awards h3 {
+    margin: 16px 0 8px;
+}
+
+.week-awards .plaque-grid {
+    margin-top: 8px;
+}
+
+.plaque.ticket .plaque-ticket {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.plaque.ticket .plaque-copy {
+    min-width: 0;
+}
+
+.plaque.ticket .plaque-figure {
+    margin: 0;
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 1.35rem;
+}
+
+.plaque.ticket.compact .plaque-figure {
+    font-size: 1.15rem;
+}
+
+.plaque-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    margin-top: 2px;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 900px) {
+    .week-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .plaque-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
     gap: 10px;
     margin: 10px 0 14px;
 }
@@ -1668,13 +2041,18 @@ tr.podium td:nth-child(3) {
 }
 
 .plaque-grid.compact {
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+    gap: 8px;
+}
+
+.plaque-grid.stack {
+    grid-template-columns: 1fr;
     gap: 8px;
 }
 
 .team-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
     gap: 10px;
     margin: 10px 0 16px;
 }
@@ -1695,10 +2073,12 @@ tr.podium td:nth-child(3) {
 }
 
 .plaque {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     background: var(--bg);
     border: 1px solid var(--line);
     padding: 10px 12px;
-    min-width: 0;
 }
 
 .plaque-high {
@@ -1716,14 +2096,22 @@ tr.podium td:nth-child(3) {
     line-height: 1.25;
     color: var(--ink);
     margin-bottom: 6px;
+    overflow-wrap: break-word;
 }
 
 .plaque-who {
     display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
+    flex-direction: column;
+    align-items: flex-start;
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+}
+
+.plaque .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
 }
 
 .plaque-figure {
@@ -1760,15 +2148,30 @@ tr.podium td:nth-child(3) {
 
 .year-rail {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
     gap: 10px;
     margin: 8px 0 20px;
 }
 
 .year-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     background: var(--surface);
     border: 1px solid var(--line);
     padding: 12px 14px;
+}
+
+.year-card.deferred,
+.year-card.unfinished {
+    border-style: dashed;
+    background: transparent;
+}
+
+.stub-copy {
+    color: var(--muted);
+    margin-top: 8px;
+    font-size: 0.85rem;
 }
 
 .year-card .year {
@@ -1781,6 +2184,7 @@ tr.podium td:nth-child(3) {
 
 .year-card .year:hover {
     color: #93c5fd;
+    text-decoration: none;
 }
 
 .year-card .chip {
@@ -1791,15 +2195,27 @@ tr.podium td:nth-child(3) {
 .year-card .champ,
 .year-card .last {
     display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
+    flex-direction: column;
+    min-width: 0;
     margin-top: 8px;
-    overflow-wrap: anywhere;
+}
+
+.year-card .champ > span,
+.year-card .last > span {
+    min-width: 0;
 }
 
 .year-card .last {
     color: var(--muted);
     font-size: 0.85rem;
+}
+
+.year-card .team {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    min-height: 2.6em;
 }
 
 .year-card .role {
