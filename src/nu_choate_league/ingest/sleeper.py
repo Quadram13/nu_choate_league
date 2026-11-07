@@ -111,6 +111,34 @@ def _week_number(value: Any) -> int:
     return week if week > 0 else 0
 
 
+def sleeper_roster_extras(settings: dict[str, Any]) -> dict[str, Any]:
+    """Season totals from a Sleeper roster settings object.
+
+    These dumps store ppts, fpts_against, waiver_position, and total_moves as
+    season scalars. The point fields use the same whole-plus-decimal split as
+    fpts. A missing key stays null. A present 0 is stored as 0.
+    """
+    return {
+        "points_against": _sleeper_points(settings, "fpts_against", "fpts_against_decimal"),
+        "ppts": _sleeper_points(settings, "ppts", "ppts_decimal"),
+        "waiver_position": _sleeper_int(settings, "waiver_position"),
+        "total_moves": _sleeper_int(settings, "total_moves"),
+    }
+
+
+def _sleeper_points(settings: dict[str, Any], whole: str, decimal: str) -> float | None:
+    if whole not in settings and decimal not in settings:
+        return None
+    return round_points(int(settings.get(whole) or 0) + int(settings.get(decimal) or 0) / 100)
+
+
+def _sleeper_int(settings: dict[str, Any], key: str) -> int | None:
+    value = settings.get(key) if key in settings else None
+    if value is None:
+        return None
+    return int(value)
+
+
 def _teams(
     season: Season,
     rosters: list[Any],
@@ -140,6 +168,7 @@ def _teams(
                 platform_team_id=str(roster_id),
             )
         )
+        extras = sleeper_roster_extras(settings)
         official.append(
             OfficialRecord(
                 manager_id=manager.id,
@@ -149,6 +178,10 @@ def _teams(
                 points_for=round_points(
                     int(settings.get("fpts") or 0) + int(settings.get("fpts_decimal") or 0) / 100
                 ),
+                points_against=extras["points_against"],
+                ppts=extras["ppts"],
+                waiver_position=extras["waiver_position"],
+                total_moves=extras["total_moves"],
             )
         )
     return teams, official, names, roster_owners

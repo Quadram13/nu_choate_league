@@ -980,6 +980,14 @@ table.js-sort th.sorted.desc::after {
     font-weight: 400;
 }
 
+.nfl-opp {
+    margin-left: 6px;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
 .gc-row .sit .call,
 .gc-lineup .sit .call {
     color: #9ca3af;

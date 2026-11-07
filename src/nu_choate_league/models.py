@@ -105,6 +105,11 @@ class OfficialRecord(BaseModel):
     losses: int
     ties: int
     points_for: float
+    # Sleeper roster settings. Null on ESPN, which does not publish these.
+    points_against: float | None = None
+    ppts: float | None = None
+    waiver_position: int | None = None
+    total_moves: int | None = None
 
 
 class DraftPick(BaseModel):

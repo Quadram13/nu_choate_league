@@ -2555,6 +2555,106 @@ def week_slate(year: int, week: int) -> dict[str, Any] | None:
     }
 
 
+def _nfl_opponent_label(is_bye: bool, is_home: bool | None, opponent_abbr: str | None) -> str | None:
+    if is_bye:
+        return "BYE"
+    if not opponent_abbr:
+        return None
+    marker = "vs" if is_home else "@"
+    return f"{marker} {opponent_abbr}"
+
+
+def _nfl_opponent_labels(abbr: str | None) -> dict[tuple[int, int], str]:
+    """2022-2023 opponent text for one Sleeper club abbreviation.
+
+    players.nfl_team is the current club, not the club during that season.
+    Weeks with no schedule row (Sleeper years, or a player with no club) get
+    no label.
+    """
+    if not abbr:
+        return {}
+    rows = fetchall(
+        """
+        SELECT n.year, n.week, n.is_bye, n.is_home, opp.abbr AS opponent_abbr
+        FROM nfl_team_weeks n
+        JOIN nfl_team_crosswalk club ON club.espn_pro_team_id = n.espn_pro_team_id
+        LEFT JOIN nfl_team_crosswalk opp
+            ON opp.espn_pro_team_id = n.opponent_espn_pro_team_id
+        WHERE club.abbr = %(abbr)s
+        """,
+        {"abbr": abbr},
+    )
+    labels: dict[tuple[int, int], str] = {}
+    for row in rows:
+        label = _nfl_opponent_label(bool(row["is_bye"]), row["is_home"], row["opponent_abbr"])
+        if label:
+            labels[(int(row["year"]), int(row["week"]))] = label
+    return labels
+
+
+def _fill_missing_bye_weeks(
+    weeks: list[dict[str, Any]], labels: dict[tuple[int, int], str]
+) -> None:
+    """Add a row for a 2022-2023 bye that the pool skipped.
+
+    Zero-point weeks are not stored, and a bye is a zero. The week log would
+    otherwise never show the bye. These rows are display-only: ownership
+    stints stay on the scored weeks.
+    """
+    present = {(row["year"], row["week"]) for row in weeks}
+    years = {row["year"] for row in weeks}
+    for (year, week), label in labels.items():
+        if label != "BYE" or year not in years or (year, week) in present:
+            continue
+        weeks.append(
+            {
+                "year": year,
+                "week": week,
+                "points": 0.0,
+                "rostered": False,
+                "started": False,
+                "manager_id": None,
+                "manager_name": None,
+                "matchup_id": None,
+                "line": None,
+                "nfl_opponent": "BYE",
+                "bye_only": True,
+            }
+        )
+    weeks.sort(key=lambda row: (row["year"], row["week"]))
+
+
+def _attach_nfl_opponents(rows: list[dict[str, Any]], year: int, week: int) -> None:
+    ids = [row["player_id"] for row in rows if row.get("player_id")]
+    if not ids:
+        return
+    labels = {
+        row["player_id"]: row
+        for row in fetchall(
+            """
+            SELECT p.id AS player_id, n.is_bye, n.is_home, opp.abbr AS opponent_abbr
+            FROM players p
+            JOIN nfl_team_crosswalk club ON club.abbr = p.nfl_team
+            JOIN nfl_team_weeks n
+                ON n.espn_pro_team_id = club.espn_pro_team_id
+                AND n.year = %(year)s
+                AND n.week = %(week)s
+            LEFT JOIN nfl_team_crosswalk opp
+                ON opp.espn_pro_team_id = n.opponent_espn_pro_team_id
+            WHERE p.id = ANY(%(ids)s)
+            """,
+            {"year": year, "week": week, "ids": ids},
+        )
+    }
+    for row in rows:
+        info = labels.get(row.get("player_id"))
+        if not info:
+            continue
+        label = _nfl_opponent_label(bool(info["is_bye"]), info["is_home"], info["opponent_abbr"])
+        if label:
+            row["nfl_opponent"] = label
+
+
 def gamecenter(year: int, week: int, matchup_id: str) -> dict[str, Any] | None:
     games = _week_games(year, week)
     row = next((game for game in games if game["id"] == matchup_id), None)
@@ -2568,6 +2668,7 @@ def gamecenter(year: int, week: int, matchup_id: str) -> dict[str, Any] | None:
         """,
         {"matchup_id": matchup_id},
     )
+    _attach_nfl_opponents(slots, year, week)
     manager_ids = [
         manager_id
         for manager_id in (row["home_manager_id"], row["away_manager_id"])
@@ -2598,6 +2699,14 @@ def gamecenter(year: int, week: int, matchup_id: str) -> dict[str, Any] | None:
         opt_winner = coach.get("winner_id")
         coach["flipped"] = bool(
             actual_winner and opt_winner and actual_winner != opt_winner
+        )
+        _attach_nfl_opponents(
+            [
+                *((coach.get("home") or {}).get("optimal") or []),
+                *((coach.get("away") or {}).get("optimal") or []),
+            ],
+            year,
+            week,
         )
     return {
         **_week_nav(year, week),
@@ -4456,17 +4565,22 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     )
     lines = _player_stat_lines(player_id)
     by_line = {(row["year"], row["week"]): row for row in lines}
+    bio = _player_bio(player_id)
+    nfl_labels = _nfl_opponent_labels((bio or {}).get("nfl_team"))
     for row in weeks:
         row["line"] = by_line.get((row["year"], row["week"]))
+        row["nfl_opponent"] = nfl_labels.get((row["year"], row["week"]))
+    scored_weeks = list(weeks)
+    _fill_missing_bye_weeks(weeks, nfl_labels)
     rings = _player_title_weeks(player_id)
     return {
         "player": identity,
         "seasons": seasons,
         "weeks": weeks,
-        "stints": _ownership_stints(weeks),
+        "stints": _ownership_stints(scored_weeks),
         "draft": draft,
         "owners": owners,
-        "bio": _player_bio(player_id),
+        "bio": bio,
         "chairs": _player_chairs(player_id),
         "rings": rings,
         "ring_points": sum(float(row["points"] or 0) for row in rings),
