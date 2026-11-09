@@ -292,3 +292,79 @@ CREATE TABLE IF NOT EXISTS nfl_team_weeks (
 
 CREATE INDEX IF NOT EXISTS nfl_team_weeks_opponent_idx
     ON nfl_team_weeks (year, week, opponent_espn_pro_team_id);
+
+-- ---------------------------------------------------------------------------
+-- Sleeper weekly context (issue #33). Own section so it stays clear of other
+-- fact DDL. Source is data/sleeper/{year}/weeks/*/stats.json only.
+--
+-- ESPN 2022-2023 has no equivalent file. Those seasons get no rows. Ranks,
+-- snaps, and gp/gs are not invented from boxscores.
+--
+-- Row rule: the player_week_counting_stats gate (a stat object whose fantasy
+-- point buckets are not all zero) plus weeks where gp, gs, off_snp, def_snp,
+-- or st_snp is greater than zero. Sleeper also stamps positional rank and
+-- team snap totals on players who did not play; those objects are not rows.
+-- The extra rows versus counting stats are played weeks that scored no
+-- fantasy points. gp and gs are that week's flags, not season totals. The
+-- dumps write each key only when the value is 1, so a null gp means the key
+-- was absent and a null gs beside gp = 1 means the player did not start.
+-- pos_rank_* of 999 is Sleeper's unranked sentinel and is stored as null.
+-- Real ranks in these dumps stay well under 200.
+-- TEAM_* ids are not in the player catalog. They are stored under that raw
+-- id, the same resolution path as counting stats. Fantasy D/ST uses the
+-- catalog id (PHI, not TEAM_PHI).
+-- A player snap can exceed the team total by a few snaps in 2025 and 2026
+-- (Sleeper's team total lags). The share view does not clamp that.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS player_week_sleeper_context (
+    year INTEGER NOT NULL REFERENCES seasons (year) ON DELETE CASCADE,
+    week INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    gp INTEGER,
+    gs INTEGER,
+    off_snp INTEGER,
+    def_snp INTEGER,
+    st_snp INTEGER,
+    tm_off_snp INTEGER,
+    tm_def_snp INTEGER,
+    tm_st_snp INTEGER,
+    pos_rank_ppr INTEGER,
+    pos_rank_half_ppr INTEGER,
+    pos_rank_std INTEGER,
+    PRIMARY KEY (year, week, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS player_week_sleeper_context_player_idx
+    ON player_week_sleeper_context (player_id, year, week);
+
+-- Snap share. A zero or missing team total is unknown, not a 0% share.
+CREATE OR REPLACE VIEW v_player_week_snap_share AS
+SELECT
+    c.year,
+    c.week,
+    c.player_id,
+    c.gp,
+    c.gs,
+    c.off_snp,
+    c.def_snp,
+    c.st_snp,
+    c.tm_off_snp,
+    c.tm_def_snp,
+    c.tm_st_snp,
+    c.pos_rank_ppr,
+    c.pos_rank_half_ppr,
+    c.pos_rank_std,
+    CASE
+        WHEN c.off_snp IS NULL OR c.tm_off_snp IS NULL OR c.tm_off_snp = 0 THEN NULL
+        ELSE c.off_snp::double precision / c.tm_off_snp
+    END AS off_snap_share,
+    CASE
+        WHEN c.def_snp IS NULL OR c.tm_def_snp IS NULL OR c.tm_def_snp = 0 THEN NULL
+        ELSE c.def_snp::double precision / c.tm_def_snp
+    END AS def_snap_share,
+    CASE
+        WHEN c.st_snp IS NULL OR c.tm_st_snp IS NULL OR c.tm_st_snp = 0 THEN NULL
+        ELSE c.st_snp::double precision / c.tm_st_snp
+    END AS st_snap_share
+FROM player_week_sleeper_context c;

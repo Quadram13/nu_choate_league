@@ -140,6 +140,8 @@
             <th class="num" title="Receiving touchdowns">Rec TD</th>
             <th title="Attempts, turnovers, first downs, red zone, kicking, defense">Count</th>
             <th>Line</th>
+            <th class="num" title="Sleeper PPR positional rank, 2024–2026. Hover a cell for half-PPR and standard. Blank on ESPN seasons.">Rank</th>
+            <th class="num" title="Snap count and share of team snaps. Offensive when the player took an offensive snap, otherwise defensive, then special teams. Blank when the team total is 0.">Snaps</th>
         </tr>
     </thead>
     <tbody>
@@ -177,6 +179,8 @@
                 —
                 {% endif %}
             </td>
+            <td class="num"{% if row.sleeper_context and row.sleeper_context.rank_title %} title="{{ row.sleeper_context.rank_title }}"{% endif %}>{% if row.sleeper_context and row.sleeper_context.pos_rank_ppr is not none %}{{ row.sleeper_context.pos_rank_ppr|int }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.sleeper_context and row.sleeper_context.snap_note %}{{ row.sleeper_context.snap_note }}{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
