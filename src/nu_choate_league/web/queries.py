@@ -5135,43 +5135,32 @@ def _move_href(year: int, kind: str, transaction_id: str) -> str | None:
 
 
 def players_index() -> dict[str, Any]:
+    # Snapshots in sql/analysis/99_players_index_snapshot.sql. Age stays here
+    # because it changes on a birthday and is not stored.
     career = fetchall(
         """
         SELECT
-            i.player_id, i.player_name, i.position, i.seasons, i.first_year, i.last_year,
-            i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
-            i.started_vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added,
-            i.times_traded,
-            coalesce(r.rings, 0) AS rings,
-            coalesce(r.title_starts, 0) AS title_starts,
-            coalesce(r.champ_roster_weeks, 0) AS champ_roster_weeks,
-            coalesce(jm.managers, 0) AS managers,
-            p.birth_date,
-            p.height_in,
-            p.weight_lb,
-            p.rookie_year,
+            player_id, player_name, position, seasons, first_year, last_year,
+            starts, bench_weeks, starter_points, rostered_weeks, fa_weeks,
+            started_vorp, own_pct, lineup_weeks, times_drafted, times_added,
+            times_traded, rings, title_starts, champ_roster_weeks, managers,
+            birth_date, height_in, weight_lb, rookie_year,
             CASE
-                WHEN p.birth_date IS NULL THEN NULL
-                ELSE EXTRACT(YEAR FROM age(p.birth_date))::integer
+                WHEN birth_date IS NULL THEN NULL
+                ELSE EXTRACT(YEAR FROM age(birth_date))::integer
             END AS age_years
-        FROM v_player_index i
-        LEFT JOIN players p ON p.id = i.player_id
-        LEFT JOIN v_player_rings r ON r.player_id = i.player_id
-        LEFT JOIN v_player_managers jm ON jm.player_id = i.player_id
-        ORDER BY i.starter_points DESC, i.started_vorp DESC, i.player_name
+        FROM v_players_index_career
+        ORDER BY starter_points DESC, started_vorp DESC, player_name
         """
     )
     seasons = fetchall(
         """
         SELECT
-            s.year, s.player_id, s.player_name, s.position, s.rostered_weeks, s.starts,
-            s.fa_weeks, s.points, s.started_points, s.vorp, s.started_vorp, s.own_pct,
-            s.manager_id, s.owner_name, s.owned_weeks, s.lineup_weeks,
-            coalesce(jm.managers, 0) AS managers
-        FROM v_player_season s
-        LEFT JOIN v_player_managers_season jm
-            ON jm.year = s.year AND jm.player_id = s.player_id
-        ORDER BY s.year DESC, s.started_points DESC, s.started_vorp DESC, s.player_name
+            year, player_id, player_name, position, rostered_weeks, starts,
+            fa_weeks, points, started_points, vorp, started_vorp, own_pct,
+            manager_id, owner_name, owned_weeks, lineup_weeks, managers
+        FROM v_players_index_season
+        ORDER BY year DESC, started_points DESC, started_vorp DESC, player_name
         """
     )
     for row in career:
@@ -5278,37 +5267,18 @@ def _fa_career_leaders(*, limit: int = 15) -> list[dict[str, Any]]:
 
 
 def _fa_index_gap() -> dict[str, Any]:
-    """Players and seasons the starter index drops for zero rostered weeks."""
+    """Players and seasons the starter index drops for zero rostered weeks.
+
+    The aggregate is v_players_index_gap. Only players_index reads it.
+    """
     row = fetchone(
         """
-        WITH seasons AS (
-            SELECT player_id, rostered_weeks, points
-            FROM v_vorp_season
-        ),
-        players AS (
-            SELECT
-                player_id,
-                sum(rostered_weeks) AS rostered_weeks,
-                sum(points) AS points
-            FROM seasons
-            GROUP BY player_id
-        )
         SELECT
-            count(*) FILTER (WHERE rostered_weeks = 0) AS excluded_seasons,
-            count(*) FILTER (
-                WHERE rostered_weeks = 0 AND points <> 0
-            ) AS excluded_seasons_scored,
-            (
-                SELECT count(*)
-                FROM players
-                WHERE rostered_weeks = 0
-            ) AS excluded_players,
-            (
-                SELECT count(*)
-                FROM players
-                WHERE rostered_weeks = 0 AND points <> 0
-            ) AS excluded_players_scored
-        FROM seasons
+            excluded_seasons,
+            excluded_seasons_scored,
+            excluded_players,
+            excluded_players_scored
+        FROM v_players_index_gap
         """
     )
     return row or {
@@ -8260,7 +8230,7 @@ def _attach_index_volatility(
         SELECT
             player_id, weeks_scored, mean_points, stddev_points, cv,
             boom_rate, best_points, best_year, best_week, includes_partial
-        FROM v_player_volatility_career
+        FROM v_players_index_vol_career
         """
     )
     season_rows = fetchall(
@@ -8268,7 +8238,7 @@ def _attach_index_volatility(
         SELECT
             year, player_id, weeks_scored, mean_points, stddev_points, cv,
             boom_rate, best_points, best_year, best_week, partial_season
-        FROM v_player_volatility_season
+        FROM v_players_index_vol_season
         """
     )
     by_player = {row["player_id"]: row for row in career_rows}
