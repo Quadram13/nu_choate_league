@@ -51,6 +51,10 @@
             <th class="num" title="Sample standard deviation">SD</th>
             <th class="num" title="Sample SD / mean">CV</th>
             <th class="num" title="Weeks at least 1.5× the career mean">Boom</th>
+            <th class="num" title="Completed years from birth_date as of today. The catalog age integer is not stored.">Age</th>
+            <th class="num" title="Height from the Sleeper catalog">Ht</th>
+            <th class="num" title="Weight in pounds from the Sleeper catalog">Wt</th>
+            <th class="num" title="Sleeper metadata.rookie_year. Not derived from years_exp.">Rookie</th>
         </tr>
     </thead>
     <tbody>
@@ -73,6 +77,10 @@
             <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
             <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
             <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
+            <td class="num" data-value="{{ row.age_years if row.age_years is not none else '' }}" {% if row.birth_date %}title="born {{ row.birth_date }}"{% endif %}>{% if row.age_years is not none %}{{ row.age_years }}{% endif %}</td>
+            <td class="num">{{ row.height or "" }}</td>
+            <td class="num" data-value="{{ row.weight_lb if row.weight_lb is not none else '' }}">{% if row.weight_lb is not none %}{{ row.weight_lb }}{% endif %}</td>
+            <td class="num" data-value="{{ row.rookie_year if row.rookie_year is not none else '' }}">{% if row.rookie_year is not none %}{{ row.rookie_year }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>

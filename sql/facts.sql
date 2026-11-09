@@ -144,6 +144,62 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS college TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS years_exp INTEGER;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number TEXT;
 
+-- Player bio from data/sleeper/players/nfl.json (issue #34).
+-- Static identity, safe to read as history: birth_date, height_in, weight_lb,
+-- high_school, rookie_year. Age is not stored. Compute completed years with
+-- EXTRACT(YEAR FROM age(birth_date)).
+-- height_in is total inches. The catalog writes either a number of inches
+-- ("74") or feet and inches (6'2"). Values outside 60-90 are dropped
+-- (the file uses 0 and 0'0" as placeholders).
+-- weight_lb is pounds. Zero is dropped.
+-- rookie_year is metadata.rookie_year when it is a four-digit year.
+-- It is not derived from birth_date or years_exp.
+-- Snapshot columns describe the catalog file at catalog_as_of only.
+-- catalog_as_of is the nfl.json modification date, not a league week.
+-- practice_participation and practice_description are not stored: this
+-- catalog fills them for one player, which would read as a practice report
+-- the file does not actually contain. injury_start_date, birth_city,
+-- birth_state, and birth_country are null on every catalog row.
+-- metadata injury_override_* is a sparse partial log, not a timeline,
+-- and stays out of scope.
+ALTER TABLE players ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS height_in INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS weight_lb INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS high_school TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS rookie_year INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS catalog_as_of DATE;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS nfl_status TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS injury_status TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS injury_body_part TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS injury_notes TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS depth_chart_position TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS depth_chart_order INTEGER;
+
+COMMENT ON COLUMN players.birth_date IS
+    'Sleeper birth_date. Age is computed from this column and is never stored.';
+COMMENT ON COLUMN players.height_in IS
+    'Height in total inches, parsed from the Sleeper height field.';
+COMMENT ON COLUMN players.weight_lb IS
+    'Weight in pounds from the Sleeper catalog. Zero is not stored.';
+COMMENT ON COLUMN players.high_school IS
+    'Sleeper high_school. Static identity.';
+COMMENT ON COLUMN players.rookie_year IS
+    'Sleeper metadata.rookie_year. Not computed from years_exp or birth_date.';
+COMMENT ON COLUMN players.catalog_as_of IS
+    'Modification date of sleeper/players/nfl.json. nfl_status, injury_*, and depth_chart_* describe the player on this date only, not a league week.';
+COMMENT ON COLUMN players.nfl_status IS
+    'Sleeper status (Active, Inactive, Injured Reserve, and the rest) as of catalog_as_of.';
+COMMENT ON COLUMN players.injury_status IS
+    'Sleeper injury_status as of catalog_as_of. Not week-of history.';
+COMMENT ON COLUMN players.injury_body_part IS
+    'Sleeper injury_body_part as of catalog_as_of. Not week-of history.';
+COMMENT ON COLUMN players.injury_notes IS
+    'Sleeper injury_notes as of catalog_as_of. Same snapshot as injury_status.';
+COMMENT ON COLUMN players.depth_chart_position IS
+    'Sleeper depth_chart_position as of catalog_as_of. Not a historical depth chart.';
+COMMENT ON COLUMN players.depth_chart_order IS
+    'Sleeper depth_chart_order as of catalog_as_of. 1 is the top of that position. Not week-of history.';
+
 CREATE INDEX IF NOT EXISTS matchups_year_week_idx ON matchups (year, week);
 CREATE INDEX IF NOT EXISTS lineup_slots_matchup_idx ON lineup_slots (matchup_id);
 CREATE INDEX IF NOT EXISTS lineup_slots_player_idx ON lineup_slots (player_id);

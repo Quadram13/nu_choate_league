@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterable
+from datetime import date
 
 import psycopg
 
@@ -23,7 +24,7 @@ from .ingest.score import (
 )
 from .ingest.sleeper_context import SLEEPER_CONTEXT_COLUMNS, context_insert_tuple, sleeper_context_rows
 from .models import EspnMarket, Matchup, Platform, Season, SeasonBundle, Transaction
-from .players import PlayerIndex
+from .players import PlayerIndex, catalog_identity, sleeper_catalog_as_of
 
 
 def _progress(message: str) -> None:
@@ -131,28 +132,43 @@ def _upsert_managers(conn: psycopg.Connection) -> None:
     )
 
 
+_PLAYER_ROW_WIDTH = 20
+
+
 def _upsert_players(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -> None:
     index = PlayerIndex()
+    as_of = sleeper_catalog_as_of()
     rows: dict[str, tuple] = {}
     for bundle in bundles:
         for matchup in bundle.matchups:
             for side in (matchup.home, matchup.away):
                 for slot in side.lineup:
-                    _remember_player(rows, index, slot.player_id, slot.player_name)
+                    _remember_player(rows, index, slot.player_id, slot.player_name, as_of)
         for pick in bundle.draft_picks:
-            _remember_player(rows, index, pick.player_id, pick.player_name)
+            _remember_player(rows, index, pick.player_id, pick.player_name, as_of)
         for txn in bundle.transactions:
             for move in (*txn.adds, *txn.drops):
-                _remember_player(rows, index, move.player_id, move.player_name)
+                _remember_player(rows, index, move.player_id, move.player_name, as_of)
         for row in bundle.player_weeks:
-            _remember_player(rows, index, row.player_id, row.player_name)
+            _remember_player(rows, index, row.player_id, row.player_name, as_of)
+    bad = next((row for row in rows.values() if len(row) != _PLAYER_ROW_WIDTH), None)
+    if bad is not None:
+        raise RuntimeError(f"player row has {len(bad)} values, expected {_PLAYER_ROW_WIDTH}")
     _executemany(
         conn,
         """
         INSERT INTO players (
-            id, display_name, position, espn_id, nfl_team, college, years_exp, jersey_number
+            id, display_name, position, espn_id, nfl_team, college, years_exp, jersey_number,
+            birth_date, height_in, weight_lb, high_school, rookie_year,
+            catalog_as_of, nfl_status, injury_status, injury_body_part, injury_notes,
+            depth_chart_position, depth_chart_order
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s,
+            %s, %s
+        )
         ON CONFLICT (id) DO UPDATE SET
             display_name = EXCLUDED.display_name,
             position = COALESCE(EXCLUDED.position, players.position),
@@ -160,7 +176,21 @@ def _upsert_players(conn: psycopg.Connection, bundles: Iterable[SeasonBundle]) -
             nfl_team = COALESCE(EXCLUDED.nfl_team, players.nfl_team),
             college = COALESCE(EXCLUDED.college, players.college),
             years_exp = COALESCE(EXCLUDED.years_exp, players.years_exp),
-            jersey_number = COALESCE(EXCLUDED.jersey_number, players.jersey_number)
+            jersey_number = COALESCE(EXCLUDED.jersey_number, players.jersey_number),
+            birth_date = COALESCE(EXCLUDED.birth_date, players.birth_date),
+            height_in = COALESCE(EXCLUDED.height_in, players.height_in),
+            weight_lb = COALESCE(EXCLUDED.weight_lb, players.weight_lb),
+            high_school = COALESCE(EXCLUDED.high_school, players.high_school),
+            rookie_year = COALESCE(EXCLUDED.rookie_year, players.rookie_year),
+            -- Snapshot columns replace, including null. A healed player must not
+            -- keep last load's injury. Static facts above still coalesce.
+            catalog_as_of = EXCLUDED.catalog_as_of,
+            nfl_status = EXCLUDED.nfl_status,
+            injury_status = EXCLUDED.injury_status,
+            injury_body_part = EXCLUDED.injury_body_part,
+            injury_notes = EXCLUDED.injury_notes,
+            depth_chart_position = EXCLUDED.depth_chart_position,
+            depth_chart_order = EXCLUDED.depth_chart_order
         """,
         list(rows.values()),
     )
@@ -171,13 +201,14 @@ def _remember_player(
     index: PlayerIndex,
     player_id: str,
     name: str,
+    as_of: date,
 ) -> None:
     if player_id in rows:
         return
     player = index.from_sleeper(player_id)
     record = index.catalog.get(player_id) or {}
     if player is None:
-        rows[player_id] = (player_id, name or player_id, None, None, None, None, None, None)
+        rows[player_id] = (player_id, name or player_id, *([None] * (_PLAYER_ROW_WIDTH - 2)))
         return
     number = record.get("number")
     years = record.get("years_exp")
@@ -185,6 +216,7 @@ def _remember_player(
         years_exp = int(years) if years is not None else None
     except (TypeError, ValueError):
         years_exp = None
+    identity = catalog_identity(record)
     rows[player_id] = (
         player.id,
         player.display_name or name or player.id,
@@ -194,6 +226,18 @@ def _remember_player(
         str(record.get("college") or "") or None,
         years_exp,
         str(number) if number is not None and str(number) != "" else None,
+        identity.birth_date,
+        identity.height_in,
+        identity.weight_lb,
+        identity.high_school,
+        identity.rookie_year,
+        as_of,
+        identity.nfl_status,
+        identity.injury_status,
+        identity.injury_body_part,
+        identity.injury_notes,
+        identity.depth_chart_position,
+        identity.depth_chart_order,
     )
 
 
