@@ -3,6 +3,7 @@
 {% from "draft_macros.html" import pick_link %}
 {% from "plaque_macros.html" import holder_row, person_link %}
 {% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -24,6 +25,9 @@
     <a href="#drought" data-grain="career">Droughts</a>
     <a href="#eras" data-grain="career">Wire eras</a>
     <a href="#draft-capital" data-grain="career">Draft capital</a>
+    <a href="#partners" data-grain="career">Trade partners</a>
+    <a href="#waiver-roi">Waiver ROI</a>
+    <a href="#roster-shape">Roster shape</a>
     <a href="#journeymen" data-grain="career">Journeymen</a>
     <a href="#traded" data-grain="career">Most traded</a>
     <a href="#rings" data-grain="career">Rings</a>
@@ -1006,7 +1010,7 @@
 {% if draft_capital %}
 <div data-grain="career">
 <h2 id="draft-capital">Career draft capital</h2>
-<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. A hit is 8 or more starts and above that round’s VORP. Titles are championships.</p>
+<p class="note">Sums across every draft, including the in-progress season. vsPts is starter points against the round. vsRnd is VORP against the round. A hit is 8 or more starts and above that round’s VORP. Hit% is career hits divided by career picks. Titles are championships. Displayed VORP is rounded to 0.01.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -1014,6 +1018,7 @@
             <th>Manager</th>
             <th class="num">Picks</th>
             <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
+            <th class="num" title="Hits divided by picks">Hit%</th>
             <th class="num" title="Starter points versus the round average">vsPts</th>
             <th class="num" title="VORP versus the round average">vsRnd</th>
             <th class="num" title="Rest-of-season VORP">VORP</th>
@@ -1026,10 +1031,216 @@
             <td>{{ person(row.manager_id, row.manager_name) }}</td>
             <td class="num" data-value="{{ row.picks }}">{{ (row.picks or 0)|int }}</td>
             <td class="num" data-value="{{ row.hits }}">{{ (row.hits or 0)|int }}</td>
-            <td class="num{% if row.vs_round and row.vs_round > 0 %} plus{% elif row.vs_round and row.vs_round < 0 %} minus{% endif %}" data-value="{{ row.vs_round if row.vs_round is not none else '' }}">{% if row.vs_round is not none %}{{ "%+.1f"|format(row.vs_round) }}{% else %}—{% endif %}</td>
-            <td class="num{% if row.vs_vorp and row.vs_vorp > 0 %} plus{% elif row.vs_vorp and row.vs_vorp < 0 %} minus{% endif %}" data-value="{{ row.vs_vorp if row.vs_vorp is not none else '' }}">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% else %}—{% endif %}</td>
-            <td class="num{% if row.ros_vorp and row.ros_vorp > 0 %} plus{% elif row.ros_vorp and row.ros_vorp < 0 %} minus{% endif %}" data-value="{{ row.ros_vorp if row.ros_vorp is not none else '' }}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.hit_rate if row.hit_rate is not none else '' }}">{% if row.hit_rate is not none %}{{ "%.1f"|format(row.hit_rate * 100) }}%{% else %}—{% endif %}</td>
+            {{ signed_cell(row.vs_round) }}
+            {{ signed_cell(row.vs_vorp) }}
+            {{ signed_cell(row.ros_vorp) }}
             <td class="num" data-value="{{ row.titles or 0 }}">{{ (row.titles or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if trade_partners.pairs %}
+<div data-grain="career">
+<h2 id="partners">Trade partners</h2>
+<p class="note">
+    {{ trade_partners.pairs|length }} pairs, {{ trade_partners.pairs|sum(attribute='deals') }} two-sided trades.
+    Net left is the sum of left VORP minus right VORP. Net right is the negative of that sum.
+    {% if trade_partners.symmetry_gap == 0 %}gap_left + gap_right is 0 on every pair.{% else %}The largest |gap_left + gap_right| is {{ "%.3g"|format(trade_partners.symmetry_gap) }}.{% endif %}
+    The series winner is the positive net. Deal wins can disagree. A push is equal VORP on that deal.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Left</th>
+            <th>Right</th>
+            <th class="num">Deals</th>
+            <th class="num" title="Deals the left manager won">L wins</th>
+            <th class="num" title="Deals the right manager won">R wins</th>
+            <th class="num" title="Deals with equal rest-of-season VORP">Push</th>
+            <th class="num" title="Sum of left VORP minus right VORP">Net left</th>
+            <th class="num" title="The negative of net left">Net right</th>
+            <th>Series</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trade_partners.pairs %}
+        <tr>
+            <td>{{ person(row.left_id, row.left_name) }}</td>
+            <td>{{ person(row.right_id, row.right_name) }}</td>
+            <td class="num" data-value="{{ row.deals }}">{{ row.deals|int }}</td>
+            <td class="num" data-value="{{ row.left_wins }}">{{ row.left_wins|int }}</td>
+            <td class="num" data-value="{{ row.right_wins }}">{{ row.right_wins|int }}</td>
+            <td class="num" data-value="{{ row.pushes }}">{{ row.pushes|int }}</td>
+            {{ signed_cell(row.net_left_vorp) }}
+            {{ signed_cell(row.net_right_vorp) }}
+            <td>{% if row.series_winner_id %}{{ person(row.series_winner_id, row.series_winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% for block in trade_partners.busiest %}
+{% set pair = block.pair %}
+<h3>{{ pair.left_name }} and {{ pair.right_name }}</h3>
+<p class="note">
+    Busiest pair, {{ pair.deals|int }} deals.
+    The edges below sum to {{ "%+.2f"|format(pair.net_left_vorp) }} for {{ pair.left_name }}.
+</p>
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>{{ pair.left_name }} got</th>
+            <th class="num">VORP</th>
+            <th>{{ pair.right_name }} got</th>
+            <th class="num">VORP</th>
+            <th class="num" title="Left VORP minus right VORP">Edge</th>
+            <th>Winner</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in block.trades %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="trade-got">{{ row.left_received or "—" }}</td>
+            <td class="num">{% if row.left_vorp is not none %}{{ "%+.1f"|format(row.left_vorp) }}{% else %}—{% endif %}</td>
+            <td class="trade-got">{{ row.right_received or "—" }}</td>
+            <td class="num">{% if row.right_vorp is not none %}{{ "%+.1f"|format(row.right_vorp) }}{% else %}—{% endif %}</td>
+            {{ signed_cell(row.left_vorp_edge) }}
+            <td>{% if row.winner_id %}{{ person(row.winner_id, row.winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="5">Sum</td>
+            {{ signed_cell(pair.net_left_vorp) }}
+            <td>{% if pair.series_winner_id %}{{ person(pair.series_winner_id, pair.series_winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+    </tfoot>
+</table>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if waiver_roi.coverage %}
+<h2 id="waiver-roi">Waiver priority</h2>
+{{ waiver_coverage(waiver_roi.coverage) }}
+{% if waiver_roi.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            <th class="num" title="Completed waiver adds that stored a priority">Claims</th>
+            <th class="num" title="Sum of priority + 1">Pri units</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+            <th class="num" title="VORP divided by priority units">Per pri</th>
+            <th class="num" title="Average league processing order. Seq 0 ran first.">Avg seq</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
+            <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+            <td class="num" data-value="{{ row.avg_seq if row.avg_seq is not none else '' }}">{% if row.avg_seq is not none %}{{ "%.1f"|format(row.avg_seq) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if waiver_roi.career %}
+<div data-grain="career">
+<h3>2024–2025</h3>
+<p class="note">Pooled claims. Per pri is pooled VORP divided by pooled priority units.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Seasons</th>
+            <th class="num">Claims</th>
+            <th class="num">Pri units</th>
+            <th class="num">VORP</th>
+            <th class="num">Per pri</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.career %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.seasons }}">{{ row.seasons|int }}</td>
+            <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
+            <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if roster_shape.career %}
+<h2 id="roster-shape">Roster shape</h2>
+{{ roster_note(roster_shape.league_ir_slots) }}
+{% if roster_shape.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort js-fold" data-fold="12">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            {{ roster_head(roster_shape.show_other) }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in roster_shape.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            {{ roster_cells(row, roster_shape.show_other) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+<div data-grain="career">
+<h3>Career</h3>
+<p class="note">Career shares divide career starter points. They are the ratio of the sums, so a career share can differ from the average of the seasons.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            {{ roster_head(roster_shape.show_other) }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in roster_shape.career %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            {{ roster_cells(row, roster_shape.show_other) }}
         </tr>
         {% endfor %}
     </tbody>
