@@ -1446,6 +1446,7 @@ def season_page(year: int) -> dict[str, Any] | None:
             skip_empty=True,
         ),
         "highlights": _season_highlight_chips(year, draft=draft, wire=wire, trades=trades),
+        "stacks": _season_stacks(year),
     }
 
 
@@ -7155,6 +7156,7 @@ def records_page() -> dict[str, Any]:
         "blowout_record": _record_blowout_career(),
         "pythagorean": _record_pythagorean(),
         "clutch_cuts": _clutch_cuts(),
+        "stacks": _record_stacks(),
     }
 
 
@@ -8860,3 +8862,369 @@ def _record_pythagorean(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     for row in over + under:
         _stamp_h2h(row)
     return {"over": over, "under": under}
+
+
+# Lineup stacks (sql/analysis/62_lineup_stacks.sql, issue #38).
+# A stack is one started QB plus at least one started WR/TE/RB on the same
+# matchup side, sharing the catalog club. Two catchers are one stack.
+# Combined points count the quarterback once. Regular season is the
+# published grain. The comparison describes that selected group.
+
+
+_STACK_WEEK_SQL = """
+    SELECT
+        year, week, kind, matchup_id, side, manager_id, manager_name,
+        nfl_team, qb_player_id, qb_name, qb_points, catcher_count,
+        catcher_points, combined_points, catcher_names
+    FROM v_lineup_stacks
+"""
+
+_COVERAGE_COUNT_KEYS = (
+    "starter_rows",
+    "starter_with_club",
+    "skill_rows",
+    "skill_with_club",
+    "qb_rows",
+    "qb_with_club",
+    "catcher_rows",
+    "catcher_with_club",
+    "posted_starter_rows",
+    "posted_starter_with_club",
+    "regular_skill_rows",
+    "regular_skill_with_club",
+    "regular_qb_rows",
+    "regular_qb_with_club",
+    "regular_catcher_rows",
+    "regular_catcher_with_club",
+    "other_rows",
+)
+
+_STACK_KIND = {
+    "regular": "Regular season",
+    "playoff": "Playoff",
+    "consolation": "Consolation",
+}
+
+
+def _stack_rate(part: int, whole: int) -> float | None:
+    if not whole:
+        return None
+    return part / whole
+
+
+def _stack_catalog() -> dict[str, Any]:
+    row = fetchone(
+        """
+        SELECT
+            count(*)::integer AS players,
+            count(*) FILTER (
+                WHERE NULLIF(btrim(nfl_team), '') IS NOT NULL
+            )::integer AS with_club,
+            max(catalog_as_of) AS catalog_as_of
+        FROM players
+        """
+    ) or {"players": 0, "with_club": 0, "catalog_as_of": None}
+    as_of = row.get("catalog_as_of")
+    if hasattr(as_of, "isoformat"):
+        as_of = as_of.isoformat()
+    return {
+        "players": int(row.get("players") or 0),
+        "with_club": int(row.get("with_club") or 0),
+        "catalog_as_of": as_of,
+    }
+
+
+def _shape_coverage_row(row: dict[str, Any]) -> dict[str, Any]:
+    packed = {key: int(row.get(key) or 0) for key in _COVERAGE_COUNT_KEYS}
+    packed["year"] = int(row["year"])
+    packed["platform"] = row["platform"]
+    packed["starter_club_rate"] = _stack_rate(packed["starter_with_club"], packed["starter_rows"])
+    packed["catcher_club_rate"] = _stack_rate(packed["catcher_with_club"], packed["catcher_rows"])
+    packed["regular_skill_club_rate"] = _stack_rate(
+        packed["regular_skill_with_club"], packed["regular_skill_rows"]
+    )
+    packed["regular_qb_club_rate"] = _stack_rate(
+        packed["regular_qb_with_club"], packed["regular_qb_rows"]
+    )
+    packed["regular_catcher_club_rate"] = _stack_rate(
+        packed["regular_catcher_with_club"], packed["regular_catcher_rows"]
+    )
+    packed["unposted_starter_rows"] = packed["starter_rows"] - packed["posted_starter_rows"]
+    return packed
+
+
+def _sum_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    packed = {key: sum(int(row[key]) for row in rows) for key in _COVERAGE_COUNT_KEYS}
+    years = [int(row["year"]) for row in rows]
+    packed["first_year"] = min(years) if years else None
+    packed["last_year"] = max(years) if years else None
+    packed["starter_club_rate"] = _stack_rate(packed["starter_with_club"], packed["starter_rows"])
+    packed["catcher_club_rate"] = _stack_rate(packed["catcher_with_club"], packed["catcher_rows"])
+    packed["regular_catcher_club_rate"] = _stack_rate(
+        packed["regular_catcher_with_club"], packed["regular_catcher_rows"]
+    )
+    packed["regular_skill_club_rate"] = _stack_rate(
+        packed["regular_skill_with_club"], packed["regular_skill_rows"]
+    )
+    return packed
+
+
+def _era_label(platform: str, packed: dict[str, Any]) -> str:
+    name = {"espn": "ESPN", "sleeper": "Sleeper"}.get(platform, platform)
+    first, last = packed.get("first_year"), packed.get("last_year")
+    if first is None:
+        return name
+    if first == last:
+        return f"{name} {first}"
+    return f"{name} {first}–{last}"
+
+
+def _stack_coverage_bundle() -> dict[str, Any]:
+    rows = [
+        _shape_coverage_row(row)
+        for row in fetchall(
+            """
+            SELECT *
+            FROM v_stack_coverage
+            ORDER BY year
+            """
+        )
+    ]
+    eras: list[dict[str, Any]] = []
+    for platform in ("espn", "sleeper"):
+        subset = [row for row in rows if row["platform"] == platform]
+        if not subset:
+            continue
+        packed = _sum_coverage(subset)
+        packed["platform"] = platform
+        packed["label"] = _era_label(platform, packed)
+        eras.append(packed)
+    ranked = [row for row in rows if row["regular_catcher_rows"]]
+    thin = min(ranked, key=lambda row: row["regular_catcher_club_rate"] or 0) if ranked else None
+    others = fetchall(
+        """
+        SELECT coalesce(p.position, '(blank)') AS position, count(*)::integer AS rows
+        FROM lineup_slots ls
+        JOIN matchups mu ON mu.id = ls.matchup_id
+        LEFT JOIN players p ON p.id = ls.player_id
+        WHERE ls.started
+            AND ls.slot NOT IN ('BN', 'IR')
+            AND (
+                p.position IS NULL
+                OR p.position NOT IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
+            )
+        GROUP BY 1
+        ORDER BY rows DESC, position
+        """
+    )
+    return {
+        "years": rows,
+        "eras": eras,
+        "thin": thin,
+        "other_positions": others,
+        "other_rows": sum(int(row["rows"]) for row in others),
+        "catalog": _stack_catalog(),
+    }
+
+
+def _attach_stack_catchers(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not rows:
+        return rows
+    pairs = fetchall(
+        """
+        SELECT
+            matchup_id, side, qb_player_id, catcher_player_id, catcher_name,
+            catcher_position, catcher_points
+        FROM v_lineup_stack_pairs
+        WHERE matchup_id = ANY(%(ids)s)
+        ORDER BY catcher_points DESC, catcher_player_id
+        """,
+        {"ids": list({row["matchup_id"] for row in rows})},
+    )
+    grouped: dict[tuple[Any, Any, Any], list[dict[str, Any]]] = defaultdict(list)
+    for pair in pairs:
+        grouped[(pair["matchup_id"], pair["side"], pair["qb_player_id"])].append(
+            {
+                "player_id": pair["catcher_player_id"],
+                "player_name": pair["catcher_name"],
+                "position": pair["catcher_position"],
+                "points": float(pair["catcher_points"]),
+            }
+        )
+    for row in rows:
+        row["catchers"] = grouped.get(
+            (row["matchup_id"], row["side"], row["qb_player_id"]),
+            [],
+        )
+        row["kind_label"] = _STACK_KIND.get(row.get("kind") or "", row.get("kind"))
+        for key in ("qb_points", "catcher_points", "combined_points"):
+            if row.get(key) is not None:
+                row[key] = float(row[key])
+        if row.get("catcher_count") is not None:
+            row["catcher_count"] = int(row["catcher_count"])
+    return rows
+
+
+def _stack_weeks(where: str, params: dict[str, Any] | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    bound = dict(params or {})
+    limit_sql = ""
+    if limit is not None:
+        bound["limit"] = limit
+        limit_sql = "LIMIT %(limit)s"
+    rows = fetchall(
+        f"""
+        {_STACK_WEEK_SQL}
+        WHERE {where}
+        ORDER BY combined_points DESC, year, week, manager_id, qb_player_id
+        {limit_sql}
+        """,
+        bound,
+    )
+    return _attach_stack_catchers(rows)
+
+
+def _shape_manager_stacks(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for row in rows:
+        row["stack_weeks"] = int(row["stack_weeks"] or 0)
+        row["multi_catcher_weeks"] = int(row["multi_catcher_weeks"] or 0)
+        row["combined_points"] = float(row["combined_points"] or 0)
+        row["points_for"] = float(row["points_for"] or 0)
+        share = row.get("stack_share")
+        row["stack_share"] = None if share is None else float(share)
+        best = row.get("best_combined")
+        row["best_combined"] = None if best is None else float(best)
+        count = row.get("best_catcher_count")
+        row["best_catcher_count"] = None if count is None else int(count)
+    return rows
+
+
+def _season_stacks(year: int) -> dict[str, Any]:
+    managers = _shape_manager_stacks(
+        fetchall(
+            """
+            SELECT
+                year, manager_id, manager_name, team_name, stack_weeks,
+                combined_points, points_for, stack_share, multi_catcher_weeks,
+                best_week, best_matchup_id, best_combined, best_qb_player_id,
+                best_qb_name, best_catcher_names, best_catcher_count, best_nfl_team
+            FROM v_manager_season_stacks
+            WHERE year = %(year)s
+            ORDER BY stack_weeks DESC, combined_points DESC, manager_name, manager_id
+            """,
+            {"year": year},
+        )
+    )
+    coverage_row = fetchone(
+        """
+        SELECT *
+        FROM v_stack_coverage
+        WHERE year = %(year)s
+        """,
+        {"year": year},
+    )
+    return {
+        "managers": managers,
+        "weeks": _stack_weeks("year = %(year)s AND kind = 'regular'", {"year": year}, limit=8),
+        "coverage": _shape_coverage_row(coverage_row) if coverage_row else None,
+        "catalog": _stack_catalog(),
+        "stack_weeks": sum(row["stack_weeks"] for row in managers),
+        "multi_catcher_weeks": sum(row["multi_catcher_weeks"] for row in managers),
+        "managers_with_stack": sum(1 for row in managers if row["stack_weeks"]),
+    }
+
+
+def _compare_cell(table: dict[tuple[str, str, str], dict[str, Any]], grain: str, population: str, role: str) -> dict[str, Any]:
+    return table.get(
+        (grain, population, role),
+        {"starts": 0, "points": 0.0, "avg_points": None},
+    )
+
+
+def _stack_compare() -> dict[str, Any]:
+    table: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in fetchall(
+        """
+        SELECT grain, population, role, starts, points, avg_points
+        FROM v_stack_scoring_compare
+        """
+    ):
+        avg = row["avg_points"]
+        table[(row["grain"], row["population"], row["role"])] = {
+            "starts": int(row["starts"] or 0),
+            "points": float(row["points"] or 0),
+            "avg_points": None if avg is None else float(avg),
+        }
+    cell = _compare_cell
+    stacked_qb = cell(table, "starter", "stacked", "QB")
+    all_qb = cell(table, "starter", "all", "QB")
+    club_qb = cell(table, "starter", "clubbed", "QB")
+    stacked_catcher = cell(table, "starter", "stacked", "catcher")
+    all_catcher = cell(table, "starter", "all", "catcher")
+    club_catcher = cell(table, "starter", "clubbed", "catcher")
+    stacked_skill = cell(table, "starter", "stacked", "skill")
+    all_skill = cell(table, "starter", "all", "skill")
+    pair = cell(table, "pair", "stacked", "pair")
+    counts = fetchone(
+        """
+        SELECT
+            count(*)::integer AS stacks,
+            count(*) FILTER (WHERE catcher_count >= 2)::integer AS multi_catcher
+        FROM v_lineup_stacks
+        WHERE kind = 'regular'
+        """
+    ) or {"stacks": 0, "multi_catcher": 0}
+    rows = [
+        ("Stacked quarterbacks", stacked_qb),
+        ("All quarterback starts", all_qb),
+        ("Quarterback starts with a club", club_qb),
+        ("Stacked WR, TE, and RB", stacked_catcher),
+        ("All WR, TE, and RB starts", all_catcher),
+        ("WR, TE, and RB starts with a club", club_catcher),
+        ("Stacked legs, blended", stacked_skill),
+        ("All QB, WR, TE, and RB starts, blended", all_skill),
+    ]
+    return {
+        "rows": [{"label": label, **values} for label, values in rows],
+        "mix_stacked_qb": _stack_rate(stacked_qb["starts"], stacked_skill["starts"]),
+        "mix_all_qb": _stack_rate(all_qb["starts"], all_skill["starts"]),
+        "stacks": int(counts.get("stacks") or 0),
+        "multi_catcher": int(counts.get("multi_catcher") or 0),
+        "pairs": pair["starts"],
+        "pair_avg": pair["avg_points"],
+    }
+
+
+def _record_stack_seasons(order: str, limit: int = RECORDS_TOP) -> list[dict[str, Any]]:
+    order_sql = {
+        "weeks": "stack_weeks DESC, combined_points DESC, year, manager_name",
+        "points": "combined_points DESC, stack_weeks DESC, year, manager_name",
+    }[order]
+    return _shape_manager_stacks(
+        fetchall(
+            f"""
+            SELECT
+                year, manager_id, manager_name, team_name, stack_weeks,
+                combined_points, points_for, stack_share, multi_catcher_weeks,
+                best_week, best_matchup_id, best_combined, best_qb_player_id,
+                best_qb_name, best_catcher_names, best_catcher_count, best_nfl_team
+            FROM v_manager_season_stacks
+            WHERE stack_weeks > 0
+                AND year IN ({_COMPLETE_SEASON})
+            ORDER BY {order_sql}
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+    )
+
+
+def _record_stacks() -> dict[str, Any]:
+    outside = _stack_weeks("kind <> 'regular'", limit=1)
+    return {
+        "weeks": _stack_weeks("kind = 'regular'", limit=RECORDS_TOP),
+        "outside": outside[0] if outside else None,
+        "by_weeks": _record_stack_seasons("weeks"),
+        "by_points": _record_stack_seasons("points"),
+        "compare": _stack_compare(),
+        "coverage": _stack_coverage_bundle(),
+    }

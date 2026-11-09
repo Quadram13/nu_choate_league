@@ -54,6 +54,7 @@
     <a href="#counting-season">Season counting</a>
     <a href="#counting-career" data-grain="career">Career counting</a>
     <a href="#finishes">Positional finishes</a>
+    <a href="#stacks">Stacks</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -1639,5 +1640,157 @@
     {% endfor %}
 </div>
 </div>
+{% endif %}
+
+{% if stacks %}
+<h2 id="stacks">Stacks</h2>
+<p class="note">A stack is a started quarterback and at least one started WR, TE, or RB on the same matchup side in a posted regular-season week, sharing players.nfl_team. The catcher leg is that catalog position. An RB counts, and the points are the lineup slot, rushing included. Bench and IR slots are out. Two or more catchers are one stack: combined points add the quarterback once and each catcher once. Club is the catalog club on {{ stacks.coverage.catalog.catalog_as_of }} ({{ stacks.coverage.catalog.with_club }} of {{ stacks.coverage.catalog.players }} players have a club). A season before that date uses this later club, so teammates who have since split are missed and players who later joined the same club are matched. The boards below are regular season. Playoff and consolation lineups stay off them, with the other week records.</p>
+{% if stacks.weeks %}
+<h3>Best weeks</h3>
+<p class="note">Combined points add the quarterback once. Catcher points are the sum of the catcher legs. 2026's posted weeks are included.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>When</th>
+            <th>Manager</th>
+            <th>Club</th>
+            <th>QB</th>
+            <th class="num">QB pts</th>
+            <th>Catchers</th>
+            <th class="num">Catcher pts</th>
+            <th class="num">Combined</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in stacks.weeks %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td>{{ row.nfl_team }}</td>
+            <td><a href="/players/{{ row.qb_player_id }}">{{ row.qb_name }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.qb_points) }}</td>
+            <td>{% for leg in row.catchers %}{% if not loop.first %}, {% endif %}<a href="/players/{{ leg.player_id }}">{{ leg.player_name }}</a> <span class="team">{{ leg.position }} {{ "%.2f"|format(leg.points) }}</span>{% endfor %}</td>
+            <td class="num">{{ "%.2f"|format(row.catcher_points) }}</td>
+            <td class="num">{{ "%.2f"|format(row.combined_points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% if stacks.outside %}
+<p class="note">Highest stack off this board: {{ stacks.outside.kind_label }} <a href="/seasons/{{ stacks.outside.year }}/week/{{ stacks.outside.week }}/{{ stacks.outside.matchup_id }}">{{ stacks.outside.year }} W{{ stacks.outside.week }}</a>, {{ person(stacks.outside.manager_id, stacks.outside.manager_name) }}, <a href="/players/{{ stacks.outside.qb_player_id }}">{{ stacks.outside.qb_name }}</a>
+{% for leg in stacks.outside.catchers %} + <a href="/players/{{ leg.player_id }}">{{ leg.player_name }}</a> <span class="team">{{ leg.position }}</span>{% endfor %}, {{ "%.2f"|format(stacks.outside.combined_points) }}.</p>
+{% endif %}
+
+{% if stacks.by_weeks or stacks.by_points %}
+<p class="note">Finished regular seasons. An in-progress year stays on its season page. Share is combined stack points divided by official points for.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Most stack weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Year</th>
+                    <th>Manager</th>
+                    <th class="num">Stacks</th>
+                    <th class="num">2+</th>
+                    <th class="num">Combined</th>
+                    <th class="num">Share</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in stacks.by_weeks %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#stacks">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num">{{ row.stack_weeks }}</td>
+                    <td class="num">{{ row.multi_catcher_weeks }}</td>
+                    <td class="num">{{ "%.2f"|format(row.combined_points) }}</td>
+                    <td class="num">{% if row.stack_share is not none %}{{ "%.1f"|format(row.stack_share * 100) }}%{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Most stack points</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Year</th>
+                    <th>Manager</th>
+                    <th class="num">Combined</th>
+                    <th class="num">Stacks</th>
+                    <th class="num">Share</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in stacks.by_points %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#stacks">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num">{{ "%.2f"|format(row.combined_points) }}</td>
+                    <td class="num">{{ row.stack_weeks }}</td>
+                    <td class="num">{% if row.stack_share is not none %}{{ "%.1f"|format(row.stack_share * 100) }}%{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+
+<h3>Stack scoring and other skill starts</h3>
+<p class="note">Regular-season posted weeks. Each start is counted once. Stacked quarterbacks averaged {% if stacks.compare.rows[0].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[0].avg_points) }}{% endif %} across {{ stacks.compare.rows[0].starts }} starts. All quarterback starts averaged {% if stacks.compare.rows[1].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[1].avg_points) }}{% endif %}. Quarterbacks who have a club averaged {% if stacks.compare.rows[2].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[2].avg_points) }}{% endif %}. Stacked WR, TE, and RB starts averaged {% if stacks.compare.rows[3].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[3].avg_points) }}{% endif %} across {{ stacks.compare.rows[3].starts }} starts. All of those starts averaged {% if stacks.compare.rows[4].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[4].avg_points) }}{% endif %}. The clubbed ones averaged {% if stacks.compare.rows[5].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[5].avg_points) }}{% endif %}. These are the starts where the manager also started a same-catalog-club partner, and a blank club cannot enter the stacked group. The gap describes that selected group. It is not a measure of what stacking caused.</p>
+<p class="note">Blended, stacked legs averaged {% if stacks.compare.rows[6].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[6].avg_points) }}{% endif %} and all QB, WR, TE, and RB starts averaged {% if stacks.compare.rows[7].avg_points is not none %}{{ "%.2f"|format(stacks.compare.rows[7].avg_points) }}{% endif %}.{% if stacks.compare.mix_stacked_qb is not none and stacks.compare.mix_all_qb is not none %} Stacked legs are {{ "%.1f"|format(stacks.compare.mix_stacked_qb * 100) }}% quarterbacks. All skill starts are {{ "%.1f"|format(stacks.compare.mix_all_qb * 100) }}% quarterbacks. A stack is one quarterback plus a catcher or two, and a full lineup starts one quarterback among more skill players, so the blended gap mixes those ratios.{% endif %} {{ stacks.compare.pairs }} pairs average {% if stacks.compare.pair_avg is not none %}{{ "%.2f"|format(stacks.compare.pair_avg) }}{% else %}—{% endif %} combined. {{ stacks.compare.multi_catcher }} of {{ stacks.compare.stacks }} stacks have two or more catchers, so the pair average counts the quarterback once per catcher. The table counts each start once.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Group</th>
+            <th class="num">Starts</th>
+            <th class="num">Average</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in stacks.compare.rows %}
+        <tr>
+            <td>{{ row.label }}</td>
+            <td class="num">{{ row.starts }}</td>
+            <td class="num">{% if row.avg_points is not none %}{{ "%.2f"|format(row.avg_points) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Club coverage</h3>
+<p class="note">Starter rows are started lineup slots, bench and IR excluded, every week that has a lineup. {% for era in stacks.coverage.eras %}{{ era.label }} starter rows have a club on {% if era.starter_club_rate is not none %}{{ "%.1f"|format(era.starter_club_rate * 100) }}%{% endif %} ({{ era.starter_with_club }} of {{ era.starter_rows }}). Posted regular-season WR, TE, and RB starts have a club on {% if era.regular_catcher_club_rate is not none %}{{ "%.1f"|format(era.regular_catcher_club_rate * 100) }}%{% endif %} ({{ era.regular_catcher_with_club }} of {{ era.regular_catcher_rows }}). {% endfor %}{% if stacks.coverage.thin %}{{ stacks.coverage.thin.year }} is the thin year for those catcher starts: {{ stacks.coverage.thin.regular_catcher_with_club }} of {{ stacks.coverage.thin.regular_catcher_rows }}{% if stacks.coverage.thin.regular_catcher_club_rate is not none %} ({{ "%.1f"|format(stacks.coverage.thin.regular_catcher_club_rate * 100) }}%){% endif %}. Stacks in that season are under-counted relative to a season whose starters still have a club.{% endif %}{% if stacks.coverage.other_rows %} {{ stacks.coverage.other_rows }} starter rows have a catalog position outside QB, RB, WR, TE, K, and DEF{% for row in stacks.coverage.other_positions %} ({{ row.rows }} {{ row.position }}){% endfor %}. They stay in the starter count and out of the catcher leg.{% endif %}</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Platform</th>
+            <th class="num">Starters with club</th>
+            <th class="num">Regular skill with club</th>
+            <th class="num">Regular WR/TE/RB with club</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in stacks.coverage.years %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}#stacks">{{ row.year }}</a></td>
+            <td>{{ row.platform }}</td>
+            <td class="num">{{ row.starter_with_club }} / {{ row.starter_rows }}{% if row.starter_club_rate is not none %} · {{ "%.1f"|format(row.starter_club_rate * 100) }}%{% endif %}</td>
+            <td class="num">{{ row.regular_skill_with_club }} / {{ row.regular_skill_rows }}{% if row.regular_skill_club_rate is not none %} · {{ "%.1f"|format(row.regular_skill_club_rate * 100) }}%{% endif %}</td>
+            <td class="num">{{ row.regular_catcher_with_club }} / {{ row.regular_catcher_rows }}{% if row.regular_catcher_club_rate is not none %} · {{ "%.1f"|format(row.regular_catcher_club_rate * 100) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endif %}
 {% endblock %}

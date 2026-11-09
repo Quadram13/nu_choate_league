@@ -7,7 +7,8 @@
 -- volatility sample uses, and the week is not past through_week.
 --
 -- Record weeks, games, all-play, marks, the schedule desk, replacement,
--- lineup aggregates, and player counting join this view. v_player_weeks
+-- lineup aggregates, player counting, and lineup stacks join this view.
+-- v_player_weeks
 -- stays unfiltered so a week page can still open the in-progress leg.
 -- v_volatility_posted_weeks is this set under the original name.
 
