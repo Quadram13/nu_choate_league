@@ -4445,7 +4445,7 @@ def players_index() -> dict[str, Any]:
         SELECT
             i.player_id, i.player_name, i.position, i.seasons, i.first_year, i.last_year,
             i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
-            i.vorp, i.own_pct, i.times_drafted, i.times_added, i.times_traded,
+            i.vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added, i.times_traded,
             coalesce(r.rings, 0) AS rings
         FROM v_player_index i
         LEFT JOIN (
@@ -4463,7 +4463,7 @@ def players_index() -> dict[str, Any]:
         SELECT
             year, player_id, player_name, position, rostered_weeks, starts,
             fa_weeks, points, started_points, vorp, own_pct, manager_id,
-            owner_name, owned_weeks
+            owner_name, owned_weeks, lineup_weeks
         FROM v_player_season
         ORDER BY year DESC, started_points DESC, vorp DESC, player_name
         """
@@ -4663,7 +4663,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         SELECT
             player_id, player_name, position, seasons, first_year, last_year,
             starts, bench_weeks, starter_points, rostered_weeks, fa_weeks,
-            vorp, own_pct, times_drafted, times_added, times_dropped, times_traded
+            vorp, own_pct, lineup_weeks, times_drafted, times_added, times_dropped,
+            times_traded
         FROM v_player_index
         WHERE player_id = %(player_id)s
         """,
@@ -4685,15 +4686,24 @@ def player_page(player_id: str) -> dict[str, Any] | None:
                 sum(v.rostered_weeks) AS rostered_weeks,
                 sum(v.fa_weeks) AS fa_weeks,
                 sum(v.vorp) AS vorp,
+                max(lineups.lineup_weeks) AS lineup_weeks,
                 CASE
-                    WHEN sum(v.weeks) = 0 THEN NULL
-                    ELSE sum(v.rostered_weeks)::double precision / sum(v.weeks)
+                    WHEN coalesce(max(lineups.lineup_weeks), 0) = 0 THEN NULL
+                    ELSE sum(v.rostered_weeks)::double precision / max(lineups.lineup_weeks)
                 END AS own_pct,
                 0 AS times_drafted,
                 0 AS times_added,
                 0 AS times_dropped,
                 0 AS times_traded
             FROM v_vorp_season v
+            JOIN (
+                SELECT sum(lineup_weeks) AS lineup_weeks
+                FROM (
+                    SELECT DISTINCT year, lineup_weeks
+                    FROM v_vorp_season
+                    WHERE player_id = %(player_id)s
+                ) seasons
+            ) lineups ON true
             WHERE v.player_id = %(player_id)s
             GROUP BY v.player_id, v.position
             """,
@@ -4705,14 +4715,16 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         """
         SELECT
             year, player_id, player_name, position, weeks, rostered_weeks,
-            starts, fa_weeks, points, vorp, own_pct, manager_id, owner_name,
-            owned_weeks
+            starts, fa_weeks, points, vorp, fa_vorp, own_pct, manager_id,
+            owner_name, owned_weeks, lineup_weeks
         FROM v_player_season
         WHERE player_id = %(player_id)s
         ORDER BY year DESC
         """,
         {"player_id": player_id},
     )
+    seasons.extend(_fa_only_seasons(player_id))
+    seasons.sort(key=lambda row: int(row["year"]), reverse=True)
     weeks = fetchall(
         """
         SELECT
@@ -4789,14 +4801,60 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     }
 
 
+def _fa_only_seasons(player_id: str) -> list[dict[str, Any]]:
+    """Scored seasons with no roster week.
+
+    The index view keeps players someone rostered. The player page still
+    needs the free-agent season so FA weeks and FA VORP have a row.
+    """
+    return fetchall(
+        """
+        SELECT
+            v.year,
+            v.player_id,
+            v.player_name,
+            v.position,
+            v.weeks,
+            v.rostered_weeks,
+            v.starts,
+            v.fa_weeks,
+            v.points,
+            v.vorp,
+            v.fa_vorp,
+            CASE
+                WHEN v.lineup_weeks = 0 THEN NULL
+                ELSE v.rostered_weeks::double precision / v.lineup_weeks
+            END AS own_pct,
+            NULL::text AS manager_id,
+            NULL::text AS owner_name,
+            NULL::bigint AS owned_weeks,
+            v.lineup_weeks
+        FROM v_vorp_season v
+        WHERE v.player_id = %(player_id)s
+            AND v.rostered_weeks = 0
+        ORDER BY v.year DESC
+        """,
+        {"player_id": player_id},
+    )
+
+
 def _ownership_stints(weeks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Consecutive stored weeks with one manager.
+
+    A missing week starts a new run. Zero-score free-agent weeks are not
+    stored, so a drop and a later re-add do not share one span.
+    """
     stints: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
-    for row in weeks:
+    ordered = sorted(weeks, key=lambda row: (int(row["year"]), int(row["week"])))
+    for row in ordered:
+        if row.get("bye_only"):
+            continue
         owner_id = row["manager_id"] if row["rostered"] else None
         key = (row["year"], owner_id)
-        if current and current["key"] == key:
-            current["end_week"] = row["week"]
+        week = int(row["week"])
+        if current and current["key"] == key and week == current["end_week"] + 1:
+            current["end_week"] = week
             current["weeks"] += 1
             if row["started"]:
                 current["starts"] += 1
@@ -4809,8 +4867,8 @@ def _ownership_stints(weeks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "year": row["year"],
             "manager_id": owner_id,
             "manager_name": row["manager_name"] if owner_id else None,
-            "start_week": row["week"],
-            "end_week": row["week"],
+            "start_week": week,
+            "end_week": week,
             "weeks": 1,
             "starts": 1 if row["started"] else 0,
             "points": float(row["points"] or 0),
