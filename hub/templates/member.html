@@ -108,7 +108,7 @@
 
 {% if h2h %}
 <h2 id="h2h">Head-to-head</h2>
-<p class="note">Regular season plus winners-bracket playoff.</p>
+<p class="note">Regular season plus winners-bracket playoff. Closest and Blowout use every one of those games.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -136,8 +136,8 @@
                 —
                 {% endif %}
             </td>
-            <td class="num">{% if row.regular_closest is not none %}{{ "%.1f"|format(row.regular_closest) }}{% endif %}</td>
-            <td class="num">{% if row.regular_biggest_blowout is not none %}{{ "%.1f"|format(row.regular_biggest_blowout) }}{% endif %}</td>
+            <td class="num">{% if row.series_closest is not none %}{{ "%.1f"|format(row.series_closest) }}{% endif %}</td>
+            <td class="num">{% if row.series_biggest_blowout is not none %}{{ "%.1f"|format(row.series_biggest_blowout) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -307,9 +307,10 @@
 {% if lineups.career %}
 <h2 id="lineups">Lineups</h2>
 <p class="note">
-    % is actual / optimal.
+    % is actual / optimal. Career totals are regular season.
     {% if lineups.career.management_pct is not none %}{{ "%.1f"|format(lineups.career.management_pct * 100) }}%{% endif %}
     {% if lineups.career.left_on_bench is not none %} · −{{ "%.0f"|format(lineups.career.left_on_bench) }} left on the bench{% endif %}.
+    Worst and best weeks include playoff and consolation.
 </p>
 {% if lineups.worst or lineups.best %}
 <div class="notable-grid">
@@ -327,7 +328,7 @@
             <tbody>
                 {% for row in lineups.worst %}
                 <tr>
-                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
                     <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
                     <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
                 </tr>
@@ -350,7 +351,7 @@
             <tbody>
                 {% for row in lineups.best %}
                 <tr>
-                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
                     <td class="num">{% if row.left_on_bench %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}0{% endif %}</td>
                     <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
                 </tr>

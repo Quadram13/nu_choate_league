@@ -3509,7 +3509,8 @@ def h2h_for(manager_id: str) -> list[dict[str, Any]]:
             regular_points_for, regular_points_against,
             playoff_wins, playoff_losses, playoff_ties, playoff_games,
             playoff_points_for, playoff_points_against,
-            regular_avg_margin, regular_biggest_blowout, regular_closest
+            regular_avg_margin, regular_biggest_blowout, regular_closest,
+            series_biggest_blowout, series_closest
         FROM v_h2h
         WHERE left_id = %(manager_id)s OR right_id = %(manager_id)s
         ORDER BY regular_games + playoff_games DESC, left_id, right_id
@@ -3541,6 +3542,8 @@ def h2h_for(manager_id: str) -> list[dict[str, Any]]:
                 "regular_avg_margin": margin,
                 "regular_biggest_blowout": row["regular_biggest_blowout"],
                 "regular_closest": row["regular_closest"],
+                "series_biggest_blowout": row["series_biggest_blowout"],
+                "series_closest": row["series_closest"],
                 "href": f"/versus/{manager_id}/{row['left_id'] if flipped else row['right_id']}",
             }
         )
@@ -3725,19 +3728,23 @@ def _member_lineups(manager_id: str) -> dict[str, Any]:
 def _member_lineup_weeks(manager_id: str, *, worst: bool, limit: int = 5) -> list[dict[str, Any]]:
     leftover = "DESC" if worst else "ASC"
     pct = "ASC" if worst else "DESC"
-    return fetchall(
+    rows = fetchall(
         f"""
-        SELECT year, week, matchup_id, actual_points, optimal_points,
+        SELECT year, week, kind, matchup_id, actual_points, optimal_points,
                left_on_bench, management_pct
         FROM v_management_weeks
         WHERE manager_id = %(manager_id)s
-            AND kind = 'regular'
+            AND kind IN ('regular', 'playoff', 'consolation')
         ORDER BY left_on_bench {leftover} NULLS LAST,
             management_pct {pct} NULLS LAST, year, week
         LIMIT %(limit)s
         """,
         {"manager_id": manager_id, "limit": limit},
     )
+    for row in rows:
+        if row["kind"] != "regular":
+            row["kind_label"] = row["kind"]
+    return rows
 
 
 def _member_highs(manager_id: str) -> dict[str, Any]:
@@ -5706,6 +5713,18 @@ def versus_grid() -> dict[str, Any]:
     return {"managers": managers, "grid": grid, "ids": ids, "notes": notes}
 
 
+def _meetings_detail(row: dict[str, Any]) -> str:
+    """Regular-season games and winners-bracket games, counted apart."""
+    regular = int(row.get("regular_games") or 0)
+    playoff = int(row.get("playoff_games") or 0)
+    parts: list[str] = []
+    if regular:
+        parts.append(f"{regular} regular")
+    if playoff:
+        parts.append(f"{playoff} playoff")
+    return ", ".join(parts) if parts else "0"
+
+
 def _versus_notes(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not pairs:
         return []
@@ -5769,7 +5788,7 @@ def _versus_notes(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "meetings",
             "Most meetings",
             most_meetings,
-            f"{int(most_meetings['regular_games'] or 0) + int(most_meetings['playoff_games'] or 0)} games",
+            _meetings_detail(most_meetings),
         )
     )
     blow = fetchone(
