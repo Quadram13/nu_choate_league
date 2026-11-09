@@ -1,45 +1,58 @@
 {%- from "plaque_macros.html" import person_link -%}
+{%- from "fragments/stat_table.html" import stat_table -%}
 {%- macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
 {% endmacro -%}
 <section class="board" id="home-standings" data-fragment="/fragments/home-standings" data-board="/boards/home-standings">
-        {% if standings %}
+        {%- if standings -%}
+        {%- set vs_median = current.vs_median if current else false -%}
+        {%- set ns = namespace(columns=[], rows=[]) -%}
+        {%- set ns.columns = [
+            {"label": "#", "extra_class": "num"},
+            {"label": "Manager"},
+            {"label": "Official" if vs_median else "Record", "data_type": "num"},
+        ] -%}
+        {%- if vs_median -%}
+        {%- set ns.columns = ns.columns + [
+            {"label": "H2H", "data_type": "num"},
+            {"label": "Median", "data_type": "num"},
+        ] -%}
+        {%- endif -%}
+        {%- set ns.columns = ns.columns + [
+            {"label": "PF", "extra_class": "num"},
+            {"label": "All-play", "data_type": "num"},
+            {"label": "Luck", "extra_class": "num"},
+            {"label": "vsExp", "extra_class": "num"},
+        ] -%}
+        {%- for row in standings -%}
+        {%- set person_html %}{{ person(row.manager_id, row.display_name, row.hue) }}{% endset -%}
+        {%- set row_ns = namespace(cells=[
+            {"text": row.rank, "extra_class": "num"},
+            {"html": person_html},
+            {"text": row.record, "data_value": row.win_pct if row.win_pct is not none else ""},
+        ]) -%}
+        {%- if vs_median -%}
+        {%- set row_ns.cells = row_ns.cells + [
+            {"text": row.h2h or "—", "data_value": row.h2h_win_pct if row.h2h_win_pct is not none else ""},
+            {"text": row.median or "—", "data_value": row.median_win_pct if row.median_win_pct is not none else ""},
+        ] -%}
+        {%- endif -%}
+        {%- set row_ns.cells = row_ns.cells + [
+            {"text": "%.2f"|format(row.points_for), "extra_class": "num"},
+            {"text": row.all_play or "—", "data_value": row.all_play_win_pct if row.all_play_win_pct is not none else ""},
+            {"text": ("%+d"|format(row.net_luck|int)) if row.net_luck is not none else "—", "extra_class": "num", "data_value": row.net_luck if row.net_luck is not none else ""},
+            {"text": ("%+.1f"|format(row.wins_vs_expected)) if row.wins_vs_expected is not none else "—", "extra_class": "num", "data_value": row.wins_vs_expected if row.wins_vs_expected is not none else ""},
+        ] -%}
+        {%- set ns.rows = ns.rows + [{"cells": row_ns.cells}] -%}
+        {%- endfor -%}
+        {%- set board = {
+            "table_class": "js-sort sticky-first sticky-head",
+            "columns": ns.columns,
+            "rows": ns.rows,
+        } -%}
         <div class="standings-wrap">
-        <table class="js-sort sticky-first sticky-head">
-            <thead>
-                <tr>
-                    <th class="num">#</th>
-                    <th>Manager</th>
-                    <th data-type="num">{% if current.vs_median %}Official{% else %}Record{% endif %}</th>
-                    {% if current.vs_median %}
-                    <th data-type="num">H2H</th>
-                    <th data-type="num">Median</th>
-                    {% endif %}
-                    <th class="num">PF</th>
-                    <th data-type="num">All-play</th>
-                    <th class="num">Luck</th>
-                    <th class="num">vsExp</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in standings %}
-                <tr>
-                    <td class="num">{{ row.rank }}</td>
-                    <td>{{ person(row.manager_id, row.display_name, row.hue) }}</td>
-                    <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
-                    {% if current.vs_median %}
-                    <td data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
-                    <td data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
-                    {% endif %}
-                    <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
-                    <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
-                    <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {{ stat_table(board) }}
         </div>
-        {% endif %}
+        {%- endif %}
         <p class="note"><a href="/boards/home-standings">Standings</a></p>
 </section>
