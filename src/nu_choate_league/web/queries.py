@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import sys
+import time
 from collections import defaultdict
 from contextvars import ContextVar, Token
 from datetime import datetime, timezone
@@ -888,13 +891,9 @@ def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, A
     conn = _request_conn.get()
     try:
         if conn is not None:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                return list(cur.fetchall())
+            return _fetch_on(conn, sql, params)
         with connect() as owned:
-            with owned.cursor() as cur:
-                cur.execute(sql, params)
-                return list(cur.fetchall())
+            return _fetch_on(owned, sql, params)
     except psycopg.errors.UndefinedTable as exc:
         raise HTTPException(
             status_code=503,
@@ -902,7 +901,27 @@ def fetchall(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, A
         ) from exc
 
 
+def _fetch_on(
+    conn: psycopg.Connection,
+    sql: str,
+    params: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    # Off unless NU_CHOATE_PERF=1. The branch only writes a timing line; the
+    # rows returned are the cursor's rows either way.
+    perf = os.environ.get("NU_CHOATE_PERF") == "1"
+    started = time.perf_counter() if perf else 0.0
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = list(cur.fetchall())
+    if perf:
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        preview = " ".join(sql.split())[:80]
+        print(f"NU_CHOATE_PERF {elapsed_ms:.1f}ms {preview}", file=sys.stderr, flush=True)
+    return rows
+
+
 def fetchone(sql: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    # Timed through fetchall, so a one-row statement logs once.
     rows = fetchall(sql, params)
     return rows[0] if rows else None
 
