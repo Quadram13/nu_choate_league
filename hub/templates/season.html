@@ -170,7 +170,7 @@
     <a href="#standings" data-tab="standings">Standings</a>
     <a href="#weeks" data-tab="weeks">Weeks</a>
     {% if schedule.winners_tree or schedule.consolation_tree or path %}<a href="#playoffs" data-tab="playoffs">Playoffs</a>{% endif %}
-    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
+    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority or wire.unclaimed or wire.fa_leaders %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
     {% if draft.managers or draft.hits or draft.misses %}<a href="#draft" data-tab="draft">Draft</a>{% endif %}
     {% if lineups and lineups.coaches %}<a href="#lineups" data-tab="lineups">Lineups</a>{% endif %}
     {% if all_pro %}<a href="#allpro">All-pro</a>{% endif %}
@@ -722,9 +722,9 @@
 </div>
 {% endif %}
 
-{% if wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority %}
+{% if wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority or wire.unclaimed or wire.fa_leaders %}
 <h2 id="wire">Wire</h2>
-<p class="note">Adds are starter VORP on that roster after the add. Cost is waiver priority and processing seq. ESPN seasons have neither, so the cost is a dash. Miss and dodge gaps are league VORP from the claim week, bench weeks included.</p>
+<p class="note">Adds are starter VORP on that roster after the add. Cost is waiver priority and processing seq. ESPN seasons have neither, so the cost is a dash. Miss and dodge gaps are league VORP from the claim week, bench weeks included. Best unclaimed is the highest score on a posted week nobody rostered. Most FA VORP sums those weeks, and a posted week with no stored score counts as 0 minus replacement.</p>
 {% if wire.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -764,7 +764,7 @@
 </div>
 {% endif %}
 {{ value_strip(current.year, wire.value_per_priority) }}
-{% if wire.adds or wire.misses or wire.dodges %}
+{% if wire.adds or wire.unclaimed or wire.misses or wire.dodges or wire.fa_leaders %}
 <div class="notable-grid wire-grid">
     {% if wire.adds %}
     <section>
@@ -790,6 +790,33 @@
                     <td>{{ person(row.manager_id, row.manager_name) }}</td>
                     <td>{{ cost_cell(row) }}</td>
                     <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if wire.unclaimed %}
+    <section>
+        <h3>Best unclaimed</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Wk</th>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th class="num">Pts</th>
+                    <th class="num" title="Points minus that week's replacement">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.unclaimed %}
+                <tr>
+                    <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a></td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ row.position or "—" }}</td>
+                    <td class="num">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
+                    <td class="num{% if row.vorp and row.vorp > 0 %} plus{% elif row.vorp and row.vorp < 0 %} minus{% endif %}">{% if row.vorp is not none %}{{ "%+.1f"|format(row.vorp) }}{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -844,6 +871,33 @@
                     <td>{% if row.lost_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.lost_transaction_id }}">{{ row.lost_player }}</a>{% elif row.lost_player_id %}<a href="/players/{{ row.lost_player_id }}">{{ row.lost_player }}</a>{% else %}{{ row.lost_player }}{% endif %}</td>
                     <td>{% if row.won_transaction_id %}<a href="/seasons/{{ current.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% elif row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player }}{% endif %}</td>
                     <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if wire.fa_leaders %}
+    <section>
+        <h3>Most FA VORP</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
+                    <th class="num">Pts</th>
+                    <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.fa_leaders %}
+                <tr>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ row.position or "—" }}</td>
+                    <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+                    <td class="num">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+                    <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

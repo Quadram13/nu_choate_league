@@ -2109,6 +2109,8 @@ def _season_wire(year: int) -> dict[str, Any]:
         "dodges": dodges,
         "managers": managers,
         "value_per_priority": _wire_value_per_priority(year),
+        "unclaimed": _fa_week_leaders(year=year, limit=5),
+        "fa_leaders": _fa_season_leaders(year=year, limit=5),
     }
 
 
@@ -5110,65 +5112,142 @@ def players_index() -> dict[str, Any]:
         row["avg"] = _per_start(row.get("started_points"), row.get("starts"))
     _attach_index_volatility(career, seasons)
     wire = _fa_vorp_board()
+    gap = wire["gap"]
+    gap["index_rows"] = len(career)
+    gap["season_rows"] = len(seasons)
+    gap["index_with"] = gap["index_rows"] + int(gap["excluded_players"])
+    gap["season_with"] = gap["season_rows"] + int(gap["excluded_seasons"])
     return {
         "career": career,
         "seasons": seasons,
         "wire_leaders": wire["leaders"],
+        "wire_career": wire["career"],
         "wire_unowned": wire["unowned"],
+        "wire_gap": gap,
         "counting": _players_counting_index(),
     }
 
 
-def _fa_vorp_board(*, leader_limit: int = 15, unowned_points: float = 15) -> dict[str, list[dict[str, Any]]]:
-    """Season FA VORP while unowned, plus never-rostered producers the career index drops."""
-    base = """
+def _fa_vorp_board(*, leader_limit: int = 15) -> dict[str, Any]:
+    """Season and career FA VORP, plus never-rostered seasons the index drops."""
+    return {
+        "leaders": _fa_season_leaders(limit=leader_limit),
+        "career": _fa_career_leaders(limit=leader_limit),
+        "unowned": _fa_season_leaders(limit=leader_limit, never_rostered=True, order="fa_points"),
+        "gap": _fa_index_gap(),
+    }
+
+
+def _fa_week_leaders(*, year: int | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    """Highest stored scores on posted weeks nobody rostered."""
+    return fetchall(
+        """
         SELECT
-            v.year,
-            v.player_id,
-            v.player_name,
-            v.position,
-            v.fa_weeks,
-            v.rostered_weeks,
-            v.fa_vorp,
-            fa.fa_points,
-            fa.best_week
-        FROM v_vorp_season v
-        JOIN (
-            SELECT
-                year,
-                player_id,
-                sum(points) AS fa_points,
-                max(points) AS best_week
-            FROM v_pool_weeks p
-            WHERE NOT p.rostered
-                AND EXISTS (
-                    SELECT 1
-                    FROM v_posted_weeks pw
-                    WHERE pw.year = p.year AND pw.week = p.week
-                )
-            GROUP BY p.year, p.player_id
-        ) fa ON fa.year = v.year AND fa.player_id = v.player_id
-    """
-    leaders = fetchall(
-        base
-        + """
-        WHERE v.fa_weeks > 0
-        ORDER BY v.fa_vorp DESC, fa.fa_points DESC, v.player_name
+            year, week, player_id, player_name, position,
+            points, vorp, replacement, replacement_player_id,
+            replacement_player_name, n_starters
+        FROM v_fa_weeks
+        WHERE (%(year)s::integer IS NULL OR year = %(year)s)
+        ORDER BY points DESC, vorp DESC, year, week, player_name
         LIMIT %(limit)s
         """,
-        {"limit": leader_limit},
+        {"year": year, "limit": limit},
     )
-    unowned = fetchall(
-        base
-        + """
-        WHERE v.rostered_weeks = 0
-            AND fa.best_week >= %(unowned_points)s
-            AND v.fa_vorp > 0
-        ORDER BY v.fa_vorp DESC, fa.best_week DESC, v.player_name
+
+
+def _fa_best_week_by_season() -> list[dict[str, Any]]:
+    """The highest unowned week in each season."""
+    return fetchall(
+        """
+        SELECT DISTINCT ON (year)
+            year, week, player_id, player_name, position, points, vorp
+        FROM v_fa_weeks
+        ORDER BY year DESC, points DESC, vorp DESC, week, player_name
+        """
+    )
+
+
+def _fa_season_leaders(
+    *,
+    year: int | None = None,
+    limit: int = 15,
+    never_rostered: bool = False,
+    order: str = "fa_vorp",
+) -> list[dict[str, Any]]:
+    """Most FA VORP in a season, or never-rostered seasons by unowned points."""
+    if order not in {"fa_vorp", "fa_points"}:
+        raise ValueError(order)
+    return fetchall(
+        f"""
+        SELECT
+            year, player_id, player_name, position,
+            fa_weeks, rostered_weeks, stored_weeks,
+            fa_points, stored_vorp, missing_vorp, fa_vorp,
+            best_week, best_points, best_vorp, never_rostered
+        FROM v_fa_season
+        WHERE (%(year)s::integer IS NULL OR year = %(year)s)
+            AND (%(never_rostered)s::boolean IS NOT TRUE OR never_rostered)
+        ORDER BY {order} DESC, fa_points DESC, year, player_name
+        LIMIT %(limit)s
         """,
-        {"unowned_points": unowned_points},
+        {"year": year, "limit": limit, "never_rostered": never_rostered},
     )
-    return {"leaders": leaders, "unowned": unowned}
+
+
+def _fa_career_leaders(*, limit: int = 15) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            player_id, player_name, position, seasons, first_year, last_year,
+            fa_weeks, rostered_weeks, fa_points, fa_vorp, best_points, never_rostered
+        FROM v_fa_career
+        ORDER BY fa_vorp DESC, fa_points DESC, player_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def _fa_index_gap() -> dict[str, Any]:
+    """Players and seasons the starter index drops for zero rostered weeks."""
+    row = fetchone(
+        """
+        WITH seasons AS (
+            SELECT player_id, rostered_weeks, points
+            FROM v_vorp_season
+        ),
+        players AS (
+            SELECT
+                player_id,
+                sum(rostered_weeks) AS rostered_weeks,
+                sum(points) AS points
+            FROM seasons
+            GROUP BY player_id
+        )
+        SELECT
+            count(*) FILTER (WHERE rostered_weeks = 0) AS excluded_seasons,
+            count(*) FILTER (
+                WHERE rostered_weeks = 0 AND points <> 0
+            ) AS excluded_seasons_scored,
+            (
+                SELECT count(*)
+                FROM players
+                WHERE rostered_weeks = 0
+            ) AS excluded_players,
+            (
+                SELECT count(*)
+                FROM players
+                WHERE rostered_weeks = 0 AND points <> 0
+            ) AS excluded_players_scored
+        FROM seasons
+        """
+    )
+    return row or {
+        "excluded_seasons": 0,
+        "excluded_seasons_scored": 0,
+        "excluded_players": 0,
+        "excluded_players_scored": 0,
+    }
 
 
 def _per_start(points: Any, starts: Any) -> float | None:
@@ -7113,6 +7192,9 @@ def records_page() -> dict[str, Any]:
         "drafts": _record_drafts(),
         "wire_adds": _record_wire_adds(),
         "wire_misses": _record_wire_misses(),
+        "wire_unclaimed": _fa_week_leaders(limit=10),
+        "wire_unclaimed_seasons": _fa_best_week_by_season(),
+        "wire_fa_leaders": _fa_season_leaders(limit=10),
         "bench_weeks": _record_bench_weeks(),
         "bench_seasons": _record_bench_seasons(),
         "win_streaks": longest_streaks("win"),

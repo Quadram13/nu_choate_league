@@ -372,6 +372,8 @@ GROUP BY p.year, p.player_id, p.manager_id, m.display_name;
 -- `points` and `vorp` stay every stored week. Rankings that sit beside
 -- starter PF read `started_points` and `started_vorp`. `fa_vorp` stays the
 -- unowned posted weeks. `started_vorp` is last so a replace can append it.
+-- Explicit cut (issue #36): a season with zero rostered weeks is unowned
+-- production on v_fa_season, not a row here.
 CREATE VIEW v_player_season AS
 SELECT
     v.year,
@@ -453,5 +455,10 @@ LEFT JOIN (
     ) seasons
     GROUP BY player_id
 ) lineups ON lineups.player_id = c.player_id
+-- Explicit cut (issue #36): zero starts and zero rostered weeks stay out.
+-- v_player_career is lineup slots only, so a player who was never rostered
+-- has no row to keep even without this predicate. Scored unowned weeks
+-- live on v_fa_weeks / v_fa_season (never_rostered) and on the player page,
+-- whose lede calls that sum points while unowned.
 WHERE c.player_id IS NOT NULL
     AND (c.starts > 0 OR coalesce(v.rostered_weeks, 0) > 0);

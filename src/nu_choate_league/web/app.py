@@ -346,7 +346,9 @@ def players(request: Request) -> HTMLResponse:
         career=data["career"],
         seasons=data["seasons"],
         wire_leaders=data["wire_leaders"],
+        wire_career=data["wire_career"],
         wire_unowned=data["wire_unowned"],
+        wire_gap=data["wire_gap"],
         counting=data["counting"],
     )
 
