@@ -29,7 +29,7 @@
         <tr>
             <th></th>
             {% for col in managers %}
-            <th class="num" title="{{ col.display_name }}">{{ col.display_name[:3] }}</th>
+            <th class="num" title="{{ col.display_name }}"><a href="/members/{{ col.manager_id }}">{{ col.display_name[:3] }}</a></th>
             {% endfor %}
         </tr>
     </thead>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "link_macros.html" import season_years %}
 {% from "plaque_macros.html" import person_link %}
 {% from "scoring_macros.html" import distribution, named_prose, environment_table, marks_table, share_table %}
 {% macro person(id, name) %}
@@ -7,6 +8,8 @@
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#scoring">Weekly scoring</a>
+    <a href="/records/environment#environment">Record book</a>
 </p>
 <p class="season-head">
     <label class="season-pick">
@@ -19,6 +22,7 @@
     </label>
     <span class="lede">Scoring sheet · {{ current.platform }}</span>
 </p>
+{{ season_years(seasons, current.year, '/scoring') }}
 <p class="jump">
     {% if environment %}<a href="#distribution">Distribution</a>{% endif %}
     {% if spread %}<a href="#spread">Spread</a>{% endif %}

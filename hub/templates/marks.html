@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "link_macros.html" import season_years %}
 {% from "week_card.html" import week_card_block %}
 {% from "plaque_macros.html" import holder_row, person_link %}
 
@@ -9,6 +10,7 @@
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
     <a href="/seasons/{{ current.year }}#weeks">Weeks</a>
+    <a href="/records/chairs">Record book</a>
 </p>
 <p class="season-head">
     <label class="season-pick">
@@ -21,6 +23,7 @@
     </label>
     <span class="lede">Distinctions</span>
 </p>
+{{ season_years(seasons, current.year, '/marks') }}
 <p class="note">Weekly awards.</p>
 
 {% if latest_card %}
@@ -45,7 +48,7 @@
         {% for row in chapter.weeks %}
         <li>
             <a href="/seasons/{{ current.year }}/week/{{ row.week }}">W{{ row.week }}</a>
-            <span>{{ person(row.manager_id, row.display_name) }}{% if row.opponent_id %} vs {{ person(row.opponent_id, row.opponent_name) }}{% endif %}{% if row.player_name %} · {% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}{% endif %}</span>
+            <span>{{ person(row.manager_id, row.display_name) }}{% if row.opponent_id %} vs {% if '-' in (row.opponent_id|string) %}{{ person(row.opponent_id, row.opponent_name) }}{% else %}<a href="/players/{{ row.opponent_id }}">{{ row.opponent_name }}</a>{% endif %}{% endif %}{% if row.player_name %} · {% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}{% endif %}</span>
             <span class="num">
                 {% if row.href %}<a href="{{ row.href }}">{% endif %}
                 {{ row.figure }}

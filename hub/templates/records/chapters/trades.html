@@ -101,19 +101,19 @@
 </div>
 {% for block in trade_partners.busiest %}
 {% set pair = block.pair %}
-<h3>{{ pair.left_name }} and {{ pair.right_name }}</h3>
+<h3>{{ person(pair.left_id, pair.left_name) }} and {{ person(pair.right_id, pair.right_name) }}</h3>
 <p class="note">
     Busiest pair, {{ pair.deals|int }} deals.
-    The edges below sum to {{ "%+.2f"|format(pair.net_left_vorp) }} for {{ pair.left_name }}.
+    The edges below sum to {{ "%+.2f"|format(pair.net_left_vorp) }} for {{ person(pair.left_id, pair.left_name) }}.
 </p>
 <div class="standings-wrap">
 <table>
     <thead>
         <tr>
             <th>When</th>
-            <th>{{ pair.left_name }} got</th>
+            <th>{{ person(pair.left_id, pair.left_name) }} got</th>
             <th class="num">VORP</th>
-            <th>{{ pair.right_name }} got</th>
+            <th>{{ person(pair.right_id, pair.right_name) }} got</th>
             <th class="num">VORP</th>
             <th class="num" title="Left VORP minus right VORP">Edge</th>
             <th>Winner</th>

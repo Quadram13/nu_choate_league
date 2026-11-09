@@ -7,7 +7,7 @@
 <h1>Nu Choate League</h1>
 
 {% if seasons %}
-<h2>Champions</h2>
+<h2 id="champions">Champions</h2>
 <div class="year-rail">
     {% for row in seasons %}
     <article class="year-card{% if loop.first and row.champion_id %} podium{% endif %}{% if not row.champion_id %} unfinished{% endif %}">
@@ -71,6 +71,7 @@
             · <a href="/seasons/{{ year }}/desk">Desk</a>
             · <a href="/seasons/{{ year }}/marks">Distinctions</a>
             · <a href="/seasons/{{ year }}/moves">Moves</a>
+            · <a href="/seasons/{{ year }}/scoring">Scoring</a>
         </p>
         {% if highlights.season %}
         <h2>{{ year }} highlights</h2>

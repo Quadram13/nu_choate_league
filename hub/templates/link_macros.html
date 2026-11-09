@@ -1,0 +1,73 @@
+{# Cross-link helpers for the modern templates (B3, #102).
+   records_chapter rewrites a legacy /records#anchor into the chapter URL.
+   The anchor list is the B2 chapter catalog. An unknown anchor is left as-is
+   so a new id still resolves on the index. season_years is the no-JS year
+   control beside the scripted season <select>. #}
+{% macro records_chapter(href) -%}
+{%- if href and href.startswith('/records#') -%}
+{%- set anchor = href[9:] -%}
+{%- set slug = {
+    'awards': 'awards',
+    'season': 'season',
+    'clutch': 'clutch',
+    'consistency': 'clutch',
+    'pythagorean': 'clutch',
+    'one-score': 'clutch',
+    'blowout-record': 'clutch',
+    'playoff': 'playoff',
+    'chairs': 'chairs',
+    'median': 'environment',
+    'platform': 'environment',
+    'eras': 'environment',
+    'high': 'environment',
+    'low': 'environment',
+    'league-high': 'environment',
+    'league-low': 'environment',
+    'league-mean': 'environment',
+    'environment': 'environment',
+    'blowouts': 'games',
+    'closest': 'games',
+    'trades': 'trades',
+    'traded': 'trades',
+    'journeymen': 'trades',
+    'partners': 'trades',
+    'rings': 'rings',
+    'draft': 'draft',
+    'draft-capital': 'draft',
+    'waiver-roi': 'roster',
+    'roster-shape': 'roster',
+    'wire': 'wire',
+    'wire-left': 'wire',
+    'lineups': 'lineups',
+    'lineup-counting': 'lineups',
+    'counting': 'counting',
+    'finishes': 'counting',
+    'counting-season': 'counting',
+    'counting-career': 'counting',
+    'coach': 'coach',
+    'wins': 'streaks',
+    'losses': 'streaks',
+    'current': 'streaks',
+    'drought': 'streaks',
+    'stacks': 'stacks',
+    'playoff-history': 'playoff-history',
+    'universe-replay': 'universe-replay'
+}.get(anchor) -%}
+{%- if slug -%}
+/records/{{ slug }}#{{ anchor }}
+{%- else -%}
+{{ href }}
+{%- endif -%}
+{%- else -%}
+{{ href }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro season_years(rows, current_year, suffix="") -%}
+{%- if rows -%}
+<p class="jump">{%- for row in rows -%}
+{%- set y = row.year if row is mapping else row %} <a href="/seasons/{{ y }}{{ suffix }}"{% if y|int == current_year|int %} class="on"{% endif %}>{{ y }}</a>
+{%- endfor -%}
+</p>
+{%- endif -%}
+{%- endmacro %}
