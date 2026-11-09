@@ -10846,6 +10846,112 @@ def player_anatomy(player_id: str) -> dict[str, Any]:
     }
 
 
+# --- C1a era90 portal facts (#100). Read-only. Nothing above is edited. ---
+
+_ERA_MONTHS = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
+
+
+def era90_last_updated() -> str | None:
+    """The date the load stamped onto the player catalog.
+
+    There is no ``load_ledger`` relation. ``players.catalog_as_of`` is the
+    catalog file date ``load`` writes on every player row. The maximum is
+    that stamp, which is the same value on every row after a load.
+    """
+    row = fetchone("SELECT max(catalog_as_of) AS as_of FROM players")
+    as_of = None if row is None else row.get("as_of")
+    if as_of is None or not hasattr(as_of, "month"):
+        return None
+    return f"{as_of.day} {_ERA_MONTHS[as_of.month - 1]} {as_of.year}"
+
+
+def era90_ticker(year: int | None) -> list[dict[str, str]]:
+    """Week results and record alerts for the static CommWire line."""
+    items: list[dict[str, str]] = []
+    if year is not None:
+        games = fetchall(
+            """
+            SELECT
+                m.week,
+                m.id,
+                hm.display_name AS home_name,
+                am.display_name AS away_name,
+                m.home_points,
+                m.away_points
+            FROM matchups m
+            LEFT JOIN managers hm ON hm.id = m.home_manager_id
+            LEFT JOIN managers am ON am.id = m.away_manager_id
+            JOIN seasons s ON s.year = m.year
+            WHERE m.year = %(year)s
+              AND m.week = (
+                  SELECT max(pw.week)
+                  FROM v_posted_weeks pw
+                  WHERE pw.year = %(year)s
+              )
+              AND m.kind IN ('regular', 'playoff', 'consolation')
+              AND (s.through_week IS NULL OR m.week <= s.through_week)
+              AND (m.home_points <> 0 OR m.away_points <> 0)
+            ORDER BY m.kind, m.id
+            """,
+            {"year": year},
+        )
+        for game in games:
+            home_pts = game.get("home_points")
+            away_pts = game.get("away_points")
+            if home_pts is None or away_pts is None:
+                continue
+            home_name = game.get("home_name") or "Home"
+            away_name = game.get("away_name") or "Away"
+            week = int(game["week"])
+            if float(home_pts) > float(away_pts):
+                text = f"W{week} {home_name} {float(home_pts):.1f}"
+            elif float(away_pts) > float(home_pts):
+                text = f"W{week} {away_name} {float(away_pts):.1f}"
+            else:
+                text = f"W{week} {home_name} tied {away_name}"
+            items.append(
+                {
+                    "text": text,
+                    "href": f"/seasons/{year}/week/{week}/{game['id']}",
+                }
+            )
+    highs = high_weeks(1)
+    if highs:
+        row = highs[0]
+        items.append(
+            {
+                "text": f"Record week {row['display_name']} {float(row['points']):.1f}",
+                "href": f"/seasons/{row['year']}/week/{row['week']}",
+            }
+        )
+    closes = closest_games(1)
+    if closes:
+        row = closes[0]
+        items.append(
+            {
+                "text": (
+                    f"Closest {row['manager_name']} vs {row['opponent_name']} "
+                    f"{float(row['abs_margin']):.2f}"
+                ),
+                "href": f"/seasons/{row['year']}/week/{row['week']}/{row['matchup_id']}",
+            }
+        )
+    return items
+
+
 # --- C2a era2010 (#101). Read-only module queries. Landed columns only. ---
 
 _ERA2010_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
