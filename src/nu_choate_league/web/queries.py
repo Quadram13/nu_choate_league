@@ -7168,6 +7168,21 @@ def _record_counting_leaders(limit: int = 10) -> list[dict[str, Any]]:
     return boards
 
 
+def _scoring_season_years() -> list[dict[str, Any]]:
+    # The picker prints year only. list_seasons() joins v_finished_seasons
+    # with no year filter. seasons and season_outcomes are unanalyzed
+    # (reltuples -1), so that plan costs about 1.9e6 and LLVM spends about
+    # 1.5s compiling a 5-row read. Pages that render the champion columns
+    # still call list_seasons().
+    return fetchall(
+        """
+        SELECT year
+        FROM seasons
+        ORDER BY year DESC
+        """
+    )
+
+
 def scoring_sheet(year: int) -> dict[str, Any] | None:
     current = season_row(year)
     if current is None:
@@ -7205,7 +7220,7 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
     environment = _scoring_environment_year(year)
     return {
         "current": current,
-        "seasons": list_seasons(),
+        "seasons": _scoring_season_years(),
         "rows": view["rows"],
         "espn_sheet": view["espn_sheet"],
         "item_count": view["item_count"],
