@@ -10950,3 +10950,154 @@ def era90_ticker(year: int | None) -> list[dict[str, str]]:
             }
         )
     return items
+
+
+# --- D1 players split (#105). Append-only. players_index() above is unchanged. ---
+#
+# The summary shows a prefix of each board. 50 matches the fragment page size
+# (fragments.DEFAULT_PAGE_SIZE): one printed page of a ~520-row career log, and
+# the same cut the ticket names. Wire boards are already a top-15 SQL limit, so
+# their summary is the first 5 of that list rather than another 50.
+# This module does not import fragments (fragments imports queries).
+
+PLAYERS_SUMMARY_LIMIT = 50
+PLAYERS_WIRE_TEASER = 5
+
+_PLAYER_SPLIT_BOARDS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "players-career-rankings",
+        "path": ("career",),
+        "back": "/players#rankings",
+        "label": "Career",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": True,
+    },
+    {
+        "name": "players-season-rankings",
+        "path": ("seasons",),
+        "back": "/players#rankings",
+        "label": "Season",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": True,
+    },
+    {
+        "name": "players-wire-season",
+        "path": ("wire_leaders",),
+        "back": "/players#wire",
+        "label": "Wire season",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-wire-career",
+        "path": ("wire_career",),
+        "back": "/players#wire",
+        "label": "Wire career",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-wire-unowned",
+        "path": ("wire_unowned",),
+        "back": "/players#wire",
+        "label": "Never rostered",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-counting-career",
+        "path": ("counting", "career"),
+        "back": "/players#counting",
+        "label": "Counting career",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": False,
+    },
+    {
+        "name": "players-counting-season",
+        "path": ("counting", "seasons"),
+        "back": "/players#counting",
+        "label": "Counting season",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": False,
+    },
+)
+
+
+def player_split_board_specs() -> tuple[dict[str, Any], ...]:
+    """Board catalog for the D1 fragment registry. Order is the index order."""
+    return _PLAYER_SPLIT_BOARDS
+
+
+def _player_board_rows(data: dict[str, Any], spec: dict[str, Any]) -> list[dict[str, Any]]:
+    node: Any = data
+    for key in spec["path"]:
+        node = node[key]
+    return node
+
+
+def _player_board_meta(spec: dict[str, Any]) -> dict[str, Any]:
+    name = spec["name"]
+    return {
+        "board_name": name,
+        "board_href": f"/boards/{name}",
+        "fragment_href": f"/fragments/{name}",
+        "back_href": spec["back"],
+        "label": spec["label"],
+    }
+
+
+def _player_partial(rows: list[dict[str, Any]]) -> bool:
+    return any(row.get("vol_partial") for row in rows)
+
+
+def players_summary() -> dict[str, Any]:
+    """Index context. Same rows as players_index(), sliced. Does not drop a board."""
+    data = players_index()
+    teasers: dict[str, dict[str, Any]] = {}
+    for spec in _PLAYER_SPLIT_BOARDS:
+        rows = _player_board_rows(data, spec)
+        shown = rows[: spec["limit"]]
+        teasers[spec["name"]] = {
+            "rows": shown,
+            "total": len(rows),
+            "vol_partial": _player_partial(shown) if spec["partial"] else False,
+            **_player_board_meta(spec),
+        }
+    return {
+        "teasers": teasers,
+        "board_order": [spec["name"] for spec in _PLAYER_SPLIT_BOARDS],
+        "wire_gap": data["wire_gap"],
+        "vol_partial": _player_partial(data["career"]),
+        "has_players": bool(
+            data["career"]
+            or data["seasons"]
+            or data["wire_leaders"]
+            or data["wire_career"]
+            or data["wire_unowned"]
+        ),
+        "summary_limit": PLAYERS_SUMMARY_LIMIT,
+        "wire_teaser_limit": PLAYERS_WIRE_TEASER,
+    }
+
+
+def players_board_payload(name: str) -> dict[str, Any] | None:
+    """Every row of one board, plus the summary links. None if the name is not ours."""
+    spec = next((item for item in _PLAYER_SPLIT_BOARDS if item["name"] == name), None)
+    if spec is None:
+        return None
+    data = players_index()
+    rows = _player_board_rows(data, spec)
+    siblings: list[dict[str, Any]] = []
+    for item in _PLAYER_SPLIT_BOARDS:
+        entry = _player_board_meta(item)
+        entry["current"] = item["name"] == name
+        siblings.append(entry)
+    return {
+        "rows": rows,
+        "total": len(rows),
+        "teaser": False,
+        "vol_partial": _player_partial(rows) if spec["partial"] else False,
+        "wire_gap": data["wire_gap"],
+        "siblings": siblings,
+        **_player_board_meta(spec),
+    }
