@@ -1,0 +1,9 @@
+{% if not chapters %}<p class="stat-note">No distinctions posted.</p>{% endif %}
+{% for chapter in chapters %}
+<h2>{{ chapter.label }}</h2>
+<ul class="plain-list">
+{% for row in chapter.rows %}
+<li>{% if row.href %}<a href="{{ row.href }}">{{ row.text }}</a>{% else %}{{ row.text }}{% endif %}</li>
+{% endfor %}
+</ul>
+{% endfor %}

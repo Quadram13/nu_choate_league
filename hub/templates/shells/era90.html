@@ -6,10 +6,11 @@
     <link rel="stylesheet" href="/static/themes/era90.css">
 </head>
 <body>
-    <table class="portal" width="100%" cellpadding="8" cellspacing="0">
+    <table class="portal" cellpadding="8" cellspacing="0">
         <tr>
             <td class="band" colspan="3">
-                <p class="commissioner">Email the commissioner</p>
+                <p class="league-name">Nu Choate League</p>
+                <p class="commissioner">Email the COMMISSIONER</p>
                 <p class="theme-switch">
                     {% for choice in frame.theme_choices %}<a href="{{ frame.theme_href(choice.theme_id) }}"{% if choice.theme_id == frame.theme %} class="is-on" aria-current="page"{% endif %}>{{ choice.label }}</a> {% endfor %}
                 </p>
@@ -17,7 +18,12 @@
         </tr>
         <tr>
             <td class="rail-left" width="178" valign="top">
+                {% if portal_rail %}
+                {% for item in portal_rail %}{% if item.href %}<p><a href="{{ frame.carry(item.href) }}">{{ item.label }}</a></p>{% else %}<p class="rail-label">{{ item.label }}</p>{% endif %}{% endfor %}
+                {% else %}
                 {% for item in frame.nav_links %}<p><a href="{{ frame.carry(item.href) }}"{% if item.key == frame.nav %} class="is-on" aria-current="page"{% endif %}>{{ item.label }}</a></p>{% endfor %}
+                {% endif %}
+                {% if last_updated %}<p class="last-updated">Last updated {{ last_updated }}</p>{% endif %}
             </td>
             <td class="portal-main" valign="top">
                 <h1>{{ frame.title }}</h1>
@@ -32,9 +38,11 @@
             <td class="rail-right" width="196" valign="top">
                 <div class="link-box">
                     <p class="rail-label">Fantasy links</p>
+                    <p><a href="https://www.nfl.com/">NFL.com</a></p>
+                    <p><a href="https://www.espn.com/nfl/">ESPN NFL</a></p>
                     {% for label in frame.dead_labels %}<p class="dead-label">{{ label }}</p>{% endfor %}
-                    {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
                 </div>
+                {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
             </td>
         </tr>
     </table>

@@ -75,15 +75,12 @@ NAV: dict[str, tuple[str | None, str]] = {
     "scoring": (None, "Scoring"),
 }
 
-# Dead off-site labels from the Eagle rail. Text only: the URLs are not live.
-ERA90_DEAD_LABELS: tuple[str, ...] = (
-    "NANDO",
-    "ESPN",
-    "USA TODAY",
-    "CBS SPORTSLINE",
-    "CNN/SI",
-    "INJURY REPORT",
-)
+# Dead off-site names stay text when one is still declared. C1a leaves this
+# empty: Nando, SportsZone, CNN/SI and the rest of the Eagle farm are dead,
+# and a dead farm is not the right rail. Live NFL.com and ESPN NFL anchors
+# are written in the era90 shell. The gate still requires any label that
+# remains here to render as text, never as an invented href.
+ERA90_DEAD_LABELS: tuple[str, ...] = ()
 
 # Existing season.html pane order. Not an ESPN 2010 tab order.
 SEASON_PANES: tuple[tuple[str, str, str], ...] = (
@@ -538,8 +535,18 @@ def _note(spec: BoardSpec, theme: str, row_count: int) -> str:
     parts: list[str] = []
     if row_count == 0:
         parts.append("None posted.")
+    keys = _projection_keys(spec, theme)
+    # era90 standings glossary is one sentence under the grid. The shared
+    # gold footnote stays on every other board so era2010 and modern notes
+    # do not move.
+    if theme == "era90" and "ties" in keys:
+        parts.append(
+            "W, L, and T are wins, losses, and ties; "
+            "PF is points for and PA is points against, and a zero tie is shown as -."
+        )
+        return " ".join(part for part in parts if part)
     parts.append(spec.note)
-    if "ties" in _projection_keys(spec, theme):
+    if "ties" in keys:
         parts.append("A zero tie is shown as -.")
     parts.append(_FOOTNOTE)
     return " ".join(part for part in parts if part)
@@ -1060,7 +1067,23 @@ def season_document(request: Request, year: int) -> HTMLResponse:
     }
     if set(loaders) != {name for name, _, _ in SEASON_PANES}:
         raise RuntimeError("season loader map drifted from the pane catalog")
+    if theme == "era90":
+        # Numeral week nav is era90 grammar on every season pane, not only
+        # the weeks list. Weeks and playoffs already return the numbers.
+        def _with_week_nav(load: Callable[[], Mapping[str, object]]) -> Callable[[], Mapping[str, object]]:
+            def wrapped() -> Mapping[str, object]:
+                payload = dict(load())
+                if not payload.get("week_nav"):
+                    payload["week_nav"] = queries.scored_weeks(year)
+                return payload
+
+            return wrapped
+
+        loaders = {name: _with_week_nav(fn) for name, fn in loaders.items()}
     panes = tuple(Pane(name, label, template, loaders[name]) for name, label, template in SEASON_PANES)
+    context: dict[str, object] = {"year": year, "current": current}
+    if theme == "era90":
+        context["last_updated"] = queries.era90_last_updated()
     return render_panes(
         request,
         title=f"{year} season",
@@ -1071,7 +1094,7 @@ def season_document(request: Request, year: int) -> HTMLResponse:
             Slot("lead", "fragments/season_lead.html"),
             Slot("aside", "fragments/season_aside.html"),
         ),
-        context={"year": year, "current": current},
+        context=context,
     )
 
 
@@ -1436,7 +1459,7 @@ def _check_files(root: Path) -> list[str]:
                 'class="numeral-row"',
                 "loop.index",
                 "frame.dead_labels",
-                "Email the commissioner",
+                "Email the COMMISSIONER",
             ):
                 if snippet not in text:
                     problems.append(f"era90 shell is missing {snippet}")
@@ -1662,3 +1685,505 @@ def install(templates: Jinja2Templates) -> None:
     if problems:
         _templates = None
         raise ThemeContractError(problems)
+
+
+# --- C1a era90 portal and season family (#100). Append-only. ---
+# Content templates live in hub/templates/era90/ and are mounted by the
+# era90 shell. The shell stays the one layout table the boot gate checks.
+# Interior season pages keep the A2 left rail. The portal home replaces
+# that rail with the Eagle task order.
+
+ERA90_FAMILY: dict[str, str] = {
+    "week.html": "era90/week.html",
+    "gamecenter.html": "era90/gamecenter.html",
+    "moves.html": "era90/moves.html",
+    "draft.html": "era90/draft.html",
+    "marks.html": "era90/marks.html",
+    "desk.html": "era90/desk.html",
+    "scoring.html": "era90/scoring.html",
+    "records/index.html": "era90/records.html",
+}
+
+_MOVE_LABELS = {"trade": "trade", "waiver": "waiver", "free_agent": "free agent"}
+
+
+def _era90_standings_board(
+    rows: Sequence[Mapping[str, object]],
+    theme: str,
+    caption: str,
+) -> dict[str, object]:
+    high = _max_number(row.get("points_for") for row in rows)
+    body: list[dict[str, object]] = []
+    for row in rows:
+        wins = int(row.get("wins") or 0)
+        losses = int(row.get("losses") or 0)
+        ties = int(row.get("ties") or 0)
+        marks: dict[str, str] = {}
+        if row.get("champion"):
+            marks["manager"] = "is-leader"
+        elif int(row.get("rank") or 0) == 1:
+            marks["manager"] = "is-active-leader"
+        if _same(row.get("points_for"), high):
+            marks["points_for"] = "is-record"
+        body.append(
+            {
+                "rank": row.get("rank"),
+                "manager": row.get("display_name") or "",
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
+                "points_for": row.get("points_for"),
+                "points_against": row.get("points_against"),
+                "win_pct": row.get("win_pct"),
+                "record": f"{wins}-{losses}-{ties}",
+                "_href": {"manager": _path("/members", row.get("manager_id"))},
+                "_mark": marks,
+            }
+        )
+    return present("standings", body, theme, caption=caption)
+
+
+def _era90_standings_boards(
+    rows: Sequence[Mapping[str, object]],
+    theme: str,
+    caption: str,
+) -> list[dict[str, object]]:
+    """One shared standings grid, or one per division when the rows carry one.
+
+    This warehouse has no division column, so the home and the week page
+    render a single table. A future ``division`` value splits the same
+    projection without a second fragment.
+    """
+    grouped: dict[str, list[Mapping[str, object]]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = str(row.get("division") or "")
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(row)
+    boards: list[dict[str, object]] = []
+    for key in order:
+        label = key if key and len(order) > 1 else caption
+        boards.append(_era90_standings_board(grouped[key], theme, label))
+    return boards
+
+
+def _portal_rail(seasons: Sequence[Mapping[str, object]], year: int | None) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    if year is not None:
+        items.append({"href": f"/seasons/{year}", "label": f"{year} season"})
+    past = [row for row in seasons if year is None or int(row["year"]) != int(year)]
+    if past:
+        items.append({"href": "", "label": "Past seasons"})
+        for row in past:
+            season_year = int(row["year"])
+            items.append({"href": f"/seasons/{season_year}", "label": str(season_year)})
+    items.append({"href": "/records", "label": "Record book"})
+    items.append({"href": "/players", "label": "Top 10"})
+    if year is not None:
+        items.append({"href": f"/seasons/{year}/scoring", "label": "Rules and scoring"})
+    items.append({"href": "/records/awards", "label": "Champions"})
+    return items
+
+
+def _era_year(context: Mapping[str, object]) -> int | None:
+    current = context.get("current")
+    if isinstance(current, Mapping) and current.get("year") is not None:
+        return int(current["year"])
+    return None
+
+
+def _era_weeks(context: Mapping[str, object], year: int | None) -> list[int]:
+    gc = context.get("gc")
+    if isinstance(gc, Mapping) and gc.get("weeks"):
+        return [int(week) for week in gc["weeks"]]  # type: ignore[union-attr]
+    if year is None:
+        return []
+    return queries.scored_weeks(year)
+
+
+def _era90_frame(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    template: str,
+    year: int | None,
+    weeks: Sequence[int],
+) -> Frame:
+    active = FragmentView("page", title, template)
+    week_nav = ()
+    if year is not None:
+        week_nav = tuple(
+            WeekLink(int(week), f"/seasons/{int(year)}/week/{int(week)}?theme=era90")
+            for week in weeks
+        )
+    return Frame(
+        theme="era90",
+        title=title,
+        nav=nav,
+        pager="",
+        fragments=(active,),
+        active=active,
+        slots=(),
+        path=request.url.path,
+        nav_links=_nav_links("era90", year),
+        theme_choices=tuple(ThemeChoice(theme_id, THEME_LABELS[theme_id]) for theme_id in THEMES),
+        week_nav=week_nav,
+        dead_labels=ERA90_DEAD_LABELS,
+    )
+
+
+def _era90_response(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    template: str,
+    context: Mapping[str, object],
+    year: int | None,
+    weeks: Sequence[int],
+) -> HTMLResponse:
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    frame = _era90_frame(request, title=title, nav=nav, template=template, year=year, weeks=weeks)
+    payload: dict[str, object] = {**context, "frame": frame, "title": title, "nav": nav}
+    return _templates.TemplateResponse(request, "shells/era90.html", payload)
+
+
+def era90_home(request: Request) -> HTMLResponse:
+    """Portal home. Skips the modern desk so the era page stays the small grid."""
+    seasons = queries.list_seasons()
+    year = queries.latest_scored_year()
+    rows = queries.standings(year) if year is not None else []
+    boards = _era90_standings_boards(rows, "era90", f"{year} standings") if rows else []
+    weeks = queries.scored_weeks(year) if year is not None else []
+    current = next(
+        (row for row in seasons if year is not None and int(row["year"]) == int(year)),
+        None,
+    )
+    cheer = None
+    if current and current.get("champion") and current.get("champion_id"):
+        cheer = {
+            "lead": "Congratulations",
+            "name": current["champion"],
+            "href": f"/members/{current['champion_id']}",
+        }
+    elif rows:
+        top = rows[0]
+        cheer = {
+            "lead": "Leader",
+            "name": top.get("display_name") or "",
+            "href": _path("/members", top.get("manager_id")),
+        }
+    context: dict[str, object] = {
+        "year": year,
+        "boards": boards,
+        "ticker": queries.era90_ticker(year),
+        "cheer": cheer,
+        "portal_rail": _portal_rail(seasons, year),
+        "last_updated": queries.era90_last_updated(),
+    }
+    return _era90_response(
+        request,
+        title="Nu Choate League",
+        nav="home",
+        template="era90/home.html",
+        context=context,
+        year=year,
+        weeks=weeks,
+    )
+
+
+def _era90_week_view(gc: Mapping[str, object], year: int) -> dict[str, object]:
+    week = int(gc["week"])  # type: ignore[arg-type]
+    groups: list[dict[str, object]] = []
+    boxes: list[dict[str, str]] = []
+    for group in gc.get("groups") or []:  # type: ignore[union-attr]
+        games: list[dict[str, object]] = []
+        kind = group.get("kind")
+        label = "" if kind == "regular" else str(group.get("label") or "")
+        for game in group.get("games") or []:
+            home = game.get("home") or {}
+            away = game.get("away") or {}
+            winner = game.get("winner_id")
+            games.append(
+                {
+                    "home": home.get("name") or "—",
+                    "home_href": _path("/members", home.get("id")),
+                    "home_pts": _points(home.get("points")),
+                    "home_mark": "is-leader" if winner and winner == home.get("id") else "",
+                    "away": away.get("name") or "—",
+                    "away_href": _path("/members", away.get("id")),
+                    "away_pts": _points(away.get("points")),
+                    "away_mark": "is-leader" if winner and winner == away.get("id") else "",
+                    "kind_label": label,
+                }
+            )
+            if game.get("id"):
+                boxes.append(
+                    {
+                        "href": f"/seasons/{year}/week/{week}/{game['id']}",
+                        "label": f"{home.get('name') or '—'} vs {away.get('name') or '—'}",
+                    }
+                )
+        groups.append({"week": week, "label": label, "games": games})
+    standings = gc.get("standings") or {}
+    rows = standings.get("rows") or [] if isinstance(standings, Mapping) else []
+    boards = _era90_standings_boards(rows, "era90", f"{year} week {week}") if rows else []
+    cheer = None
+    if rows:
+        top = rows[0]
+        cheer = {
+            "lead": "Leader",
+            "name": top.get("display_name") or "",
+            "href": _path("/members", top.get("manager_id")),
+        }
+    median = standings.get("week_median") if isinstance(standings, Mapping) else None
+    median_line = f"Scoring median {float(median):.1f}." if median is not None else None
+    return {
+        "year": year,
+        "boards": boards,
+        "week_groups": groups,
+        "boxes": boxes,
+        "cheer": cheer,
+        "median_line": median_line,
+    }
+
+
+def _era90_side(side: Mapping[str, object]) -> dict[str, object]:
+    players: list[dict[str, str]] = []
+    for row in side.get("starters") or []:  # type: ignore[union-attr]
+        players.append(
+            {
+                "slot": str(row.get("slot") or ""),
+                "name": str(row.get("player_name") or ""),
+                "href": _path("/players", row.get("player_id")),
+                "points": _points(row.get("points")),
+            }
+        )
+    return {
+        "name": side.get("name") or "",
+        "href": _path("/members", side.get("id")),
+        "points": _points(side.get("points")),
+        "players": players,
+    }
+
+
+def _era90_sibling(game: Mapping[str, object] | None, year: int, week: int) -> dict[str, str] | None:
+    if not game or not game.get("id"):
+        return None
+    home = game.get("home") or {}
+    away = game.get("away") or {}
+    return {
+        "href": f"/seasons/{year}/week/{week}/{game['id']}",
+        "label": f"{home.get('name') or '—'} vs {away.get('name') or '—'}",
+    }
+
+
+def _era90_gamecenter(gc: Mapping[str, object], year: int) -> dict[str, object]:
+    game = gc["game"]
+    assert isinstance(game, Mapping)
+    week = int(gc["week"])  # type: ignore[arg-type]
+    home = game["home"]
+    away = game["away"]
+    assert isinstance(home, Mapping) and isinstance(away, Mapping)
+    winner = game.get("winner_id")
+    cheer = None
+    if winner and winner == home.get("id"):
+        cheer = {"lead": "Winner", "name": home.get("name") or "", "href": _path("/members", home.get("id"))}
+    elif winner and winner == away.get("id"):
+        cheer = {"lead": "Winner", "name": away.get("name") or "", "href": _path("/members", away.get("id"))}
+    return {
+        "kind_label": gc.get("kind_label") or "",
+        "sides": [_era90_side(home), _era90_side(away)],
+        "cheer": cheer,
+        "prev": _era90_sibling(gc.get("prev_match") if isinstance(gc.get("prev_match"), Mapping) else None, year, week),
+        "next": _era90_sibling(gc.get("next_match") if isinstance(gc.get("next_match"), Mapping) else None, year, week),
+    }
+
+
+def _era90_moves(moves: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    lines: list[dict[str, str]] = []
+    for move in moves:
+        names: list[str] = []
+        adds = move.get("adds") or []
+        drops = move.get("drops") or []
+        for row in list(adds) + list(drops):  # type: ignore[operator]
+            name = row.get("player_name")
+            if name:
+                names.append(str(name))
+        kind = _MOVE_LABELS.get(str(move.get("type") or ""), str(move.get("type") or "move"))
+        text = f"Week {move.get('week')} {kind}"
+        if names:
+            text += " " + ", ".join(names)
+        lines.append({"href": str(move.get("href") or ""), "text": text})
+    return {"lines": lines}
+
+
+def _era90_draft_board(picks: Sequence[Mapping[str, object]], year: int) -> dict[str, object]:
+    high = _max_number(row.get("ros_vorp") for row in picks)
+    body: list[dict[str, object]] = []
+    for row in picks:
+        overall = int(row.get("overall") or 0)
+        mark = ""
+        if overall == 1:
+            mark = "is-leader"
+        elif _same(row.get("ros_vorp"), high):
+            mark = "is-record"
+        body.append(
+            {
+                "overall": overall,
+                "round": row.get("round"),
+                "manager": row.get("manager_name") or "",
+                "player": row.get("player_name") or "",
+                "position": row.get("position") or "",
+                "_href": {
+                    "manager": _path("/members", row.get("manager_id")),
+                    "player": _path("/players", row.get("player_id")),
+                },
+                "_mark": {"player": mark} if mark else {},
+            }
+        )
+    return present("draft", body, "era90", caption=f"{year} draft")
+
+
+def _era90_marks(context: Mapping[str, object]) -> dict[str, object]:
+    chapters: list[dict[str, object]] = []
+    for chapter in context.get("by_kind") or []:  # type: ignore[union-attr]
+        rows: list[dict[str, str]] = []
+        for week in chapter.get("weeks") or []:
+            who = week.get("display_name") or week.get("manager_name") or ""
+            text = f"W{week.get('week')} {who}".strip()
+            if week.get("points") is not None:
+                text += f" {_points(week.get('points'))}"
+            rows.append({"href": str(week.get("href") or ""), "text": text})
+        chapters.append({"label": chapter.get("label") or "", "rows": rows})
+    return {"chapters": chapters}
+
+
+def _era90_desk(desk: Mapping[str, object] | None) -> dict[str, object]:
+    if not desk:
+        return {"managers": []}
+    order = list(desk.get("managers") or [])
+    managers: list[dict[str, object]] = []
+    for manager in order:
+        rows: list[dict[str, str]] = []
+        cells = manager.get("cells") or []
+        for index, cell in enumerate(cells):
+            if not cell or cell.get("self"):
+                continue
+            other = order[index]
+            record = cell.get("record") or ""
+            rows.append(
+                {
+                    "href": f"/versus/{manager['manager_id']}/{other['manager_id']}",
+                    "text": f"vs {other['display_name']} {record}".strip(),
+                }
+            )
+        managers.append(
+            {
+                "name": manager.get("display_name") or "",
+                "href": f"/members/{manager['manager_id']}",
+                "rows": rows,
+            }
+        )
+    return {"managers": managers}
+
+
+def _era90_scoring(context: Mapping[str, object]) -> dict[str, object]:
+    groups: list[dict[str, object]] = []
+    current_label = None
+    bucket: dict[str, object] | None = None
+    for row in context.get("rows") or []:  # type: ignore[union-attr]
+        label = str(row.get("group") or "Scoring")
+        if label != current_label:
+            bucket = {"label": label, "rows": []}
+            groups.append(bucket)
+            current_label = label
+        value = row.get("value")
+        if value is None:
+            value = row.get("points") or ""
+        assert bucket is not None
+        rows = bucket["rows"]
+        assert isinstance(rows, list)
+        rows.append({"label": str(row.get("label") or ""), "value": str(value)})
+    years: list[dict[str, str]] = []
+    for row in context.get("seasons") or []:  # type: ignore[union-attr]
+        season_year = int(row["year"])
+        years.append({"href": f"/seasons/{season_year}/scoring", "label": str(season_year)})
+    return {"groups": groups, "years": years}
+
+
+def _era90_records(context: Mapping[str, object]) -> dict[str, object]:
+    chapters: list[dict[str, object]] = []
+    for chapter in context.get("chapters") or []:  # type: ignore[union-attr]
+        chapters.append(
+            {
+                "href": f"/records/{chapter['slug']}",
+                "title": chapter.get("title") or "",
+                "taste": chapter.get("taste") or "",
+                "anchors": chapter.get("anchors") or [],
+            }
+        )
+    holders: list[dict[str, str]] = []
+    for row in context.get("holders") or []:  # type: ignore[union-attr]
+        text = str(row.get("display_name") or "")
+        if row.get("total") is not None:
+            text = f"{text} {int(row['total'])}"
+        holders.append({"href": f"/members/{row['manager_id']}", "text": text})
+    return {"chapters": chapters, "holders": holders}
+
+
+def _era90_prepare(name: str, context: Mapping[str, object], year: int | None) -> dict[str, object]:
+    if name == "week.html" and isinstance(context.get("gc"), Mapping) and year is not None:
+        return _era90_week_view(context["gc"], year)  # type: ignore[arg-type]
+    if name == "gamecenter.html" and isinstance(context.get("gc"), Mapping) and year is not None:
+        return _era90_gamecenter(context["gc"], year)  # type: ignore[arg-type]
+    if name == "moves.html":
+        return _era90_moves(context.get("moves") or [])  # type: ignore[arg-type]
+    if name == "draft.html" and year is not None:
+        draft = context.get("draft") or {}
+        picks = draft.get("picks") or [] if isinstance(draft, Mapping) else []
+        years = []
+        if isinstance(draft, Mapping):
+            for season_year in draft.get("years") or []:
+                years.append({"href": f"/seasons/{int(season_year)}/draft", "label": str(int(season_year))})
+        board = _era90_draft_board(picks, year) if picks else None
+        return {"board": board, "years": years}
+    if name == "marks.html":
+        return _era90_marks(context)
+    if name == "desk.html":
+        desk = context.get("desk")
+        return _era90_desk(desk if isinstance(desk, Mapping) else None)
+    if name == "scoring.html":
+        return _era90_scoring(context)
+    if name == "records/index.html":
+        return _era90_records(context)
+    return {}
+
+
+def era90_family_document(
+    request: Request,
+    name: str,
+    *,
+    nav: str,
+    title: str,
+    context: Mapping[str, object],
+) -> HTMLResponse:
+    """Render one legacy season-family route inside the era90 shell."""
+    year = _era_year(context)
+    weeks = _era_weeks(context, year)
+    prepared = dict(context)
+    prepared.update(_era90_prepare(name, context, year))
+    prepared["last_updated"] = queries.era90_last_updated()
+    return _era90_response(
+        request,
+        title=title,
+        nav=nav,
+        template=ERA90_FAMILY[name],
+        context=prepared,
+        year=year,
+        weeks=weeks,
+    )

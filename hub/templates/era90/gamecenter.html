@@ -1,0 +1,17 @@
+{% if kind_label %}<p class="kicker">{{ kind_label }}</p>{% endif %}
+{% if cheer %}
+<p class="cheer">{{ cheer.lead }} {% if cheer.href %}<a href="{{ cheer.href }}">{{ cheer.name }}</a>{% else %}{{ cheer.name }}{% endif %}</p>
+{% endif %}
+{% for side in sides %}
+<h2>{% if side.href %}<a href="{{ side.href }}">{{ side.name }}</a>{% else %}{{ side.name }}{% endif %} {{ side.points }}</h2>
+<ul class="plain-list">
+{% for player in side.players %}
+<li>{{ player.slot }} {% if player.href %}<a href="{{ player.href }}">{{ player.name }}</a>{% else %}{{ player.name }}{% endif %} {{ player.points }}</li>
+{% endfor %}
+{% if not side.players %}<li>No lineup posted.</li>{% endif %}
+</ul>
+{% endfor %}
+<p class="numeral-row">
+{% if prev %}<a href="{{ prev.href }}">{{ prev.label }}</a>{% endif %}
+{% if next %}<a href="{{ next.href }}">{{ next.label }}</a>{% endif %}
+</p>

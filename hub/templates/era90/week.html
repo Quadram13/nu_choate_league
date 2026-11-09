@@ -1,0 +1,20 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if cheer %}
+<p class="cheer">{{ cheer.lead }} {% if cheer.href %}<a href="{{ cheer.href }}">{{ cheer.name }}</a>{% else %}{{ cheer.name }}{% endif %}</p>
+{% endif %}
+{% if median_line %}<p class="stat-note">{{ median_line }}</p>{% endif %}
+{% for board in boards %}
+{{ stat_table(board) }}
+{% endfor %}
+{% if not boards %}<p class="stat-note">No standings posted.</p>{% endif %}
+{% if week_groups %}
+{% include "fragments/games.html" %}
+{% endif %}
+{% if boxes %}
+<h2>Box scores</h2>
+<ul class="plain-list">
+{% for box in boxes %}
+<li><a href="{{ box.href }}">{{ box.label }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
