@@ -516,14 +516,22 @@ def _int_text(value: Any) -> str:
 
 
 def _short_name(name: str) -> str:
-    """CBS 17 Sep 2009 projection grammar: ``A. Rodgers``. Not invented stats."""
+    """CBS 17 Sep 2009 projection grammar: ``A. Rodgers``.
+
+    A particle stays with the last name (``Amon-Ra St. Brown`` → ``A. St. Brown``).
+    Jr/III is dropped. The full name remains the cell's raw value.
+    """
     parts = name.split()
     suffixes = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
-    while parts and parts[-1].lower() in suffixes:
+    particles = {"st", "st.", "de", "da", "van", "von", "del", "la", "le", "di"}
+    while len(parts) > 2 and parts[-1].lower() in suffixes:
         parts.pop()
     if len(parts) < 2 or not parts[0]:
         return name
-    return f"{parts[0][0]}. {parts[-1]}"
+    start = len(parts) - 1
+    while start > 1 and parts[start - 1].lower() in particles:
+        start -= 1
+    return f"{parts[0][0]}. {' '.join(parts[start:])}"
 
 
 def _limit_career(
@@ -985,6 +993,16 @@ _CAREER_FIXTURE: list[dict[str, Any]] = [
         "avg": 20.0,
         "started_vorp": 10.0,
     },
+    {
+        "player_id": "p3",
+        "player_name": "Amon-Ra St. Brown",
+        "position": "WR",
+        "seasons": 2,
+        "starts": 18,
+        "starter_points": 300.0,
+        "avg": 16.5,
+        "started_vorp": 4.0,
+    },
 ]
 
 _STANDINGS_FIXTURE: list[dict[str, Any]] = [
@@ -1059,8 +1077,8 @@ def _render_career() -> list[str]:
     problems.extend(_cross_raws("career_rankings", boards))
     if "Aaron Rodgers" not in pages["era90"] or "A. Rodgers" in pages["era90"]:
         problems.append("era90 career should show the full player name")
-    if "A. Rodgers" not in pages["era2010"]:
-        problems.append("era2010 career should use the initial-and-last name")
+    if "A. Rodgers" not in pages["era2010"] or "A. St. Brown" not in pages["era2010"]:
+        problems.append("era2010 career should use initial-and-last, keeping a last-name particle")
     if "hub.css" in pages["era90"] or "hub.js" in pages["era90"]:
         problems.append("era90 players page pulled modern assets")
     if "#660000" not in pages["era90"] or "FANTASY LINKS" not in pages["era90"]:
