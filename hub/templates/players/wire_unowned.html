@@ -1,0 +1,42 @@
+{% from "players/_macros.html" import player, rk_head, year_link, view_all %}
+<section class="board" id="{{ board_name }}" data-fragment="{{ fragment_href }}" data-board="{{ board_href }}">
+{% if not teaser %}
+{% include "players/_nav.html" %}
+<h2 id="wire">Left on the wire</h2>
+<h3>Never rostered</h3>
+{% include "players/_wire_note.html" %}
+{% include "players/_gap_note.html" %}
+<p class="note">{{ total }} rows, the published never-rostered board. Rank follows a sort.</p>
+{% else %}
+<h3>Never rostered</h3>
+{{ view_all(rows, total, board_href, " by points while unowned") }}
+{% endif %}
+<table class="js-sort js-rk">
+    <thead>
+        <tr>
+            {{ rk_head() }}
+            <th class="num">Year</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
+            <th class="num">Pts</th>
+            <th class="num">Best</th>
+            <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td class="num rk">{{ loop.index }}</td>
+            <td class="num" data-value="{{ row.year }}">{{ year_link(row.year) }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" {% if row.best_week %}title="W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</section>

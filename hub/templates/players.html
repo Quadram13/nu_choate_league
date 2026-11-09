@@ -1,350 +1,44 @@
 {% extends "base.html" %}
-{% from "plaque_macros.html" import person_link %}
-{% macro person(id, name) %}
-{{ person_link(id, name) }}
-{% endmacro %}
-{% macro player(id, name) %}
-{% if id and name %}<a href="/players/{{ id }}">{{ name }}</a>{% else %}{{ name or "—" }}{% endif %}
-{% endmacro %}
-{% macro pct(value) %}
-{% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
-{% endmacro %}
-{% macro avg(value) %}
-{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}
-{% endmacro %}
+{% macro mount(template, pack) -%}
+{% with rows=pack.rows, total=pack.total, teaser=true, vol_partial=pack.vol_partial, board_name=pack.board_name, board_href=pack.board_href, fragment_href=pack.fragment_href, back_href=pack.back_href, label=pack.label %}
+{% include template %}
+{% endwith %}
+{%- endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. VORP beside it counts starts only. Unowned weeks stay in <a href="#wire">Left on the wire</a>. Trades are times moved. Mgrs is distinct managers on rostered weeks. Rings are championship seasons: at least one start for the manager who won it all. Title is title-week starts for that champion. CWk is weeks rostered by a champion, bench included. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
-{% if career | selectattr("vol_partial") | list %}
+<p class="lede">Career starter PF. VORP beside it counts starts only. Unowned weeks stay in <a href="#wire">Left on the wire</a>. Trades are times moved. Mgrs is distinct managers on rostered weeks. Rings are championship seasons: at least one start for the manager who won it all. Title is title-week starts for that champion. CWk is weeks rostered by a champion, bench included. This page shows the first {{ summary_limit }} rows of each ranking and the first {{ wire_teaser_limit }} of each wire board. View all opens the full table. Script still folds a table on this page to 20. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records/wire#wire-left">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
+{% if vol_partial %}
 <p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
 {% endif %}
-{% if not career and not seasons and not wire_leaders and not wire_career and not wire_unowned %}
+{% if not has_players %}
 <p class="note">No player records yet. Load dumps into Postgres first.</p>
 {% endif %}
-<p class="jump js-year-filter" hidden></p>
+<p class="jump">
+    <a href="#rankings">Rankings</a>
+    <a href="#wire">Left on the wire</a>
+    <a href="#counting">Counting</a>
+    {% for name in board_order %}
+    <a href="{{ teasers[name].board_href }}">{{ teasers[name].label }}</a>
+    {% endfor %}
+</p>
 
 <h2 id="rankings">Rankings</h2>
-<p class="jump js-rank-mode">
-    <button type="button" data-mode="career" class="on">Career</button>
-    <button type="button" data-mode="season">Season</button>
-</p>
-<p class="jump js-pos-filter" hidden></p>
+{{ mount('players/career.html', teasers['players-career-rankings']) }}
+{{ mount('players/season.html', teasers['players-season-rankings']) }}
 
-<div class="js-rank" data-mode="career">
-<table class="js-sort js-fold" data-fold="20">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Pos</th>
-            <th class="num">Yrs</th>
-            <th class="num">Starts</th>
-            <th class="num">PF</th>
-            <th class="num">Avg</th>
-            <th class="num" title="VORP on starts. Unowned weeks stay in Left on the wire.">VORP</th>
-            <th class="num" title="Rostered weeks divided by posted lineup weeks in seasons with a stored week">Own</th>
-            <th class="num">Draft</th>
-            <th class="num">Adds</th>
-            <th class="num">Trades</th>
-            <th class="num" title="Distinct managers on rostered weeks">Mgrs</th>
-            <th class="num">Rings</th>
-            <th class="num" title="Starts for the champion in a playoff week on or after playoff_start_week">Title</th>
-            <th class="num" title="Weeks rostered by a season champion, bench included">CWk</th>
-            <th class="num" title="Scored weeks in the volatility sample">Wk</th>
-            <th class="num" title="Mean of scored weeks">Mean</th>
-            <th class="num" title="Sample standard deviation">SD</th>
-            <th class="num" title="Sample SD / mean">CV</th>
-            <th class="num" title="Weeks at least 1.5× the career mean">Boom</th>
-            <th class="num" title="Completed years from birth_date as of today. The catalog age integer is not stored.">Age</th>
-            <th class="num" title="Height from the Sleeper catalog">Ht</th>
-            <th class="num" title="Weight in pounds from the Sleeper catalog">Wt</th>
-            <th class="num" title="Sleeper metadata.rookie_year. Not derived from years_exp.">Rookie</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in career %}
-        <tr data-pos="{{ row.position or '' }}">
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td class="num">{{ row.seasons|int }}</td>
-            <td class="num">{{ (row.starts or 0)|int }}</td>
-            <td class="num" data-value="{{ row.starter_points }}">{% if row.starter_points is not none %}{{ "%.1f"|format(row.starter_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
-            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
-            <td class="num">{{ (row.times_drafted or 0)|int }}</td>
-            <td class="num">{{ (row.times_added or 0)|int }}</td>
-            <td class="num">{{ (row.times_traded or 0)|int }}</td>
-            <td class="num">{{ (row.managers or 0)|int }}</td>
-            <td class="num">{{ (row.rings or 0)|int }}</td>
-            <td class="num">{{ (row.title_starts or 0)|int }}</td>
-            <td class="num">{{ (row.champ_roster_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% if row.vol_partial %}*{% endif %}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
-            <td class="num" data-value="{{ row.age_years if row.age_years is not none else '' }}" {% if row.birth_date %}title="born {{ row.birth_date }}"{% endif %}>{% if row.age_years is not none %}{{ row.age_years }}{% endif %}</td>
-            <td class="num">{{ row.height or "" }}</td>
-            <td class="num" data-value="{{ row.weight_lb if row.weight_lb is not none else '' }}">{% if row.weight_lb is not none %}{{ row.weight_lb }}{% endif %}</td>
-            <td class="num" data-value="{{ row.rookie_year if row.rookie_year is not none else '' }}">{% if row.rookie_year is not none %}{{ row.rookie_year }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-
-<div class="js-rank" data-mode="season" hidden>
-<table class="js-sort js-fold" data-fold="20">
-    <thead>
-        <tr>
-            <th class="num">Year</th>
-            <th>Player</th>
-            <th>Pos</th>
-            <th title="Manager who rostered the player most, and that manager's weeks out of every rostered week">Most weeks</th>
-            <th class="num" title="Distinct managers who rostered the player this season">Mgrs</th>
-            <th class="num" title="Rostered weeks, any manager">Rstr</th>
-            <th class="num">Starts</th>
-            <th class="num" title="Points on starts">PF</th>
-            <th class="num">Avg</th>
-            <th class="num" title="VORP on starts. Unowned weeks stay in Left on the wire.">VORP</th>
-            <th class="num" title="Rostered weeks divided by posted lineup weeks">Own</th>
-            <th class="num" title="Scored weeks in the volatility sample">Wk</th>
-            <th class="num" title="Mean of scored weeks">Mean</th>
-            <th class="num" title="Sample standard deviation">SD</th>
-            <th class="num" title="Sample SD / mean">CV</th>
-            <th class="num" title="Weeks at least 1.5× this season's mean">Boom</th>
-            <th class="num" title="Best scored week">Best</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in seasons %}
-        <tr data-year="{{ row.year }}" data-pos="{{ row.position or '' }}">
-            <td class="num">{{ row.year }}{% if row.vol_partial %}*{% endif %}</td>
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td>{% if row.owner_name %}{{ person(row.manager_id, row.owner_name) }} · {{ (row.owned_weeks or 0)|int }} of {{ (row.rostered_weeks or 0)|int }}{% else %}—{% endif %}</td>
-            <td class="num">{{ (row.managers or 0)|int }}</td>
-            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
-            <td class="num">{{ (row.starts or 0)|int }}</td>
-            <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
-            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
-            <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
-            <td class="num" data-value="{{ row.vol_best if row.vol_best is not none else '' }}" {% if row.vol_best_year %}title="{{ row.vol_best_year }} W{{ row.vol_best_week }}"{% endif %}>{% if row.vol_best is not none %}{{ "%.1f"|format(row.vol_best) }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-
-{% if wire_leaders or wire_career or wire_unowned %}
+{% if teasers['players-wire-season'].total or teasers['players-wire-career'].total or teasers['players-wire-unowned'].total %}
 <h2 id="wire">Left on the wire</h2>
-<p class="note">FA is posted lineup weeks the player was not rostered, including a week with no stored score. FA VORP sums those weeks, and a missing score counts as 0 minus that week's replacement. Season is the top 15 by FA VORP. Career sums those seasons, so a year spent entirely unowned can bury one spike. Never rostered is a season with zero rostered weeks, ranked by points while unowned. Highest single weeks are on <a href="/records#wire-left">Records</a>. 2026 is posted weeks only.</p>
-{% if wire_gap %}
-<p class="note">The rankings omit every season with zero rostered weeks: {{ wire_gap.excluded_seasons|int }} season rows ({{ wire_gap.excluded_seasons_scored|int }} with points) and {{ wire_gap.excluded_players|int }} players who were never rostered ({{ wire_gap.excluded_players_scored|int }} with points). Adding them would take the career table from {{ wire_gap.index_rows|int }} to {{ wire_gap.index_with|int }} and the season table from {{ wire_gap.season_rows|int }} to {{ wire_gap.season_with|int }}.</p>
-{% endif %}
-{% if wire_leaders %}
-<h3>Season</h3>
-<table class="js-sort">
-    <thead>
-        <tr>
-            <th class="num">Year</th>
-            <th>Player</th>
-            <th>Pos</th>
-            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
-            <th class="num">Pts</th>
-            <th class="num">Best</th>
-            <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
-            <th class="num">Rstr</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in wire_leaders %}
-        <tr>
-            <td class="num">{{ row.year }}</td>
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.best_points }}" {% if row.best_week %}title="W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
-            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
-            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
-{% if wire_career %}
-<h3>Career</h3>
-<table class="js-sort">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Pos</th>
-            <th class="num">Yrs</th>
-            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
-            <th class="num">Pts</th>
-            <th class="num" title="Best stored unowned week">Best</th>
-            <th class="num" title="Sum of season FA VORP. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
-            <th class="num" title="Rostered weeks across every season, including a season with no unowned week">Rstr</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in wire_career %}
-        <tr>
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td class="num">{{ (row.seasons or 0)|int }}</td>
-            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.best_points }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
-            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
-            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
-{% if wire_unowned %}
-<h3>Never rostered</h3>
-<table class="js-sort">
-    <thead>
-        <tr>
-            <th class="num">Year</th>
-            <th>Player</th>
-            <th>Pos</th>
-            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
-            <th class="num">Pts</th>
-            <th class="num">Best</th>
-            <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in wire_unowned %}
-        <tr>
-            <td class="num">{{ row.year }}</td>
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.best_points }}" {% if row.best_week %}title="W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
-            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+{% include "players/_wire_note.html" %}
+{% include "players/_gap_note.html" %}
+{{ mount('players/wire_season.html', teasers['players-wire-season']) }}
+{{ mount('players/wire_career.html', teasers['players-wire-career']) }}
+{{ mount('players/wire_unowned.html', teasers['players-wire-unowned']) }}
 {% endif %}
 
-{% macro count_rate(value) %}<td class="num" data-value="{{ value if value is not none else '' }}">{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}</td>{% endmacro %}
-{% macro count_num(value) %}<td class="num">{{ (value or 0)|int }}</td>{% endmacro %}
-{% macro count_cells(row) %}
-{{ count_num(row.games) }}
-{{ count_num(row.rush_yd) }}
-{{ count_rate(row.rush_yd_pg) }}
-{{ count_num(row.rec_yd) }}
-{{ count_rate(row.rec_yd_pg) }}
-{{ count_num(row.pass_yd) }}
-{{ count_rate(row.pass_yd_pg) }}
-{{ count_num(row.rush_td) }}
-{{ count_num(row.rec_td) }}
-{{ count_num(row.pass_td) }}
-{{ count_num(row.total_td) }}
-{{ count_num(row.rec) }}
-{{ count_num(row.rec_tgt) }}
-{{ count_num(row.fgm) }}
-{{ count_num(row.sack) }}
-{{ count_num(row.def_int) }}
-{{ count_rate(row.pts_allow_pg) }}
-{{ count_rate(row.yds_allow_pg) }}
-{{ count_num(row.g_rush_100) }}
-{{ count_num(row.g_rec_100) }}
-{{ count_num(row.g_pass_300) }}
-{{ count_num(row.g_td_2) }}
-{% endmacro %}
-{% macro count_head() %}
-<th class="num" title="Counting-stat rows, not starts">G</th>
-<th class="num" title="Rush yards">RuYd</th>
-<th class="num" title="Rush yards per counting game">Ru/G</th>
-<th class="num" title="Receiving yards">RecYd</th>
-<th class="num" title="Receiving yards per counting game">Rec/G</th>
-<th class="num" title="Pass yards">PYd</th>
-<th class="num" title="Pass yards per counting game">P/G</th>
-<th class="num" title="Rush touchdowns">RuTD</th>
-<th class="num" title="Receiving touchdowns">RecTD</th>
-<th class="num" title="Pass touchdowns">PTD</th>
-<th class="num" title="Rush + rec + pass touchdowns">TD</th>
-<th class="num">Rec</th>
-<th class="num">Tgt</th>
-<th class="num" title="Field goals made">FG</th>
-<th class="num">Sack</th>
-<th class="num" title="Defensive interceptions">DInt</th>
-<th class="num" title="Points allowed per counting game">PA/G</th>
-<th class="num" title="Yards allowed per counting game">YA/G</th>
-<th class="num" title="Games with 100 or more rush yards">100Ru</th>
-<th class="num" title="Games with 100 or more receiving yards">100Rec</th>
-<th class="num" title="Games with 300 or more pass yards">300P</th>
-<th class="num" title="Games with 2 or more total touchdowns">2TD</th>
-{% endmacro %}
-{% if counting and (counting.career or counting.seasons) %}
+{% if teasers['players-counting-career'].total or teasers['players-counting-season'].total %}
 <h2 id="counting">Counting</h2>
-<p class="note">Season and career sums from counting-stat rows. G is not starts: byes and all-zero weeks are omitted, and free-agent weeks count. /G divides by G. PA/G and YA/G are the defense rates (the sums are on the player page). Total TD is rush + rec + pass. 100Ru, 100Rec, 300P, and 2TD are milestone games. The full kicking, first-down, and red-zone line is on each player. Career rows hide when a single year is selected.</p>
-{% if counting.career %}
-<div data-grain="career">
-<h3>Career</h3>
-<div class="standings-wrap">
-<table class="js-sort js-fold" data-fold="20">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Pos</th>
-            <th class="num" title="Seasons with a counting row">Yrs</th>
-            {{ count_head() }}
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in counting.career %}
-        <tr data-pos="{{ row.position or '' }}">
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            <td class="num" title="{{ row.first_year }}–{{ row.last_year }}">{{ row.seasons|int }}</td>
-            {{ count_cells(row) }}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-</div>
-{% endif %}
-{% if counting.seasons %}
-<h3>By season</h3>
-<div class="standings-wrap">
-<table class="js-sort js-fold" data-fold="20">
-    <thead>
-        <tr>
-            <th class="num">Year</th>
-            <th>Player</th>
-            <th>Pos</th>
-            {{ count_head() }}
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in counting.seasons %}
-        <tr data-year="{{ row.year }}" data-pos="{{ row.position or '' }}">
-            <td class="num">{{ row.year }}</td>
-            <td>{{ player(row.player_id, row.player_name) }}</td>
-            <td>{{ row.position or "—" }}</td>
-            {{ count_cells(row) }}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-{% endif %}
+{% include "players/_counting_note.html" %}
+{{ mount('players/counting_career.html', teasers['players-counting-career']) }}
+{{ mount('players/counting_season.html', teasers['players-counting-season']) }}
 {% endif %}
 {% endblock %}

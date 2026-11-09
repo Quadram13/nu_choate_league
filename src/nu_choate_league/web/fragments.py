@@ -192,6 +192,56 @@ def load_players_career(request: Request) -> Context:
     }
 
 
+def _load_player_split(name: str) -> Loader:
+    """D1 (#105). Full row set for one players board. Append-only loader factory."""
+
+    def load(request: Request) -> Context:
+        del request
+        payload = queries.players_board_payload(name)
+        if payload is None:
+            raise StarletteHTTPException(status_code=404, detail=f"No board {name}.")
+        return payload
+
+    return load
+
+
+def _player_split_boards() -> tuple[Board, ...]:
+    """Sortable full tables. The summary on /players slices the same rows.
+
+    Appended beside the A3 paginated ``players-career`` log, which stays.
+    Templates live under ``players/`` (D1's directory). Both envelopes render
+    them through ``render_fragment``.
+    """
+    titles = {
+        "players-career-rankings": ("players/career.html", "Career rankings"),
+        "players-season-rankings": ("players/season.html", "Season rankings"),
+        "players-wire-season": ("players/wire_season.html", "Wire season"),
+        "players-wire-career": ("players/wire_career.html", "Wire career"),
+        "players-wire-unowned": ("players/wire_unowned.html", "Never rostered"),
+        "players-counting-career": ("players/counting_career.html", "Counting career"),
+        "players-counting-season": ("players/counting_season.html", "Counting by season"),
+    }
+    specs = queries.player_split_board_specs()
+    spec_names = {spec["name"] for spec in specs}
+    title_names = set(titles)
+    if spec_names != title_names:
+        raise RuntimeError(
+            "D1 player boards and templates disagree: "
+            f"specs-only={sorted(spec_names - title_names)} "
+            f"templates-only={sorted(title_names - spec_names)}"
+        )
+    return tuple(
+        Board(
+            name=spec["name"],
+            template=titles[spec["name"]][0],
+            title=titles[spec["name"]][1],
+            nav="players",
+            loader=_load_player_split(spec["name"]),
+        )
+        for spec in specs
+    )
+
+
 BOARDS: dict[str, Board] = {}
 
 
@@ -221,6 +271,12 @@ def _register_boards() -> None:
     )
     BOARDS.clear()
     BOARDS.update({spec.name: spec for spec in specs})
+    # D1 (#105): register after the A3 boards so a re-call of this function
+    # keeps the split. Existing board names, loaders, and page size are unchanged.
+    for spec in _player_split_boards():
+        if spec.name in BOARDS:
+            raise RuntimeError(f"duplicate board {spec.name}")
+        BOARDS[spec.name] = spec
 
 
 _register_boards()
