@@ -93,7 +93,10 @@ JOIN ranked r
     ON r.year = s.year
     AND r.week = s.week
     AND r.position = s.position
-    AND r.rnk = greatest(s.n_starters, 1);
+    AND r.rnk = greatest(s.n_starters, 1)
+JOIN v_posted_weeks pw
+    ON pw.year = s.year
+    AND pw.week = s.week;
 
 CREATE VIEW v_player_vorp AS
 SELECT
@@ -115,25 +118,66 @@ JOIN v_replacement_weeks r
     AND r.week = p.week
     AND r.position = p.position;
 
+-- `weeks` and `vorp` stay on stored rows. `lineup_weeks` is the season's
+-- posted weeks (v_posted_weeks), one count for every player. Own% uses it.
+-- `fa_weeks` is posted weeks not rostered. pool.py drops a zero-score
+-- free-agent week, so those weeks are not stored and still count here.
+-- `fa_vorp` sums the unowned posted weeks. A missing row scores 0, which
+-- is minus that week's replacement. Rostered weeks stay out of it.
 CREATE VIEW v_vorp_season AS
+WITH lineup AS (
+    SELECT year, CAST(count(*) AS bigint) AS lineup_weeks
+    FROM v_posted_weeks
+    GROUP BY year
+),
+repl AS (
+    SELECT year, position, sum(replacement) AS replacement_all
+    FROM v_replacement_weeks
+    GROUP BY year, position
+),
+scored AS (
+    SELECT
+        year,
+        player_id,
+        max(player_name) AS player_name,
+        position,
+        CAST(count(*) AS bigint) AS weeks,
+        CAST(count(*) FILTER (WHERE rostered) AS bigint) AS rostered_weeks,
+        CAST(count(*) FILTER (WHERE started) AS bigint) AS starts,
+        coalesce(sum(points), 0) AS points,
+        coalesce(sum(points) FILTER (WHERE started), 0) AS started_points,
+        CAST(count(*) FILTER (WHERE rostered AND NOT started) AS bigint) AS bench_weeks,
+        coalesce(sum(points) FILTER (WHERE rostered AND NOT started), 0) AS bench_points,
+        coalesce(sum(vorp), 0) AS vorp,
+        coalesce(sum(vorp) FILTER (WHERE started), 0) AS started_vorp,
+        coalesce(sum(vorp) FILTER (WHERE NOT rostered), 0) AS scored_fa_vorp,
+        coalesce(sum(replacement), 0) AS replacement_stored
+    FROM v_player_vorp
+    GROUP BY year, player_id, position
+)
 SELECT
-    year,
-    player_id,
-    max(player_name) AS player_name,
-    position,
-    count(*) AS weeks,
-    count(*) FILTER (WHERE rostered) AS rostered_weeks,
-    count(*) FILTER (WHERE started) AS starts,
-    count(*) FILTER (WHERE NOT rostered) AS fa_weeks,
-    coalesce(sum(points), 0) AS points,
-    coalesce(sum(points) FILTER (WHERE started), 0) AS started_points,
-    count(*) FILTER (WHERE rostered AND NOT started) AS bench_weeks,
-    coalesce(sum(points) FILTER (WHERE rostered AND NOT started), 0) AS bench_points,
-    coalesce(sum(vorp), 0) AS vorp,
-    coalesce(sum(vorp) FILTER (WHERE started), 0) AS started_vorp,
-    coalesce(sum(vorp) FILTER (WHERE NOT rostered), 0) AS fa_vorp
-FROM v_player_vorp
-GROUP BY year, player_id, position;
+    s.year,
+    s.player_id,
+    s.player_name,
+    s.position,
+    s.weeks,
+    s.rostered_weeks,
+    s.starts,
+    greatest(l.lineup_weeks - s.rostered_weeks, 0::bigint) AS fa_weeks,
+    s.points,
+    s.started_points,
+    s.bench_weeks,
+    s.bench_points,
+    s.vorp,
+    s.started_vorp,
+    (
+        s.scored_fa_vorp
+        - (r.replacement_all - s.replacement_stored)
+    ) AS fa_vorp,
+    l.lineup_weeks
+FROM scored s
+JOIN lineup l ON l.year = s.year
+JOIN repl r ON r.year = s.year AND r.position = s.position;
 
 CREATE VIEW v_bench AS
 SELECT
@@ -164,6 +208,9 @@ SELECT
     coalesce(mv.drops, 0) AS times_dropped,
     coalesce(tr.times_traded, 0) AS times_traded
 FROM v_player_weeks pw
+JOIN v_posted_weeks posted
+    ON posted.year = pw.year
+    AND posted.week = pw.week
 LEFT JOIN players p ON p.id = pw.player_id
 LEFT JOIN (
     SELECT player_id, count(*) AS times_drafted
@@ -176,7 +223,9 @@ LEFT JOIN (
         count(*) FILTER (WHERE direction = 'add') AS adds,
         count(*) FILTER (WHERE direction = 'drop') AS drops
     FROM v_moves
+    -- Completed moves only. Failed claims stay on v_moves for the miss log.
     WHERE type <> 'trade'
+        AND status = 'complete'
     GROUP BY player_id
 ) mv ON mv.player_id = pw.player_id
 LEFT JOIN (
@@ -208,6 +257,12 @@ WITH weeks AS (
         kind
     FROM v_player_weeks
     WHERE kind IN ('regular', 'playoff')
+        AND EXISTS (
+            SELECT 1
+            FROM v_posted_weeks posted
+            WHERE posted.year = v_player_weeks.year
+                AND posted.week = v_player_weeks.week
+        )
 ),
 started AS (
     SELECT
@@ -314,6 +369,9 @@ WHERE p.rostered
 GROUP BY p.year, p.player_id, p.manager_id, m.display_name;
 
 -- Rostered players in a season, with the manager who held them longest.
+-- `points` and `vorp` stay every stored week. Rankings that sit beside
+-- starter PF read `started_points` and `started_vorp`. `fa_vorp` stays the
+-- unowned posted weeks. `started_vorp` is last so a replace can append it.
 CREATE VIEW v_player_season AS
 SELECT
     v.year,
@@ -330,12 +388,15 @@ SELECT
     v.bench_points,
     v.vorp,
     CASE
-        WHEN v.weeks = 0 THEN NULL
-        ELSE v.rostered_weeks::double precision / v.weeks
+        WHEN coalesce(v.lineup_weeks, 0) = 0 THEN NULL
+        ELSE v.rostered_weeks::double precision / v.lineup_weeks
     END AS own_pct,
     o.manager_id,
     o.manager_name AS owner_name,
-    o.weeks AS owned_weeks
+    o.weeks AS owned_weeks,
+    v.lineup_weeks,
+    v.fa_vorp,
+    v.started_vorp
 FROM v_vorp_season v
 LEFT JOIN LATERAL (
     SELECT manager_id, manager_name, weeks
@@ -367,9 +428,11 @@ SELECT
     v.fa_weeks,
     v.vorp,
     CASE
-        WHEN coalesce(v.weeks, 0) = 0 THEN NULL
-        ELSE v.rostered_weeks::double precision / v.weeks
-    END AS own_pct
+        WHEN coalesce(lineups.lineup_weeks, 0) = 0 THEN NULL
+        ELSE v.rostered_weeks::double precision / lineups.lineup_weeks
+    END AS own_pct,
+    lineups.lineup_weeks,
+    v.started_vorp
 FROM v_player_career c
 LEFT JOIN (
     SELECT
@@ -377,9 +440,18 @@ LEFT JOIN (
         sum(weeks) AS weeks,
         sum(rostered_weeks) AS rostered_weeks,
         sum(fa_weeks) AS fa_weeks,
-        sum(vorp) AS vorp
+        sum(vorp) AS vorp,
+        sum(started_vorp) AS started_vorp
     FROM v_vorp_season
     GROUP BY player_id
 ) v ON v.player_id = c.player_id
+LEFT JOIN (
+    SELECT player_id, sum(lineup_weeks) AS lineup_weeks
+    FROM (
+        SELECT DISTINCT player_id, year, lineup_weeks
+        FROM v_vorp_season
+    ) seasons
+    GROUP BY player_id
+) lineups ON lineups.player_id = c.player_id
 WHERE c.player_id IS NOT NULL
     AND (c.starts > 0 OR coalesce(v.rostered_weeks, 0) > 0);

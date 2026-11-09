@@ -6,6 +6,9 @@
 {% macro pct(value) %}
 {% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
 {% endmacro %}
+{% macro num1(value) %}
+{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}
+{% endmacro %}
 {% macro cell(line, key) -%}
 {%- if line and line[key] -%}{{ line[key]|int }}{%- else -%}—{%- endif -%}
 {%- endmacro %}
@@ -21,33 +24,61 @@
     {% if bio and bio.college %} · {{ bio.college }}{% endif %}
     {% if bio and bio.years_exp is not none %} · {{ bio.years_exp }} yr NFL{% endif %}
     · {{ (player.starts or 0)|int }} start{{ "s" if player.starts != 1 else "" }}
+    {% if (player.rostered_weeks or 0)|int > 0 or (player.starts or 0)|int > 0 %}
     {% if player.starter_points is not none %} · {{ "%.1f"|format(player.starter_points) }} starter PF{% endif %}
-    {% if player.own_pct is not none %} · {{ pct(player.own_pct) }} owned{% endif %}
-    {% if player.vorp is not none %} · {{ "%+.1f"|format(player.vorp) }} VORP{% endif %}
+    {% if player.started_vorp is not none %} · <span title="VORP on starts">{{ "%+.1f"|format(player.started_vorp) }} VORP</span>{% endif %}
+    {% elif player.unowned_points is defined and player.unowned_points is not none %}
+    · {{ "%.1f"|format(player.unowned_points) }} points while unowned
+    {% endif %}
+    {% if player.own_pct is not none %} · <span title="{{ (player.rostered_weeks or 0)|int }} of {{ (player.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(player.own_pct) }} owned</span>{% endif %}
     {% if player.first_year %} · {{ player.first_year }}–{{ player.last_year }}{% endif %}
 </p>
 {% if chairs %}
 <p class="note">
-    {{ (chairs.first_chair or 0)|int }} Varsity Letters
-    · {{ (chairs.last_chair or 0)|int }} Varsity Farmers
-    · {{ (chairs.benched_first_chair or 0)|int }} Beat the Freeze
+    {% set letter_weeks = (chairs.first_chair or 0)|int %}
+    {% set farmer_weeks = (chairs.last_chair or 0)|int %}
+    {% set freeze_weeks = (chairs.benched_first_chair or 0)|int %}
+    {{ letter_weeks }} Varsity Letter week{{ "s" if letter_weeks != 1 else "" }}
+    · {{ farmer_weeks }} Varsity Farmer week{{ "s" if farmer_weeks != 1 else "" }}
+    · {{ freeze_weeks }} Beat the Freeze week{{ "s" if freeze_weeks != 1 else "" }}
     {% if chairs.journeyman %} · journeyman ({{ chairs.owners|int }} managers){% endif %}
 </p>
 {% endif %}
 {% if rings %}
 <p class="note">
     {{ rings|length }} ring{{ "s" if rings|length != 1 else "" }}
-    · {{ "%.1f"|format(ring_points) }} title-week points
     {% for row in rings %}
-    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %} for {{ person(row.manager_id, row.manager_name) }}
+    · <a href="/seasons/{{ row.year }}">{{ row.year }}</a> for {{ person(row.manager_id, row.manager_name) }}
     {% endfor %}
+    {% if title_weeks %}
+    · {{ "%.1f"|format(ring_points) }} title-week points
+    {% for row in title_weeks %}
+    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %}
+    {% endfor %}
+    {% endif %}
 </p>
 {% endif %}
 <p class="jump">
     <a href="#own">Ownership</a>
     <a href="#seasons">By season</a>
+    <a href="#counting">Counting</a>
     <a href="#weeks">Weeks</a>
 </p>
+{% if volatility %}
+<p class="note">
+    Volatility over {{ volatility.weeks_scored|int }} scored week{{ "s" if volatility.weeks_scored != 1 else "" }}
+    · mean {{ num1(volatility.mean_points) }}
+    · median {{ num1(volatility.median_points) }}
+    · sd {{ num1(volatility.stddev_points) }}
+    {% if volatility.cv is not none %}· cv {{ "%.2f"|format(volatility.cv) }}{% endif %}
+    {% if volatility.boom_rate is not none %}· boom {{ pct(volatility.boom_rate) }} ({{ volatility.boom_weeks|int }}){% endif %}
+    {% if volatility.bust_rate is not none %}· bust {{ pct(volatility.bust_rate) }} ({{ volatility.bust_weeks|int }}){% endif %}
+    {% if volatility.best_points is not none %}· best {{ num1(volatility.best_points) }} in {{ volatility.best_year }} W{{ volatility.best_week }}{% endif %}
+    {% if volatility.worst_points is not none %}· worst {{ num1(volatility.worst_points) }} in {{ volatility.worst_year }} W{{ volatility.worst_week }}{% endif %}
+    {% if volatility.best3_share is not none %}· best 3 weeks {{ pct(volatility.best3_share) }} of points{% endif %}
+    {% if volatility.includes_partial %}· includes in-progress 2026{% endif %}
+</p>
+{% endif %}
 <p class="jump js-year-filter" hidden></p>
 
 <h2 id="own">Ownership</h2>
@@ -65,6 +96,7 @@
     · {{ (player.times_traded or 0)|int }} trade{{ "s" if player.times_traded != 1 else "" }}.
 </p>
 {% endif %}
+<p class="note">Each run is consecutive stored weeks for one manager. A missing week starts a new run. Pts sums those stored weeks, bench included. An FA run is points while unowned.</p>
 <table>
     <thead>
         <tr>
@@ -73,7 +105,7 @@
             <th>Manager</th>
             <th class="num">Held</th>
             <th class="num">Starts</th>
-            <th class="num">PF</th>
+            <th class="num" title="Points on every stored week in the run, bench included. An FA run is points while unowned.">Pts</th>
         </tr>
     </thead>
     <tbody>
@@ -91,34 +123,60 @@
 </table>
 
 <h2 id="seasons">By season</h2>
+<p class="note">PF and VORP count starts only. FA VORP is posted weeks the player was not rostered, and a missing score counts as zero. Wk through Top3 are scored weeks only: a non-zero week, or a start that scored zero. SD is the sample standard deviation. Boom is at least 1.5× that season’s mean. Bust is at most half. Dev on each week is points minus that season mean. A live week stays out until the median team total reaches 40.</p>
+<div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
             <th class="num">Year</th>
-            <th>Owner</th>
-            <th class="num">Rstr</th>
+            <th title="Manager who rostered the player most, and that manager's weeks out of every rostered week">Most weeks</th>
+            <th class="num" title="Rostered weeks, any manager">Rstr</th>
             <th class="num">Starts</th>
-            <th class="num">FA</th>
-            <th class="num">PF</th>
-            <th class="num">VORP</th>
-            <th class="num">Own</th>
+            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
+            <th class="num" title="Points on starts">PF</th>
+            <th class="num" title="VORP on starts">VORP</th>
+            <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+            <th class="num" title="Rostered weeks divided by posted lineup weeks">Own</th>
+            <th class="num" title="Scored weeks">Wk</th>
+            <th class="num">Mean</th>
+            <th class="num">Med</th>
+            <th class="num" title="Sample standard deviation">SD</th>
+            <th class="num" title="Sample SD / mean">CV</th>
+            <th class="num" title="Weeks at least 1.5× this season mean">Boom</th>
+            <th class="num" title="Weeks at most half this season mean">Bust</th>
+            <th class="num">Best</th>
+            <th class="num">Worst</th>
+            <th class="num" title="Share of season points in the best 3 weeks">Top3</th>
         </tr>
     </thead>
     <tbody>
         {% for row in seasons %}
+        {% set vol = row.volatility %}
         <tr data-year="{{ row.year }}">
-            <td class="num">{{ row.year }}</td>
-            <td>{{ person(row.manager_id, row.owner_name) }}</td>
+            <td class="num">{{ row.year }}{% if vol and vol.partial_season %}*{% endif %}</td>
+            <td>{% if row.owner_name %}{{ person(row.manager_id, row.owner_name) }} · {{ (row.owned_weeks or 0)|int }} of {{ (row.rostered_weeks or 0)|int }}{% else %}—{% endif %}</td>
             <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
             <td class="num">{{ (row.starts or 0)|int }}</td>
             <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.points }}">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
+            <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
+            <td class="num" data-value="{{ vol.weeks_scored if vol and vol.weeks_scored is not none else '' }}">{% if vol and vol.weeks_scored is not none %}{{ vol.weeks_scored|int }}{% endif %}</td>
+            <td class="num" data-value="{{ vol.mean_points if vol and vol.mean_points is not none else '' }}">{{ num1(vol.mean_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.median_points if vol and vol.median_points is not none else '' }}">{{ num1(vol.median_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.stddev_points if vol and vol.stddev_points is not none else '' }}">{{ num1(vol.stddev_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.cv if vol and vol.cv is not none else '' }}">{% if vol and vol.cv is not none %}{{ "%.2f"|format(vol.cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ vol.boom_rate if vol and vol.boom_rate is not none else '' }}">{{ pct(vol.boom_rate if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.bust_rate if vol and vol.bust_rate is not none else '' }}">{{ pct(vol.bust_rate if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.best_points if vol and vol.best_points is not none else '' }}" {% if vol and vol.best_year %}title="W{{ vol.best_week }}"{% endif %}>{{ num1(vol.best_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.worst_points if vol and vol.worst_points is not none else '' }}" {% if vol and vol.worst_year %}title="W{{ vol.worst_week }}"{% endif %}>{{ num1(vol.worst_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.best3_share if vol and vol.best3_share is not none else '' }}">{{ pct(vol.best3_share if vol else none) }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 <h2 id="weeks">Weeks</h2>
 <div class="standings-wrap">
@@ -130,6 +188,7 @@
             <th>Role</th>
             <th title="2022-2023 NFL opponent for this player's current club">NFL</th>
             <th class="num">PF</th>
+            <th class="num" title="Points minus this season's own mean">Dev</th>
             <th class="num" title="Pass yards">P yd</th>
             <th class="num" title="Pass touchdowns">P TD</th>
             <th class="num" title="Rush yards">Ru yd</th>
@@ -140,6 +199,8 @@
             <th class="num" title="Receiving touchdowns">Rec TD</th>
             <th title="Attempts, turnovers, first downs, red zone, kicking, defense">Count</th>
             <th>Line</th>
+            <th class="num" title="Sleeper PPR positional rank, 2024–2026. Hover a cell for half-PPR and standard. Blank on ESPN seasons.">Rank</th>
+            <th class="num" title="Snap count and share of team snaps. Offensive when the player took an offensive snap, otherwise defensive, then special teams. Blank in 2022–23, when there are no snap rows. The share is blank when that snap family has no team total.">Snaps</th>
         </tr>
     </thead>
     <tbody>
@@ -158,6 +219,7 @@
             <td>{% if row.bye_only %}bye{% elif row.started %}start{% elif row.rostered %}bench{% else %}FA{% endif %}</td>
             <td>{% if row.nfl_opponent %}{{ row.nfl_opponent }}{% else %}—{% endif %}</td>
             <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td class="num{% if row.is_boom %} plus{% elif row.is_bust %} minus{% endif %}">{% if row.deviation is not none %}{{ "%+.2f"|format(row.deviation) }}{% endif %}</td>
             <td class="num">{{ cell(row.line, "pass_yd") }}</td>
             <td class="num">{{ cell(row.line, "pass_td") }}</td>
             <td class="num">{{ cell(row.line, "rush_yd") }}</td>
@@ -177,9 +239,164 @@
                 —
                 {% endif %}
             </td>
+            <td class="num"{% if row.sleeper_context and row.sleeper_context.rank_title %} title="{{ row.sleeper_context.rank_title }}"{% endif %}>{% if row.sleeper_context and row.sleeper_context.pos_rank_ppr is not none %}{{ row.sleeper_context.pos_rank_ppr|int }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.sleeper_context and row.sleeper_context.snap_note %}{{ row.sleeper_context.snap_note }}{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 </div>
+
+{% macro box_head() %}
+<th class="num" title="Counting-stat rows. Byes and all-zero weeks have no row.">G</th>
+<th class="num" title="Pass completions">Cmp</th>
+<th class="num" title="Pass attempts">Att</th>
+<th class="num" title="Pass yards">PYd</th>
+<th class="num" title="Pass yards per counting game">PYd/G</th>
+<th class="num" title="Pass touchdowns">PTD</th>
+<th class="num" title="Interceptions thrown">INT</th>
+<th class="num" title="Rush attempts">RuAtt</th>
+<th class="num" title="Rush yards">RuYd</th>
+<th class="num" title="Rush yards per counting game">RuYd/G</th>
+<th class="num" title="Rush touchdowns">RuTD</th>
+<th class="num" title="Receptions">Rec</th>
+<th class="num" title="Targets">Tgt</th>
+<th class="num" title="Receiving yards">RecYd</th>
+<th class="num" title="Receiving yards per counting game">RecYd/G</th>
+<th class="num" title="Receiving touchdowns">RecTD</th>
+<th class="num" title="Fumbles lost">FL</th>
+<th class="num" title="Pass 2-pt conversions">P2</th>
+<th class="num" title="Rush 2-pt conversions">Ru2</th>
+<th class="num" title="Receiving 2-pt conversions">Rec2</th>
+<th class="num" title="Pass first downs">PFD</th>
+<th class="num" title="Rush first downs">RuFD</th>
+<th class="num" title="Receiving first downs">RecFD</th>
+<th class="num" title="Pass red-zone attempts. 0 in 2022-2023.">PRZ</th>
+<th class="num" title="Rush red-zone attempts. 0 in 2022-2023.">RuRZ</th>
+<th class="num" title="Red-zone targets. 0 in 2022-2023.">RecRZ</th>
+<th class="num" title="Field goals made">FGM</th>
+<th class="num" title="Field goals attempted">FGA</th>
+<th class="num" title="Field goals made per counting game">FG/G</th>
+<th class="num" title="Extra points made">XPM</th>
+<th class="num" title="Extra points attempted">XPA</th>
+<th class="num" title="Field goals made from 50 or more">50+</th>
+<th class="num" title="Sacks">Sack</th>
+<th class="num" title="Sacks per counting game">Sk/G</th>
+<th class="num" title="Defensive interceptions">DInt</th>
+<th class="num" title="Fumbles recovered">FR</th>
+<th class="num" title="Defensive touchdowns">DTD</th>
+<th class="num" title="Special-teams touchdowns">STTD</th>
+<th class="num" title="Blocked kicks">Blk</th>
+<th class="num" title="Safeties">Sfty</th>
+<th class="num" title="Points allowed, sum of stored weeks">PA</th>
+<th class="num" title="Points allowed per counting game">PA/G</th>
+<th class="num" title="Yards allowed, sum of stored weeks">YA</th>
+<th class="num" title="Yards allowed per counting game">YA/G</th>
+<th class="num" title="Rush + rec + pass touchdowns">TD</th>
+<th class="num" title="Total touchdowns per counting game">TD/G</th>
+<th class="num" title="Games with 100 or more rush yards">100Ru</th>
+<th class="num" title="Games with 100 or more receiving yards">100Rec</th>
+<th class="num" title="Games with 300 or more pass yards">300P</th>
+<th class="num" title="Games with 2 or more rush+rec+pass touchdowns">2TD</th>
+{% endmacro %}
+{% macro box_rate(value) %}<td class="num" data-value="{{ value }}">{{ "%.1f"|format(value) }}</td>{% endmacro %}
+{% macro box_num(value) %}<td class="num">{{ value|int }}</td>{% endmacro %}
+{% macro box(row) %}
+{{ box_num(row.games) }}
+{{ box_num(row.pass_cmp) }}
+{{ box_num(row.pass_att) }}
+{{ box_num(row.pass_yd) }}
+{{ box_rate(row.pass_yd_pg) }}
+{{ box_num(row.pass_td) }}
+{{ box_num(row.pass_int) }}
+{{ box_num(row.rush_att) }}
+{{ box_num(row.rush_yd) }}
+{{ box_rate(row.rush_yd_pg) }}
+{{ box_num(row.rush_td) }}
+{{ box_num(row.rec) }}
+{{ box_num(row.rec_tgt) }}
+{{ box_num(row.rec_yd) }}
+{{ box_rate(row.rec_yd_pg) }}
+{{ box_num(row.rec_td) }}
+{{ box_num(row.fum_lost) }}
+{{ box_num(row.pass_2pt) }}
+{{ box_num(row.rush_2pt) }}
+{{ box_num(row.rec_2pt) }}
+{{ box_num(row.pass_fd) }}
+{{ box_num(row.rush_fd) }}
+{{ box_num(row.rec_fd) }}
+{{ box_num(row.pass_rz_att) }}
+{{ box_num(row.rush_rz_att) }}
+{{ box_num(row.rec_rz_tgt) }}
+{{ box_num(row.fgm) }}
+{{ box_num(row.fga) }}
+{{ box_rate(row.fgm_pg) }}
+{{ box_num(row.xpm) }}
+{{ box_num(row.xpa) }}
+{{ box_num(row.fgm_50p) }}
+{{ box_num(row.sack) }}
+{{ box_rate(row.sack_pg) }}
+{{ box_num(row.def_int) }}
+{{ box_num(row.fum_rec) }}
+{{ box_num(row.def_td) }}
+{{ box_num(row.st_td) }}
+{{ box_num(row.blk_kick) }}
+{{ box_num(row.safe) }}
+{{ box_num(row.pts_allow) }}
+{{ box_rate(row.pts_allow_pg) }}
+{{ box_num(row.yds_allow) }}
+{{ box_rate(row.yds_allow_pg) }}
+{{ box_num(row.total_td) }}
+{{ box_rate(row.total_td_pg) }}
+{{ box_num(row.g_rush_100) }}
+{{ box_num(row.g_rec_100) }}
+{{ box_num(row.g_pass_300) }}
+{{ box_num(row.g_td_2) }}
+{% endmacro %}
+{% if counting and (counting.seasons or counting.career) %}
+<h2 id="counting">Counting</h2>
+<p class="note">Sums of every counting stat. G is counting-stat rows, not starts and not NFL games played: a bye or other all-zero week has no row. Rostered and free-agent weeks both count. A /G column is that sum divided by G, including kickers and defenses. Every other column is the sum. PA and YA sum the stored weekly figures. PA/G and YA/G are the defense rates. Total TD is rush + rec + pass and leaves out defensive and special-teams scores. 100Ru, 100Rec, 300P, and 2TD count games at 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Red-zone totals are 0 in 2022 and 2023.</p>
+{% if counting.career %}
+<h3>Career</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Span</th>
+            <th class="num" title="Seasons with a counting row">Yrs</th>
+            {{ box_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>{{ counting.career.first_year }}–{{ counting.career.last_year }}</td>
+            <td class="num">{{ counting.career.seasons|int }}</td>
+            {{ box(counting.career) }}
+        </tr>
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if counting.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            {{ box_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in counting.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.year }}</td>
+            {{ box(row) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}

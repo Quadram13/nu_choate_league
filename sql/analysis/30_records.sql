@@ -38,6 +38,8 @@ GROUP BY r.manager_id, m.display_name;
 
 -- Regular H2H plus winners-bracket playoff only (both managers in season_playoff_managers).
 -- One row per unordered pair. Stats are from the lexicographically smaller manager_id.
+-- series_closest and series_biggest_blowout span that whole set.
+-- regular_closest and regular_biggest_blowout stay regular-season only.
 CREATE VIEW v_h2h AS
 SELECT
     least(g.manager_id, g.opponent_id) AS left_id,
@@ -58,7 +60,9 @@ SELECT
     sum(g.opp_points) FILTER (WHERE g.kind = 'playoff') AS playoff_points_against,
     avg(g.margin) FILTER (WHERE g.kind = 'regular') AS regular_avg_margin,
     max(abs(g.margin)) FILTER (WHERE g.kind = 'regular') AS regular_biggest_blowout,
-    min(abs(g.margin)) FILTER (WHERE g.kind = 'regular') AS regular_closest
+    min(abs(g.margin)) FILTER (WHERE g.kind = 'regular') AS regular_closest,
+    max(abs(g.margin)) AS series_biggest_blowout,
+    min(abs(g.margin)) AS series_closest
 FROM v_games g
 JOIN managers lm ON lm.id = least(g.manager_id, g.opponent_id)
 JOIN managers rm ON rm.id = greatest(g.manager_id, g.opponent_id)
@@ -87,9 +91,8 @@ SELECT
     rank() OVER (ORDER BY w.points DESC, w.year, w.week, w.manager_id) AS high_rank,
     rank() OVER (ORDER BY w.points ASC, w.year, w.week, w.manager_id) AS low_rank
 FROM week_scores w
-JOIN seasons s ON s.year = w.year
 JOIN managers m ON m.id = w.manager_id
-WHERE s.through_week IS NULL OR w.week <= s.through_week;
+JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week;
 
 CREATE VIEW v_record_matchups AS
 SELECT
@@ -188,9 +191,8 @@ JOIN week_scores b
     ON a.year = b.year
     AND a.week = b.week
     AND a.manager_id <> b.manager_id
-JOIN seasons s ON s.year = a.year
 JOIN managers m ON m.id = a.manager_id
-WHERE s.through_week IS NULL OR a.week <= s.through_week
+JOIN v_posted_weeks pw ON pw.year = a.year AND pw.week = a.week
 GROUP BY a.year, a.week, a.manager_id, m.display_name, a.points;
 
 CREATE VIEW v_all_play_season AS

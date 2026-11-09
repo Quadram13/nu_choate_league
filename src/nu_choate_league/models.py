@@ -299,3 +299,28 @@ class SeasonBundle(BaseModel):
     week_scores: list[WeekScore] = Field(default_factory=list)
     player_weeks: list[PlayerWeek] = Field(default_factory=list)
     espn_market: list[EspnMarket] = Field(default_factory=list)
+
+
+class PlayerWeekSleeperContext(BaseModel):
+    """One Sleeper stats.json context row. ESPN seasons do not produce these.
+
+    Counts are weekly. Null means the dump omitted the key (gp/gs are written
+    only when they are 1) or the positional rank was Sleeper's 999 unranked
+    sentinel. `player_id` is the catalog id, or the raw stats.json key when
+    `TEAM_*` does not resolve.
+    """
+
+    year: int
+    week: int
+    player_id: str
+    gp: int | None = None
+    gs: int | None = None
+    off_snp: int | None = None
+    def_snp: int | None = None
+    st_snp: int | None = None
+    tm_off_snp: int | None = None
+    tm_def_snp: int | None = None
+    tm_st_snp: int | None = None
+    pos_rank_ppr: int | None = None
+    pos_rank_half_ppr: int | None = None
+    pos_rank_std: int | None = None

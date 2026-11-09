@@ -19,11 +19,14 @@
     {% if lineups.career %}<a href="#lineups">Lineups</a>{% endif %}
     {% if luck %}<a href="#luck">Luck</a>{% endif %}
     {% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}<a href="#highs">Highs</a>{% endif %}
+    {% if volatility %}<a href="#volatility">Volatility</a>{% endif %}
 </p>
 <h1>{{ member.display_name }}</h1>
 <p class="lede">
     {{ member.wins|int }}-{{ member.losses|int }}-{{ member.ties|int }}
-    {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}%){% endif %}
+    {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}% official){% endif %}
+    {% if member.h2h_record %} · H2H {{ member.h2h_record }}{% endif %}
+    {% if member.median_record %} · median {{ member.median_record }}{% endif %}
     · {{ "%.2f"|format(member.points_for) }} PF
     · {{ member.seasons|int }} season{{ "s" if member.seasons != 1 else "" }}
     {% if all_play %}
@@ -33,8 +36,10 @@
     · {{ record(member.playoff.wins, member.playoff.losses, member.playoff.ties) }} playoff
     {% endif %}
     {% if chairs %}
-    · {{ (chairs.first_chair or 0)|int }} Varsity Letters
-    · {{ (chairs.last_chair or 0)|int }} Varsity Farmers
+    {% set letter_weeks = (chairs.first_chair or 0)|int %}
+    {% set farmer_weeks = (chairs.last_chair or 0)|int %}
+    · {{ letter_weeks }} Varsity Letter week{{ "s" if letter_weeks != 1 else "" }}
+    · {{ farmer_weeks }} Varsity Farmer week{{ "s" if farmer_weeks != 1 else "" }}
     {% endif %}
     {% if member.rival %}
     · {{ record(member.rival.wins, member.rival.losses, member.rival.ties) }} vs {{ person(member.rival.id, member.rival.name) }} <span class="team">rival</span>
@@ -47,6 +52,7 @@
     <a href="/seasons/{{ member.streak.start_year }}/week/{{ member.streak.start_week }}">since {{ member.streak.start_year }} W{{ member.streak.start_week }}</a>
     {% endif %}
 </p>
+<p class="note">Official is head-to-head plus, from 2025, a game vs the weekly median. Win% uses that line. 2022–24 had no median game.</p>
 {% if member.titles or member.runner_up or member.regular_season_titles or member.most_points_titles or member.playoff_appearances or chairs or marks %}
 {% set champ_years = finishes | selectattr("champion") | map(attribute="year") | list %}
 {% set ru_years = finishes | selectattr("runner_up") | map(attribute="year") | list %}
@@ -69,10 +75,10 @@
     {{ plaque_free("Playoffs", figure=member.playoff_appearances|int) }}
     {% endif %}
     {% if chairs and chairs.first_chair %}
-    {{ plaque_free("Varsity Letters", figure=chairs.first_chair|int, polarity="high") }}
+    {{ plaque_free("Varsity Letter weeks", figure=chairs.first_chair|int, polarity="high") }}
     {% endif %}
     {% if chairs and chairs.last_chair %}
-    {{ plaque_free("Varsity Farmers", figure=chairs.last_chair|int, polarity="low") }}
+    {{ plaque_free("Varsity Farmer weeks", figure=chairs.last_chair|int, polarity="low") }}
     {% endif %}
 </div>
 {% if marks and marks.total %}
@@ -86,7 +92,7 @@
 <p class="note">
     Platform split
     {% for row in platform %}
-    · {{ row.platform }} {{ row.seasons|int }} yr · {{ record(row.wins, row.losses, row.ties) }}{% if row.titles %} · {{ row.titles|int }} title{{ "s" if row.titles != 1 else "" }}{% endif %}
+    · {{ row.platform }} {{ row.seasons|int }} yr · {{ row.line }}{% if row.titles %} · {{ row.titles|int }} title{{ "s" if row.titles != 1 else "" }}{% endif %}
     {% endfor %}
 </p>
 {% endif %}
@@ -102,7 +108,7 @@
 
 {% if h2h %}
 <h2 id="h2h">Head-to-head</h2>
-<p class="note">Regular season plus winners-bracket playoff.</p>
+<p class="note">Regular season plus winners-bracket playoff. Closest and Blowout use every one of those games.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -130,8 +136,8 @@
                 —
                 {% endif %}
             </td>
-            <td class="num">{% if row.regular_closest is not none %}{{ "%.1f"|format(row.regular_closest) }}{% endif %}</td>
-            <td class="num">{% if row.regular_biggest_blowout is not none %}{{ "%.1f"|format(row.regular_biggest_blowout) }}{% endif %}</td>
+            <td class="num">{% if row.series_closest is not none %}{{ "%.1f"|format(row.series_closest) }}{% endif %}</td>
+            <td class="num">{% if row.series_biggest_blowout is not none %}{{ "%.1f"|format(row.series_biggest_blowout) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -143,6 +149,7 @@
 <h2 id="draft">Draft</h2>
 <p class="note">
     Starter VORP vs that round’s average.
+    A hit is 8 or more starts and above that round’s VORP.
     {% if draft.totals.picks %}{{ draft.totals.hits|int }} hit{{ "s" if draft.totals.hits != 1 else "" }} in {{ draft.totals.picks|int }} pick{{ "s" if draft.totals.picks != 1 else "" }}{% if draft.totals.vs_vorp is not none %} · {{ "%+.1f"|format(draft.totals.vs_vorp) }} vsRnd{% endif %}{% endif %}.
 </p>
 {% if draft.hits or draft.misses %}
@@ -200,8 +207,9 @@
 {% if wire.adds or wire.misses or wire.totals.adds %}
 <h2 id="wire">Wire</h2>
 <p class="note">
-    Starter VORP after the add.
+    Adds are starter VORP on that roster after the add.
     {% if wire.totals.adds %}{{ wire.totals.adds|int }} add{{ "s" if wire.totals.adds != 1 else "" }}{% if wire.totals.ros_vorp is not none %} · {{ "%+.1f"|format(wire.totals.ros_vorp) }} VORP{% endif %}{% endif %}.
+    A miss gap is league VORP from the claim week, bench weeks included.
 </p>
 {% if wire.adds or wire.misses %}
 <div class="notable-grid wire-grid">
@@ -240,7 +248,7 @@
                     <th>When</th>
                     <th>Missed</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
                 </tr>
             </thead>
             <tbody>
@@ -299,9 +307,10 @@
 {% if lineups.career %}
 <h2 id="lineups">Lineups</h2>
 <p class="note">
-    % is actual / optimal.
+    % is actual / optimal. Career totals are regular season.
     {% if lineups.career.management_pct is not none %}{{ "%.1f"|format(lineups.career.management_pct * 100) }}%{% endif %}
     {% if lineups.career.left_on_bench is not none %} · −{{ "%.0f"|format(lineups.career.left_on_bench) }} left on the bench{% endif %}.
+    Worst and best weeks include playoff and consolation.
 </p>
 {% if lineups.worst or lineups.best %}
 <div class="notable-grid">
@@ -319,7 +328,7 @@
             <tbody>
                 {% for row in lineups.worst %}
                 <tr>
-                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
                     <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
                     <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
                 </tr>
@@ -342,7 +351,7 @@
             <tbody>
                 {% for row in lineups.best %}
                 <tr>
-                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
                     <td class="num">{% if row.left_on_bench %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}0{% endif %}</td>
                     <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
                 </tr>
@@ -359,10 +368,11 @@
 <h2 id="luck">Luck</h2>
 <p class="note">
     Regular-season H2H.
-    {{ (luck.lucky_wins or 0)|int }} H2H enjoyer{{ "s" if luck.lucky_wins != 1 else "" }}
-    · {{ (luck.unlucky_losses or 0)|int }} Median enjoyer{{ "s" if luck.unlucky_losses != 1 else "" }}
+    {{ (luck.lucky_wins or 0)|int }} bottom-half win{{ "s" if luck.lucky_wins != 1 else "" }}
+    · {{ (luck.unlucky_losses or 0)|int }} top-half loss{{ "es" if luck.unlucky_losses != 1 else "" }}
     · net {{ "%+d"|format((luck.net_luck or 0)|int) }}
     {% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vs expected{% endif %}.
+    Every such game. The H2H enjoyer and Scored and lost chips count the weekly mark, the most extreme one that week.
 </p>
 {% endif %}
 
@@ -464,5 +474,64 @@
         {% endif %}
     </tbody>
 </table>
+{% endif %}
+
+{% if volatility %}
+<h2 id="volatility">Volatility</h2>
+<p class="note">Weekly team totals on posted weeks. SD is the sample standard deviation. CV is SD / mean. Boom is a week at least 1.5× that row’s own mean. Bust is a week at most half of it. Team totals are tight, so boom and bust weeks are rare and CV is the consistency ranking. * 2026 is in progress: the live week is left out until the median team total reaches 40.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num" title="Posted weeks">Wk</th>
+            <th class="num">Mean</th>
+            <th class="num">Med</th>
+            <th class="num">SD</th>
+            <th class="num">CV</th>
+            <th class="num">Boom</th>
+            <th class="num">Bust</th>
+            <th class="num">Best</th>
+            <th class="num">Worst</th>
+            <th class="num" title="Share of points in the best 3 weeks">Top3</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in volatility.seasons %}
+        <tr>
+            <td class="num">{{ row.year }}{% if row.partial_season %}*{% endif %}</td>
+            <td class="num">{{ row.weeks_scored|int }}</td>
+            <td class="num" data-value="{{ row.mean_points }}">{% if row.mean_points is not none %}{{ "%.1f"|format(row.mean_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.median_points }}">{% if row.median_points is not none %}{{ "%.1f"|format(row.median_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.stddev_points }}">{% if row.stddev_points is not none %}{{ "%.1f"|format(row.stddev_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.cv if row.cv is not none else '' }}">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.boom_rate if row.boom_rate is not none else '' }}">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
+            <td class="num" data-value="{{ row.bust_rate if row.bust_rate is not none else '' }}">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" title="W{{ row.best_week }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.worst_points }}" title="W{{ row.worst_week }}">{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best3_share if row.best3_share is not none else '' }}">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if volatility.career %}
+    {% set row = volatility.career %}
+    <tfoot>
+        <tr>
+            <td>Career{% if row.includes_partial %}*{% endif %}</td>
+            <td class="num">{{ row.weeks_scored|int }}</td>
+            <td class="num">{% if row.mean_points is not none %}{{ "%.1f"|format(row.mean_points) }}{% endif %}</td>
+            <td class="num">{% if row.median_points is not none %}{{ "%.1f"|format(row.median_points) }}{% endif %}</td>
+            <td class="num">{% if row.stddev_points is not none %}{{ "%.1f"|format(row.stddev_points) }}{% endif %}</td>
+            <td class="num">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
+            <td class="num">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
+            <td class="num">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
+            <td class="num" {% if row.best_year %}title="{{ row.best_year }} W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" {% if row.worst_year %}title="{{ row.worst_year }} W{{ row.worst_week }}"{% endif %}>{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
 {% endif %}
 {% endblock %}

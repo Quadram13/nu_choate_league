@@ -14,7 +14,7 @@
 <p class="jump sticky-jump">
     <span class="jump-label" data-grain="career">Career</span>
     <a href="#holders" data-grain="career">Distinctions</a>
-    <a href="#chairs" data-grain="career">Varsity</a>
+    <a href="#chairs" data-grain="career">Weekly honors</a>
     <a href="#platform" data-grain="career">Platform</a>
     <a href="#coach" data-grain="career">Coach</a>
     <a href="#wins" data-grain="career">Win streaks</a>
@@ -39,6 +39,9 @@
     <a href="#wire">Wire</a>
     <a href="#lineups">Bench</a>
     <a href="#counting">Counting</a>
+    <a href="#counting-season">Season counting</a>
+    <a href="#counting-career" data-grain="career">Career counting</a>
+    <a href="#finishes">Positional finishes</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -56,7 +59,7 @@
 
 {% if awards %}
 <h2 id="awards">Season awards</h2>
-<p class="note">Champion, runner-up, regular-season champ, and most points. 2022–2025 are finished. 2026 is in progress, so those cells stay empty.</p>
+<p class="note">Champion and runner-up wait for a decided title. Regular-season champ and most points stay empty until that regular season is finished.</p>
 <table>
     <thead>
         <tr>
@@ -83,6 +86,7 @@
 
 {% if season_pf %}
 <h2 id="season">Season</h2>
+<p class="note">Finished regular seasons. An in-progress year stays on its season page and is left off these boards.</p>
 <div class="notable-grid">
     <section>
         <h3>Most PF</h3>
@@ -119,11 +123,12 @@
 </div>
 {% endif %}
 {% if season_pct %}
+<p class="note">Official % is the platform line. In 2025 it includes a game vs the weekly median. 2022–24 are head-to-head only.</p>
 <div class="notable-grid">
     <section>
         <h3>Best official %</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
             <tbody>
                 {% for row in season_pct.high %}
                 <tr data-year="{{ row.year }}">
@@ -131,6 +136,7 @@
                     <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -139,7 +145,7 @@
     <section>
         <h3>Worst official %</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
             <tbody>
                 {% for row in season_pct.low %}
                 <tr data-year="{{ row.year }}">
@@ -147,6 +153,7 @@
                     <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -252,7 +259,7 @@
     <section>
         <h3>Most playoff wins</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num">TG</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num" title="Seasons as champion or runner-up. A two-week final counts as one season.">Title seasons</th></tr></thead>
             <tbody>
                 {% for row in playoff_wins %}
                 <tr>
@@ -294,10 +301,11 @@
 
 {% if chairs %}
 <div data-grain="career">
-<h2 id="chairs">Varsity</h2>
+<h2 id="chairs">Weekly honors</h2>
+<p class="note">Each count is a week. A Varsity Letter is the top starter at the position that week. A Varsity Farmer is the lowest starter. Beat the Freeze is a bench score above every starter at the position.</p>
 <div class="notable-grid">
     <section>
-        <h3>Most Varsity Letters</h3>
+        <h3>Most Varsity Letter weeks</h3>
         <table>
             <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
             <tbody>
@@ -312,7 +320,7 @@
         </table>
     </section>
     <section>
-        <h3>Most Varsity Farmers</h3>
+        <h3>Most Varsity Farmer weeks</h3>
         <table>
             <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
             <tbody>
@@ -328,7 +336,7 @@
     </section>
 </div>
 {% if chairs.sat %}
-<h3>Most Beat the Freeze</h3>
+<h3>Most Beat the Freeze weeks</h3>
 <table>
     <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
     <tbody>
@@ -347,7 +355,7 @@
 
 {% if median_tax %}
 <h2 id="median">Median tax</h2>
-<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only.</p>
+<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only. The playoff cell stays blank until that year's field is set.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -379,7 +387,7 @@
 {% if platform %}
 <div data-grain="career">
 <h2 id="platform">Platform split</h2>
-<p class="note">ESPN 2022–23 vs Sleeper 2024 onward.</p>
+<p class="note">ESPN 2022–23 vs Sleeper 2024 onward. Record is the platform line: head-to-head, plus a game vs the weekly median from 2025. 2024 is head-to-head only, so those games sit in H2H. Median is played median games.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -387,7 +395,9 @@
             <th>Platform</th>
             <th>Manager</th>
             <th class="num">Yrs</th>
-            <th data-type="num">Record</th>
+            <th data-type="num" title="Platform line. Head-to-head, plus a median game from 2025.">Record</th>
+            <th data-type="num" title="Head-to-head games only.">H2H</th>
+            <th data-type="num" title="Games vs the weekly median. Blank when that platform played none.">Median</th>
             <th class="num">PF</th>
             <th class="num">Titles</th>
         </tr>
@@ -398,7 +408,9 @@
             <td>{{ row.platform }}</td>
             <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ row.seasons|int }}</td>
-            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td>{{ row.h2h or "—" }}</td>
+            <td>{{ row.median or "—" }}</td>
             <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
             <td class="num">{{ (row.titles or 0)|int }}</td>
         </tr>
@@ -441,14 +453,15 @@
 {% endif %}
 {% if fa_adds %}
 <h3>Most FA adds in a season</h3>
+<p class="note">Ranked by free-agent adds. Adds is waiver claims plus free agents. Finished regular seasons. Adds from an in-progress year are still coming in.</p>
 <table>
     <thead>
         <tr>
             <th class="num">#</th>
             <th>Year</th>
             <th>Manager</th>
-            <th class="num">Adds</th>
-            <th class="num">FA</th>
+            <th class="num" title="Free-agent adds. This board is ranked by this column.">FA</th>
+            <th class="num" title="Waiver claims plus free-agent adds.">Adds</th>
         </tr>
     </thead>
     <tbody>
@@ -457,8 +470,8 @@
             <td class="num">{{ loop.index }}</td>
             <td><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
             <td>{{ person(row.manager_id, row.display_name) }}</td>
-            <td class="num">{{ row.adds|int }}</td>
             <td class="num">{{ (row.free_agents or 0)|int }}</td>
+            <td class="num">{{ row.adds|int }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -633,7 +646,7 @@
 {% endif %}
 
 <h2 id="draft">Draft</h2>
-<p class="note">Starter VORP vs that round’s average. <a href="/seasons">Season boards</a></p>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons">Season boards</a></p>
 <div class="notable-grid">
     <section>
         <h3>Best vs round</h3>
@@ -695,7 +708,7 @@
             <th>Year</th>
             <th>Manager</th>
             <th class="num">vsRnd</th>
-            <th class="num">Hits</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
             <th class="num">VORP</th>
         </tr>
     </thead>
@@ -717,14 +730,14 @@
 {% if draft_capital %}
 <div data-grain="career">
 <h2 id="draft-capital">Career draft capital</h2>
-<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. Titles are championships.</p>
+<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. A hit is 8 or more starts and above that round’s VORP. Titles are championships.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
             <th>Manager</th>
             <th class="num">Picks</th>
-            <th class="num">Hits</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
             <th class="num" title="Starter points versus the round average">vsPts</th>
             <th class="num" title="VORP versus the round average">vsRnd</th>
             <th class="num" title="Rest-of-season VORP">VORP</th>
@@ -750,7 +763,7 @@
 {% endif %}
 
 <h2 id="wire">Wire</h2>
-<p class="note">Starter VORP after the add. Misses are the failed claim vs what you got.</p>
+<p class="note">Adds are starter VORP on that roster after the add. A miss gap is league VORP from the claim week, bench weeks included: the missed player minus what you got.</p>
 <div class="notable-grid">
     <section>
         <h3>Best adds</h3>
@@ -790,7 +803,7 @@
                     <th>Manager</th>
                     <th>Missed</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
                 </tr>
             </thead>
             <tbody>
@@ -810,7 +823,7 @@
 </div>
 
 <h2 id="lineups">Bench</h2>
-<p class="note">Points left on the bench vs optimal. <a href="/seasons">Season heatmaps</a></p>
+<p class="note">Points left on the bench vs optimal. Season totals wait until the regular season is finished. <a href="/seasons">Season heatmaps</a></p>
 <div class="notable-grid">
     <section>
         <h3>Worst weeks</h3>
@@ -1005,7 +1018,7 @@
 </table>
 {% if title_droughts %}
 <h2 id="drought">Title droughts</h2>
-<p class="note">Years since last title or playoff.</p>
+<p class="note">Completed seasons played after the last title, and after the last winners-bracket appearance. The cell reads never when that has not happened. Only a season whose champion is stored is counted.</p>
 <table class="js-sort">
     <thead>
         <tr>
@@ -1023,13 +1036,121 @@
             <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ (row.titles or 0)|int }}</td>
             <td class="num">{{ row.last_title or "—" }}</td>
-            <td class="num">{{ row.title_drought if row.title_drought is not none else "—" }}</td>
+            <td class="num" data-value="{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}-1{% endif %}">{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}never{% endif %}</td>
             <td class="num">{{ row.last_playoff or "—" }}</td>
-            <td class="num">{{ row.playoff_drought if row.playoff_drought is not none else "—" }}</td>
+            <td class="num" data-value="{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}-1{% endif %}">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}never{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% endif %}
 </div>
+
+{% if positional_finish_leaders %}
+<h2 id="finishes">Weekly positional finishes</h2>
+<p class="note">Sleeper weeks where a player was the PPR QB1, RB1, WR1, or TE1 across the NFL. The league scores a full point per reception, so this is the PPR rank. Half-PPR is on the row. 2022–2023 have no positional rank. Kickers and team defenses are unranked in the dumps.</p>
+<div class="notable-grid">
+    {% for board in positional_finish_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num" title="Half-PPR positional rank the same week">Half</th>
+                    <th class="num">PF</th>
+                    <th class="num">Snaps</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a> <span class="team">{{ row.position }}</span></td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}FA{% endif %}</td>
+                    <td class="num"{% if row.rank_title %} title="{{ row.rank_title }}"{% endif %}>{% if row.pos_rank_half_ppr is not none %}{{ row.pos_rank_half_ppr|int }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
+                    <td class="num">{% if row.snap_note %}{{ row.snap_note }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if counting_summaries and counting_summaries.season %}
+<h2 id="counting-season">Season counting</h2>
+<p class="note">Top season sums from finished regular seasons. An in-progress year is left off, so a short defense sample cannot lead a per-game board. The weekly board above is single-game and rostered. These totals use every counting-stat row, free-agent weeks included, so there is no one manager. G is that row count, not starts. Total TD is rush + rec + pass, not defensive or special-teams scores. Milestone games are 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Points-allowed and yards-allowed boards are DEF only, at least 4 counting games, ranked per game because a sum grows with the number of weeks stored.</p>
+<div class="notable-grid">
+    {% for board in counting_summaries.season %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th class="num">Year</th>
+                    <th>Player</th>
+                    <th class="num">G</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td class="num">{{ row.games|int }}</td>
+                    <td class="num">{% if board.rate %}{{ "%.1f"|format(row.value) }}{% else %}{{ row.value|int }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if counting_summaries and counting_summaries.career %}
+<div data-grain="career">
+<h2 id="counting-career">Career counting</h2>
+<p class="note">Same definitions as the season counting block, summed across years. Per-game defense rates divide the career sum by career counting games. They are not an average of season rates.</p>
+<div class="notable-grid">
+    {% for board in counting_summaries.career %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Player</th>
+                    <th>Years</th>
+                    <th class="num">G</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{% if row.first_year == row.last_year %}{{ row.first_year }}{% else %}{{ row.first_year }}–{{ row.last_year }}{% endif %}</td>
+                    <td class="num">{{ row.games|int }}</td>
+                    <td class="num">{% if board.rate %}{{ "%.1f"|format(row.value) }}{% else %}{{ row.value|int }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+</div>
+{% endif %}
 {% endblock %}

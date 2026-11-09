@@ -84,9 +84,8 @@ SELECT
     ) AS cumulative
 FROM week_scores w
 JOIN managers m ON m.id = w.manager_id
-JOIN seasons s ON s.year = w.year
-WHERE (s.through_week IS NULL OR w.week <= s.through_week)
-    AND EXISTS (
+JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
+WHERE EXISTS (
         SELECT 1
         FROM matchups mu
         WHERE mu.year = w.year
@@ -122,9 +121,8 @@ JOIN v_games sched
     AND sched.opponent_id IS NOT NULL
 JOIN managers mm ON mm.id = mine.manager_id
 JOIN managers sm ON sm.id = sched.manager_id
-JOIN seasons s ON s.year = mine.year
+JOIN v_posted_weeks pw ON pw.year = mine.year AND pw.week = mine.week
 WHERE mine.manager_id <> sched.manager_id
-    AND (s.through_week IS NULL OR mine.week <= s.through_week)
 GROUP BY
     mine.year,
     mine.manager_id,

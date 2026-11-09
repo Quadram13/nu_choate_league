@@ -141,6 +141,9 @@
     {{ plaque_free("Should've done Artscon", who=current.last_chair, who_id=current.last_chair_id, hue=manager_hue(current.last_chair_id), polarity="low") }}
     {% endif %}
 </div>
+{% if not current.regular_season_complete %}
+<p class="note">Regular season in progress. Champion, RS champ, most points, and Should've done Artscon stay blank until it is finished.</p>
+{% endif %}
 {% if luck_plaques %}
 <div class="plaque-grid recap-records" id="luck">
     {% for row in luck_plaques %}
@@ -198,8 +201,8 @@
                     <th class="num">Luck</th>
                     <th class="num">vsExp</th>
                     <th class="num">Mgmt</th>
-                    <th class="num" title="Varsity Letters">Letters</th>
-                    <th class="num" title="Varsity Farmers">Farmers</th>
+                    <th class="num" title="Varsity Letter weeks: the top starter at the position that week">Letters</th>
+                    <th class="num" title="Varsity Farmer weeks: the lowest starter at the position that week">Farmers</th>
                 </tr>
             </thead>
             <tbody>
@@ -534,7 +537,7 @@
 
     {% if median_tax %}
     <h2 id="median-tax">Median tax</h2>
-    <p class="note">Extra official wins from the vs-median game.</p>
+    <p class="note">Extra official wins from the vs-median game.{% if not current.playoff_field_set %} The playoff column stays blank until the field is set.{% endif %}</p>
     <div class="standings-wrap">
     <table class="js-sort">
         <thead>
@@ -625,7 +628,7 @@
 <section class="js-season-pane" id="playoffs" data-tab="playoffs">
 {% if path %}
 <h2>How they got there</h2>
-<p class="note">Regular-season path.</p>
+<p class="note">Regular-season path.{% if current.vs_median %} Record is H2H plus the median game. Median is wins vs the weekly median.{% else %} Record is head-to-head. This season did not play a median game.{% endif %}</p>
 <table class="js-sort">
     <thead>
         <tr>
@@ -701,7 +704,7 @@
 
 {% if wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority %}
 <h2 id="wire">Wire</h2>
-<p class="note">Starter VORP after the add. Cost is waiver priority and processing seq. ESPN seasons have neither, so the cost is a dash. Misses are the failed claim vs what you got.</p>
+<p class="note">Adds are starter VORP on that roster after the add. Cost is waiver priority and processing seq. ESPN seasons have neither, so the cost is a dash. Miss and dodge gaps are league VORP from the claim week, bench weeks included.</p>
 {% if wire.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -783,7 +786,7 @@
                     <th>Manager</th>
                     <th>Missed</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
                 </tr>
             </thead>
             <tbody>
@@ -810,7 +813,7 @@
                     <th>Manager</th>
                     <th>Lost</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. The player you got minus the claim you lost.">Gap</th>
                 </tr>
             </thead>
             <tbody>
@@ -837,7 +840,7 @@
 <section class="js-season-pane" id="draft" data-tab="draft">
 {% if draft.managers or draft.hits or draft.misses %}
 <h2>Draft</h2>
-<p class="note">Starter VORP vs that round’s average. <a href="/seasons/{{ current.year }}/draft">Full board</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons/{{ current.year }}/draft">Full board</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
 {% if draft.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -849,7 +852,7 @@
             <th class="num">PF</th>
             <th class="num">VORP</th>
             <th class="num">vsRnd</th>
-            <th class="num">Hits</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
             <th>Best</th>
         </tr>
     </thead>

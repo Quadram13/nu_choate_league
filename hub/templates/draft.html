@@ -17,7 +17,7 @@
     <span class="lede">Snake. Each column is one manager.</span>
 </p>
 <h1>{{ current.year }} draft</h1>
-<p class="note">Starter VORP vs that round’s average. Green is above, red is below.{% if draft.has_market %} Market ADP is ESPN’s average draft position on the player card, set beside the slot and the pick’s ROS VORP.{% endif %}</p>
+<p class="note">Starter VORP vs that round’s average. Green is above, red is below. A hit is 8 or more starts and above that round’s VORP.{% if draft.has_market %} Market ADP is ESPN’s average draft position on the player card, set beside the slot and the pick’s ROS VORP.{% endif %}</p>
 {% if draft.board and draft.board.rows %}
 <div class="draft-board-wrap">
 <table class="draft-board">
@@ -52,7 +52,7 @@
 {% endif %}
 {% if draft.has_market %}
 <h2>Vs market</h2>
-<p class="note">Negative vs market means this league took him before ESPN’s average draft position. The grade uses that gap in rounds and whether the pick was a hit (eight or more starts). ROS VORP sits beside it.</p>
+<p class="note">Negative vs market means this league took him before ESPN’s average draft position. The grade uses that gap in rounds and whether the pick was a hit (8 or more starts and above that round’s VORP). ROS VORP sits beside it.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>

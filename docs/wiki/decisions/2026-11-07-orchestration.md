@@ -3,9 +3,13 @@
 Decided by Marcus on 2026-11-07 (mirrors the Mac hanlun port sanction):
 
 - **Chief-of-staff (admin / DRI):** Kimi K3 at max. Coordinates, files tickets, comments on issues, merges.
-- **All Task / implementer sub-agents:** `grok-4.7-high-fast` only. DeepSeek is not on the allowlist and is not probed. No Claude slugs.
+- **All Task / implementer sub-agents:** `grok-4.7-xhigh-fast` only (retargeted from `grok-4.7-high-fast` on 2026-11-09, see below). DeepSeek is not on the allowlist and is not probed. No Claude slugs.
 - **Implement pattern:** two-ticket `implement` + `implement-spec` combo — each ticket gets a fresh implementer in its own git worktree on a `cursor/<slug>-bf5b` branch based on the integration branch; a merger lands it back.
 - **Issue conventions:** parent/umbrella issues carry sub-issues; child PRs and commits use `Refs #N` on parents — never `Closes`/`Fixes` on an umbrella without Marcus's explicit say-so.
 - **Verification norm:** there is no test suite (as of `@74d6fb0`). Verification = `serve` smoke against the local Docker DB + `query` CLI checks + browser click-through checklists where the ticket is visual.
 
 Probed on 2026-11-07: a throwaway `grok-4.7-high-fast` Task responded correctly, confirming the slug is accepted on the WIN11PC-Choate worker.
+
+## Retargeted 2026-11-09
+
+Sanctioned by Marcus on 2026-11-09: every Task / implementer / explorer / generalPurpose role moves from `grok-4.7-high-fast` to `grok-4.7-xhigh-fast` (`~/.cursor/rules/pstack-models.mdc` and [Quadram13/cursor-config](https://github.com/Quadram13/cursor-config) `main` @ `5085536`; the Cursor Settings explore-subagent model is Grok 4.7 Extra High Fast). The chief-of-staff parent stays Kimi K3 max. DeepSeek remains unprobed; no kimi-* Task slugs. Everything else in this record is unchanged.
