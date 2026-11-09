@@ -4290,6 +4290,7 @@ def players_index() -> dict[str, Any]:
         "seasons": seasons,
         "wire_leaders": wire["leaders"],
         "wire_unowned": wire["unowned"],
+        "counting": _players_counting_index(),
     }
 
 
@@ -4585,6 +4586,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "rings": rings,
         "ring_points": sum(float(row["points"] or 0) for row in rings),
         "lines": lines,
+        "counting": _player_counting(player_id),
     }
 
 
@@ -6268,6 +6270,7 @@ def records_page() -> dict[str, Any]:
         "journeymen": _record_journeymen(),
         "most_traded": _record_most_traded(),
         "counting_leaders": _record_counting_leaders(),
+        "counting_summaries": _record_counting_summaries(),
     }
 
 
@@ -6622,5 +6625,183 @@ def _wire_eras() -> list[dict[str, Any]]:
         ORDER BY min(s.year)
         """
     )
+
+
+# Issue #31. Season and career cuts of player_week_counting_stats.
+# Weekly single-game leaders stay in COUNTING_LEADER_BOARDS.
+# slug, column, label, unit, descending, min_games, gate.
+# An empty gate keeps rows whose ranked column is > 0.
+# Gate "DEF" keeps team defenses only. Rate boards also require min_games
+# so a one-week points-allowed figure is not a season or career record.
+_COUNTING_SUMMARY_BOARDS: tuple[tuple[str, str, str, str, bool, int, str], ...] = (
+    ("rush_yd", "rush_yd", "Rushing yards", "Yds", True, 0, ""),
+    ("rec_yd", "rec_yd", "Receiving yards", "Yds", True, 0, ""),
+    ("pass_yd", "pass_yd", "Passing yards", "Yds", True, 0, ""),
+    ("rec", "rec", "Receptions", "Rec", True, 0, ""),
+    ("rec_tgt", "rec_tgt", "Targets", "Tgt", True, 0, ""),
+    ("rush_td", "rush_td", "Rushing touchdowns", "TD", True, 0, ""),
+    ("rec_td", "rec_td", "Receiving touchdowns", "TD", True, 0, ""),
+    ("pass_td", "pass_td", "Passing touchdowns", "TD", True, 0, ""),
+    ("total_td", "total_td", "Total touchdowns", "TD", True, 0, ""),
+    ("g_rush_100", "g_rush_100", "100+ rush-yard games", "G", True, 0, ""),
+    ("g_rec_100", "g_rec_100", "100+ receiving-yard games", "G", True, 0, ""),
+    ("g_pass_300", "g_pass_300", "300+ passing-yard games", "G", True, 0, ""),
+    ("g_td_2", "g_td_2", "2+ touchdown games", "G", True, 0, ""),
+    ("fgm", "fgm", "Field goals made", "FG", True, 0, ""),
+    ("sack", "sack", "Sacks", "Sack", True, 0, ""),
+    ("def_int", "def_int", "Defensive interceptions", "INT", True, 0, ""),
+    ("pts_allow_pg_high", "pts_allow_pg", "Most points allowed per game", "PA/G", True, 4, "DEF"),
+    ("pts_allow_pg_low", "pts_allow_pg", "Fewest points allowed per game", "PA/G", False, 4, "DEF"),
+    ("yds_allow_pg_high", "yds_allow_pg", "Most yards allowed per game", "YA/G", True, 4, "DEF"),
+    ("yds_allow_pg_low", "yds_allow_pg", "Fewest yards allowed per game", "YA/G", False, 4, "DEF"),
+)
+
+_COUNTING_INDEX_COLUMNS = """
+    player_id, player_name, position, games,
+    rush_yd, rush_yd_pg, rec_yd, rec_yd_pg, pass_yd, pass_yd_pg,
+    rush_td, rec_td, pass_td, total_td, rec, rec_tgt,
+    fgm, sack, def_int, pts_allow_pg, yds_allow_pg,
+    g_rush_100, g_rec_100, g_pass_300, g_td_2
+"""
+
+
+def _player_counting(player_id: str) -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT *
+        FROM v_player_counting_season
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC
+        """,
+        {"player_id": player_id},
+    )
+    career = fetchone(
+        """
+        SELECT *
+        FROM v_player_counting_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    return {"seasons": seasons, "career": career}
+
+
+def _players_counting_index() -> dict[str, list[dict[str, Any]]]:
+    career = fetchall(
+        f"""
+        SELECT seasons, first_year, last_year, {_COUNTING_INDEX_COLUMNS}
+        FROM v_player_counting_career
+        ORDER BY (rush_yd + rec_yd + pass_yd) DESC, player_name, player_id
+        """
+    )
+    seasons = fetchall(
+        f"""
+        SELECT year, {_COUNTING_INDEX_COLUMNS}
+        FROM v_player_counting_season
+        ORDER BY year DESC, (rush_yd + rec_yd + pass_yd) DESC, player_name, player_id
+        """
+    )
+    return {"career": career, "seasons": seasons}
+
+
+def _counting_summary_keeps(
+    row: dict[str, Any],
+    column: str,
+    min_games: int,
+    gate: str,
+) -> bool:
+    if int(row.get("games") or 0) < min_games:
+        return False
+    if gate == "DEF":
+        return row.get("position") == "DEF"
+    probe = column if gate == "" else gate
+    try:
+        return float(row.get(probe) or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _rank_counting_boards(
+    rows: list[dict[str, Any]],
+    *,
+    season: bool,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    boards: list[dict[str, Any]] = []
+    for slug, column, label, unit, descending, min_games, gate in _COUNTING_SUMMARY_BOARDS:
+        if not column.isidentifier():
+            continue
+        pool = [
+            row
+            for row in rows
+            if _counting_summary_keeps(row, column, min_games, gate)
+        ]
+
+        def sort_key(row: dict[str, Any], *, _column: str = column, _desc: bool = descending) -> tuple:
+            value = float(row[_column])
+            year = int(row["year"]) if season else 0
+            signed = -value if _desc else value
+            return (signed, year, str(row["player_id"]))
+
+        pool.sort(key=sort_key)
+        packed: list[dict[str, Any]] = []
+        for row in pool[:limit]:
+            raw = row[column]
+            item: dict[str, Any] = {
+                "player_id": row["player_id"],
+                "player_name": row["player_name"],
+                "position": row["position"],
+                "games": int(row["games"]),
+                "value": float(raw) if column.endswith("_pg") else int(raw),
+            }
+            if season:
+                item["year"] = int(row["year"])
+            else:
+                item["seasons"] = int(row["seasons"])
+                item["first_year"] = int(row["first_year"])
+                item["last_year"] = int(row["last_year"])
+            packed.append(item)
+        if packed:
+            boards.append(
+                {
+                    "key": slug,
+                    "label": label,
+                    "unit": unit,
+                    "rate": column.endswith("_pg"),
+                    "min_games": min_games,
+                    "rows": packed,
+                }
+            )
+    return boards
+
+
+def _record_counting_summaries(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    """Season and career counting leaders. Does not rebuild the weekly board."""
+    season_rows = fetchall(
+        """
+        SELECT
+            year, player_id, player_name, position, games,
+            rush_yd, rec_yd, pass_yd, rec, rec_tgt,
+            rush_td, rec_td, pass_td, total_td,
+            g_rush_100, g_rec_100, g_pass_300, g_td_2,
+            fgm, sack, def_int, pts_allow_pg, yds_allow_pg
+        FROM v_player_counting_season
+        """
+    )
+    career_rows = fetchall(
+        """
+        SELECT
+            player_id, player_name, position, seasons, first_year, last_year, games,
+            rush_yd, rec_yd, pass_yd, rec, rec_tgt,
+            rush_td, rec_td, pass_td, total_td,
+            g_rush_100, g_rec_100, g_pass_300, g_td_2,
+            fgm, sack, def_int, pts_allow_pg, yds_allow_pg
+        FROM v_player_counting_career
+        """
+    )
+    return {
+        "season": _rank_counting_boards(season_rows, season=True, limit=limit),
+        "career": _rank_counting_boards(career_rows, season=False, limit=limit),
+    }
 
 

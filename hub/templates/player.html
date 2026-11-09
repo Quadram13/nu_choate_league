@@ -46,6 +46,7 @@
 <p class="jump">
     <a href="#own">Ownership</a>
     <a href="#seasons">By season</a>
+    <a href="#counting">Counting</a>
     <a href="#weeks">Weeks</a>
 </p>
 <p class="jump js-year-filter" hidden></p>
@@ -182,4 +183,157 @@
     </tbody>
 </table>
 </div>
+
+{% macro box_head() %}
+<th class="num" title="Counting-stat rows. Byes and all-zero weeks have no row.">G</th>
+<th class="num" title="Pass completions">Cmp</th>
+<th class="num" title="Pass attempts">Att</th>
+<th class="num" title="Pass yards">PYd</th>
+<th class="num" title="Pass yards per counting game">PYd/G</th>
+<th class="num" title="Pass touchdowns">PTD</th>
+<th class="num" title="Interceptions thrown">INT</th>
+<th class="num" title="Rush attempts">RuAtt</th>
+<th class="num" title="Rush yards">RuYd</th>
+<th class="num" title="Rush yards per counting game">RuYd/G</th>
+<th class="num" title="Rush touchdowns">RuTD</th>
+<th class="num" title="Receptions">Rec</th>
+<th class="num" title="Targets">Tgt</th>
+<th class="num" title="Receiving yards">RecYd</th>
+<th class="num" title="Receiving yards per counting game">RecYd/G</th>
+<th class="num" title="Receiving touchdowns">RecTD</th>
+<th class="num" title="Fumbles lost">FL</th>
+<th class="num" title="Pass 2-pt conversions">P2</th>
+<th class="num" title="Rush 2-pt conversions">Ru2</th>
+<th class="num" title="Receiving 2-pt conversions">Rec2</th>
+<th class="num" title="Pass first downs">PFD</th>
+<th class="num" title="Rush first downs">RuFD</th>
+<th class="num" title="Receiving first downs">RecFD</th>
+<th class="num" title="Pass red-zone attempts. 0 in 2022-2023.">PRZ</th>
+<th class="num" title="Rush red-zone attempts. 0 in 2022-2023.">RuRZ</th>
+<th class="num" title="Red-zone targets. 0 in 2022-2023.">RecRZ</th>
+<th class="num" title="Field goals made">FGM</th>
+<th class="num" title="Field goals attempted">FGA</th>
+<th class="num" title="Field goals made per counting game">FG/G</th>
+<th class="num" title="Extra points made">XPM</th>
+<th class="num" title="Extra points attempted">XPA</th>
+<th class="num" title="Field goals made from 50 or more">50+</th>
+<th class="num" title="Sacks">Sack</th>
+<th class="num" title="Sacks per counting game">Sk/G</th>
+<th class="num" title="Defensive interceptions">DInt</th>
+<th class="num" title="Fumbles recovered">FR</th>
+<th class="num" title="Defensive touchdowns">DTD</th>
+<th class="num" title="Special-teams touchdowns">STTD</th>
+<th class="num" title="Blocked kicks">Blk</th>
+<th class="num" title="Safeties">Sfty</th>
+<th class="num" title="Points allowed, sum of stored weeks">PA</th>
+<th class="num" title="Points allowed per counting game">PA/G</th>
+<th class="num" title="Yards allowed, sum of stored weeks">YA</th>
+<th class="num" title="Yards allowed per counting game">YA/G</th>
+<th class="num" title="Rush + rec + pass touchdowns">TD</th>
+<th class="num" title="Total touchdowns per counting game">TD/G</th>
+<th class="num" title="Games with 100 or more rush yards">100Ru</th>
+<th class="num" title="Games with 100 or more receiving yards">100Rec</th>
+<th class="num" title="Games with 300 or more pass yards">300P</th>
+<th class="num" title="Games with 2 or more rush+rec+pass touchdowns">2TD</th>
+{% endmacro %}
+{% macro box_rate(value) %}<td class="num" data-value="{{ value }}">{{ "%.1f"|format(value) }}</td>{% endmacro %}
+{% macro box_num(value) %}<td class="num">{{ value|int }}</td>{% endmacro %}
+{% macro box(row) %}
+{{ box_num(row.games) }}
+{{ box_num(row.pass_cmp) }}
+{{ box_num(row.pass_att) }}
+{{ box_num(row.pass_yd) }}
+{{ box_rate(row.pass_yd_pg) }}
+{{ box_num(row.pass_td) }}
+{{ box_num(row.pass_int) }}
+{{ box_num(row.rush_att) }}
+{{ box_num(row.rush_yd) }}
+{{ box_rate(row.rush_yd_pg) }}
+{{ box_num(row.rush_td) }}
+{{ box_num(row.rec) }}
+{{ box_num(row.rec_tgt) }}
+{{ box_num(row.rec_yd) }}
+{{ box_rate(row.rec_yd_pg) }}
+{{ box_num(row.rec_td) }}
+{{ box_num(row.fum_lost) }}
+{{ box_num(row.pass_2pt) }}
+{{ box_num(row.rush_2pt) }}
+{{ box_num(row.rec_2pt) }}
+{{ box_num(row.pass_fd) }}
+{{ box_num(row.rush_fd) }}
+{{ box_num(row.rec_fd) }}
+{{ box_num(row.pass_rz_att) }}
+{{ box_num(row.rush_rz_att) }}
+{{ box_num(row.rec_rz_tgt) }}
+{{ box_num(row.fgm) }}
+{{ box_num(row.fga) }}
+{{ box_rate(row.fgm_pg) }}
+{{ box_num(row.xpm) }}
+{{ box_num(row.xpa) }}
+{{ box_num(row.fgm_50p) }}
+{{ box_num(row.sack) }}
+{{ box_rate(row.sack_pg) }}
+{{ box_num(row.def_int) }}
+{{ box_num(row.fum_rec) }}
+{{ box_num(row.def_td) }}
+{{ box_num(row.st_td) }}
+{{ box_num(row.blk_kick) }}
+{{ box_num(row.safe) }}
+{{ box_num(row.pts_allow) }}
+{{ box_rate(row.pts_allow_pg) }}
+{{ box_num(row.yds_allow) }}
+{{ box_rate(row.yds_allow_pg) }}
+{{ box_num(row.total_td) }}
+{{ box_rate(row.total_td_pg) }}
+{{ box_num(row.g_rush_100) }}
+{{ box_num(row.g_rec_100) }}
+{{ box_num(row.g_pass_300) }}
+{{ box_num(row.g_td_2) }}
+{% endmacro %}
+{% if counting and (counting.seasons or counting.career) %}
+<h2 id="counting">Counting</h2>
+<p class="note">Sums of every counting stat. G is counting-stat rows, not starts and not NFL games played: a bye or other all-zero week has no row. Rostered and free-agent weeks both count. A /G column is that total divided by G, including kickers and defenses. Columns without a /G header use the same division. PA and YA sum the stored weekly figures. PA/G and YA/G are the defense rates. Total TD is rush + rec + pass and leaves out defensive and special-teams scores. 100Ru, 100Rec, 300P, and 2TD count games at 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Red-zone totals are 0 in 2022 and 2023.</p>
+{% if counting.career %}
+<h3>Career</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Span</th>
+            <th class="num" title="Seasons with a counting row">Yrs</th>
+            {{ box_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>{{ counting.career.first_year }}–{{ counting.career.last_year }}</td>
+            <td class="num">{{ counting.career.seasons|int }}</td>
+            {{ box(counting.career) }}
+        </tr>
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if counting.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            {{ box_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in counting.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.year }}</td>
+            {{ box(row) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}
