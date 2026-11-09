@@ -18,7 +18,7 @@
 {% if career | selectattr("vol_partial") | list %}
 <p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
 {% endif %}
-{% if not career and not seasons and not wire_leaders and not wire_unowned %}
+{% if not career and not seasons and not wire_leaders and not wire_career and not wire_unowned %}
 <p class="note">No player records yet. Load dumps into Postgres first.</p>
 {% endif %}
 <p class="jump js-year-filter" hidden></p>
@@ -142,11 +142,14 @@
 </table>
 </div>
 
-{% if wire_leaders or wire_unowned %}
+{% if wire_leaders or wire_career or wire_unowned %}
 <h2 id="wire">Left on the wire</h2>
-<p class="note">FA is posted lineup weeks the player was not rostered, including a week with no stored score. FA VORP sums those weeks, and a missing score counts as 0 minus that week's replacement. Leaders are the top 15. Never rostered is a season with zero rostered weeks, a week of 15 or more, and positive FA VORP on that full set. Someone who was never on a roster is absent from the career table.</p>
+<p class="note">FA is posted lineup weeks the player was not rostered, including a week with no stored score. FA VORP sums those weeks, and a missing score counts as 0 minus that week's replacement. Season is the top 15 by FA VORP. Career sums those seasons, so a year spent entirely unowned can bury one spike. Never rostered is a season with zero rostered weeks, ranked by points while unowned. Highest single weeks are on <a href="/records#wire-left">Records</a>. 2026 is posted weeks only.</p>
+{% if wire_gap %}
+<p class="note">The rankings omit every season with zero rostered weeks: {{ wire_gap.excluded_seasons|int }} season rows ({{ wire_gap.excluded_seasons_scored|int }} with points) and {{ wire_gap.excluded_players|int }} players who were never rostered ({{ wire_gap.excluded_players_scored|int }} with points). Adding them would take the career table from {{ wire_gap.index_rows|int }} to {{ wire_gap.index_with|int }} and the season table from {{ wire_gap.season_rows|int }} to {{ wire_gap.season_with|int }}.</p>
+{% endif %}
 {% if wire_leaders %}
-<h3>Leaders</h3>
+<h3>Season</h3>
 <table class="js-sort">
     <thead>
         <tr>
@@ -168,8 +171,39 @@
             <td>{{ row.position or "—" }}</td>
             <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
             <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.best_week }}">{% if row.best_week is not none %}{{ "%.1f"|format(row.best_week) }}{% endif %}</td>
-            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" {% if row.best_week %}title="W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% if wire_career %}
+<h3>Career</h3>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Yrs</th>
+            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
+            <th class="num">Pts</th>
+            <th class="num" title="Best stored unowned week">Best</th>
+            <th class="num" title="Sum of season FA VORP. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+            <th class="num" title="Rostered weeks across every season, including a season with no unowned week">Rstr</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire_career %}
+        <tr>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ (row.seasons or 0)|int }}</td>
+            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
             <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
         </tr>
         {% endfor %}
@@ -198,8 +232,8 @@
             <td>{{ row.position or "—" }}</td>
             <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
             <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.best_week }}">{% if row.best_week is not none %}{{ "%.1f"|format(row.best_week) }}{% endif %}</td>
-            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" {% if row.best_week %}title="W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
