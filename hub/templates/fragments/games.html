@@ -1,0 +1,18 @@
+{% if week_groups %}
+<p class="numeral-row"><span class="numeral-label">Results</span> {% for group in week_groups %}<a href="/seasons/{{ year }}/week/{{ group.week }}">{{ group.week }}</a> {% endfor %}</p>
+<ul class="week-groups">
+{% for group in week_groups %}
+<li class="week-group">
+<h2 class="group-label"><a href="/seasons/{{ year }}/week/{{ group.week }}">Week {{ group.week }}</a></h2>
+<ul class="matchups">
+{% for game in group.games %}
+<li class="matchup">{% if game.home_href %}<a class="side" href="{{ game.home_href }}">{{ game.home }}</a>{% else %}<span class="side">{{ game.home }}</span>{% endif %} <span class="pts{% if game.home_mark %} {{ game.home_mark }}{% endif %}">{{ game.home_pts }}</span> <span class="pts{% if game.away_mark %} {{ game.away_mark }}{% endif %}">{{ game.away_pts }}</span> {% if game.away_href %}<a class="side" href="{{ game.away_href }}">{{ game.away }}</a>{% else %}<span class="side">{{ game.away }}</span>{% endif %}{% if game.kind_label %} <span class="kind">{{ game.kind_label }}</span>{% endif %}</li>
+{% endfor %}
+</ul>
+</li>
+{% endfor %}
+</ul>
+<p class="stat-note">Bold marks the higher score.</p>
+{% else %}
+<p class="stat-note">None posted.</p>
+{% endif %}

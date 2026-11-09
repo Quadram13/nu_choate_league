@@ -1,0 +1,84 @@
+@import url("/static/hub.css");
+
+.theme-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 0 0 16px;
+}
+
+.theme-switch a.is-on {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.stat caption,
+.stat-caption {
+    caption-side: top;
+    text-align: left;
+    font-weight: 600;
+    padding: 0 0 6px;
+    color: var(--ink);
+}
+
+.stat .stat-n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-note {
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.is-leader,
+.is-leader a {
+    font-weight: 700;
+}
+
+.is-record,
+.is-record a,
+.pts.is-record {
+    color: #e6c36a;
+    font-weight: 700;
+}
+
+.is-active-leader,
+.is-active-leader a {
+    font-style: italic;
+}
+
+.link-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0;
+}
+
+.week-groups,
+.matchups {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.week-group {
+    margin: 0 0 12px;
+}
+
+.group-label {
+    margin: 14px 0 4px;
+    font-size: 0.95rem;
+}
+
+.matchup {
+    padding: 4px 0;
+    border-bottom: 1px solid #1f2933;
+}
+
+.numeral-row a,
+.pts {
+    margin-right: 8px;
+}

@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..paths import project_root
-from . import queries
+from . import queries, theme_pages, themes
 from .names import flavor_team, manager_hue
 from .photos import avatar_url, headshot_url
 
@@ -21,6 +21,7 @@ templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(mem
 templates.env.globals["headshot_url"] = headshot_url
 templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["manager_hue"] = manager_hue
+themes.bind(templates)
 
 
 def _with_db(endpoint):
@@ -48,6 +49,14 @@ class HubRoute(APIRoute):
 app = FastAPI(title="Nu Choate League", docs_url=None, redoc_url=None)
 app.router.route_class = HubRoute
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
+
+
+@app.middleware("http")
+async def carry_theme(request: Request, call_next):
+    redirect = themes.carry_redirect(request)
+    if redirect is not None:
+        return redirect
+    return await call_next(request)
 
 
 def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTMLResponse:
@@ -95,21 +104,17 @@ def seasons(request: Request) -> HTMLResponse | RedirectResponse:
             seasons=[],
         )
     year = queries.latest_scored_year() or years[0]["year"]
-    return RedirectResponse(url=f"/seasons/{year}", status_code=302)
+    theme = themes.canonical_theme(request.query_params.get("theme"))
+    suffix = f"?theme={theme}" if theme else ""
+    return RedirectResponse(url=f"/seasons/{year}{suffix}", status_code=302)
 
 
 @app.get("/seasons/{year}", response_class=HTMLResponse)
 def season(request: Request, year: int) -> HTMLResponse:
-    data = queries.season_page(year)
-    if data is None:
+    current = queries.season_row(year)
+    if current is None:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
-    return page(
-        request,
-        "season.html",
-        nav="seasons",
-        title=f"{year} season",
-        **data,
-    )
+    return theme_pages.season_response(request, year, current)
 
 
 @app.get("/seasons/{year}/trades/{transaction_id}", response_class=HTMLResponse)
@@ -249,16 +254,10 @@ def schedule_desk(request: Request, year: int) -> HTMLResponse:
 
 @app.get("/seasons/{year}/scoring", response_class=HTMLResponse)
 def scoring(request: Request, year: int) -> HTMLResponse:
-    data = queries.scoring_sheet(year)
-    if data is None:
+    current = queries.season_row(year)
+    if current is None:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
-    return page(
-        request,
-        "scoring.html",
-        nav="seasons",
-        title=f"{year} scoring",
-        **data,
-    )
+    return theme_pages.scoring_response(request, year, current)
 
 
 @app.get("/versus", response_class=HTMLResponse)
@@ -337,20 +336,7 @@ def luck() -> RedirectResponse:
 
 @app.get("/players", response_class=HTMLResponse)
 def players(request: Request) -> HTMLResponse:
-    data = queries.players_index()
-    return page(
-        request,
-        "players.html",
-        nav="players",
-        title="Players",
-        career=data["career"],
-        seasons=data["seasons"],
-        wire_leaders=data["wire_leaders"],
-        wire_career=data["wire_career"],
-        wire_unowned=data["wire_unowned"],
-        wire_gap=data["wire_gap"],
-        counting=data["counting"],
-    )
+    return theme_pages.players_response(request)
 
 
 @app.get("/players/{player_id}", response_class=HTMLResponse)

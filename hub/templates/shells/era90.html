@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ frame.title }}</title>
+    <link rel="stylesheet" href="/static/themes/era90.css">
+</head>
+<body>
+    <table class="portal" width="100%" border="0" cellpadding="8" cellspacing="0">
+        <tr>
+            <td class="band" colspan="3">
+                <p class="commissioner">Email the commissioner</p>
+                <p class="theme-switch">
+                    {% for choice in frame.theme_choices %}<a href="{{ frame.theme_href(choice.id) }}"{% if choice.id == frame.theme %} class="is-on" aria-current="page"{% endif %}>{{ choice.label }}</a> {% endfor %}
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td class="rail-left" width="178" valign="top">
+                {% for item in frame.nav_links %}<p><a href="{{ frame.carry(item.href) }}"{% if item.key == frame.nav %} class="is-on"{% endif %}>{{ item.label }}</a></p>{% endfor %}
+            </td>
+            <td class="portal-main" valign="top">
+                <h1>{{ frame.title }}</h1>
+                {% with slot_name="lead" %}{% include "shells/_slot.html" %}{% endwith %}
+                {% if frame.paged %}
+                <p class="numeral-row"><span class="numeral-label">{{ frame.pager }}</span> {% for fragment in frame.fragments %}<a href="{{ frame.pane_href(fragment.name) }}" title="{{ fragment.label }}"{% if fragment.name == frame.active.name %} class="is-on"{% endif %}>{{ loop.index }}</a> {% endfor %}</p>
+                <p class="numeral-key">{% for fragment in frame.fragments %}{{ loop.index }} {{ fragment.label }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+                {% endif %}
+                {% include "shells/_fragment.html" %}
+            </td>
+            <td class="rail-right" width="196" valign="top">
+                <div class="link-box">
+                    <p class="rail-label">Fantasy links</p>
+                    {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

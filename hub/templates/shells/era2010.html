@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ frame.title }}</title>
+    <link rel="stylesheet" href="/static/themes/era2010.css">
+</head>
+<body>
+    <div class="shell">
+        <header class="gloss">
+            <p class="utility">
+                {% for choice in frame.theme_choices %}<a href="{{ frame.theme_href(choice.id) }}"{% if choice.id == frame.theme %} class="is-on" aria-current="page"{% endif %}>{{ choice.label }}</a> {% endfor %}
+            </p>
+            <p class="brand">Nu Choate League</p>
+            {% with slot_name="lead" %}{% include "shells/_slot.html" %}{% endwith %}
+            <nav class="sport-bar">
+                {% for item in frame.nav_links %}<a href="{{ frame.carry(item.href) }}"{% if item.key == frame.nav %} class="is-on"{% endif %}>{{ item.label }}</a>{% endfor %}
+            </nav>
+        </header>
+        <div class="sheet">
+            <h1>{{ frame.title }}</h1>
+            {% if frame.paged %}
+            <ul class="tabs">
+                {% for fragment in frame.fragments %}<li{% if fragment.name == frame.active.name %} class="is-on"{% endif %}><a href="{{ frame.pane_href(fragment.name) }}">{{ fragment.label }}</a></li>{% endfor %}
+            </ul>
+            {% endif %}
+            <div class="panel">
+                {% include "shells/_fragment.html" %}
+            </div>
+            <section class="related">
+                <h2>Related</h2>
+                {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
+            </section>
+        </div>
+    </div>
+</body>
+</html>

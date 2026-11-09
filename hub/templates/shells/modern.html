@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ frame.title }}</title>
+    <meta name="description" content="Nu Choate League — ESPN 2022–2023 and Sleeper 2024 onward.">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/themes/modern.css">
+    <script src="/static/hub.js" defer></script>
+</head>
+<body>
+    <div class="wrap">
+        <header class="mast">
+            <a class="wordmark" href="{{ frame.carry('/') }}">
+                <span class="wordmark-nu">Nu Choate</span><span class="wordmark-league">League</span>
+            </a>
+            <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
+            <nav id="site-nav">
+                {% for item in frame.nav_links %}<a href="{{ frame.carry(item.href) }}"{% if item.key == frame.nav %} class="on"{% endif %}>{{ item.label }}</a>{% endfor %}
+            </nav>
+        </header>
+        <p class="theme-switch">
+            {% for choice in frame.theme_choices %}<a href="{{ frame.theme_href(choice.id) }}"{% if choice.id == frame.theme %} class="is-on" aria-current="page"{% endif %}>{{ choice.label }}</a> {% endfor %}
+        </p>
+        <h1>{{ frame.title }}</h1>
+        {% with slot_name="lead" %}{% include "shells/_slot.html" %}{% endwith %}
+        {% if frame.paged %}
+        <p class="jump">
+            {% for fragment in frame.fragments %}<a href="{{ frame.pane_href(fragment.name) }}"{% if fragment.name == frame.active.name %} class="on"{% endif %}>{{ fragment.label }}</a>{% endfor %}
+        </p>
+        {% endif %}
+        {% include "shells/_fragment.html" %}
+        {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
+    </div>
+</body>
+</html>
