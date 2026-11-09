@@ -89,6 +89,9 @@ async def http_error(request: Request, exc: StarletteHTTPException) -> HTMLRespo
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request) -> HTMLResponse:
+    # --- C1a era90 portal (#100). The modern desk below is unchanged. ---
+    if themes.resolve_theme(request) == "era90":
+        return themes.era90_home(request)
     data = queries.home_desk()
     return page(
         request,
@@ -498,3 +501,13 @@ def player_splits(request: Request, player_id: str) -> HTMLResponse:
     person = data["player"]
     title = person["player_name"] + " splits"
     return page(request, "player_splits.html", nav="players", title=title, **data)
+
+
+# --- C1a era90 season family (#100). Modern page() is the else branch. ---
+_legacy_page = page
+
+
+def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTMLResponse:
+    if themes.resolve_theme(request) == "era90" and name in themes.ERA90_FAMILY:
+        return themes.era90_family_document(request, name, nav=nav, title=title, context=context)
+    return _legacy_page(request, name, nav=nav, title=title, **context)

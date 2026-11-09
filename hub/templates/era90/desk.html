@@ -1,0 +1,9 @@
+{% if not managers %}<p class="stat-note">No schedule desk posted.</p>{% endif %}
+{% for manager in managers %}
+<h2><a href="{{ manager.href }}">{{ manager.name }}</a></h2>
+<ul class="plain-list">
+{% for row in manager.rows %}
+<li><a href="{{ row.href }}">{{ row.text }}</a></li>
+{% endfor %}
+</ul>
+{% endfor %}

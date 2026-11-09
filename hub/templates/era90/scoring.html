@@ -1,0 +1,12 @@
+{% if years %}
+<p class="numeral-row">{% for item in years %}<a href="{{ item.href }}">{{ item.label }}</a> {% endfor %}</p>
+{% endif %}
+{% if not groups %}<p class="stat-note">No scoring rules posted.</p>{% endif %}
+{% for group in groups %}
+<h2>{{ group.label }}</h2>
+<ul class="plain-list">
+{% for row in group.rows %}
+<li>{{ row.label }} <span class="pts">{{ row.value }}</span></li>
+{% endfor %}
+</ul>
+{% endfor %}
