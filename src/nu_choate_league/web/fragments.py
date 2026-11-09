@@ -115,19 +115,21 @@ def paginate(
     *,
     page: int,
     page_size: int = DEFAULT_PAGE_SIZE,
-    key: Callable[[Any], Any],
+    key: Callable[[Any], Any] | None = None,
 ) -> PageWindow:
-    """Stable page of ``rows``.
+    """One page of ``rows``.
 
-    ``key`` must be a total order. ``sorted`` is stable, and a total key
-    means two requests over the same rows return the same sequence. Out of
-    range pages are 404, same as an unknown board.
+    Pass ``key`` when the input is not already in a stable order. ``sorted``
+    is stable, so a total key returns the same sequence on every request.
+    Omit ``key`` to keep the input order, which is the right call when a
+    query already sorted the rows and a second sort would not match it.
+    Out of range pages are 404, same as an unknown board.
     """
     if page_size < 1:
         raise ValueError("page_size must be positive")
     if page < 1:
         raise StarletteHTTPException(status_code=404, detail="No such page.")
-    ordered = tuple(sorted(rows, key=key))
+    ordered = tuple(sorted(rows, key=key) if key is not None else rows)
     total = len(ordered)
     pages = (total + page_size - 1) // page_size if total else 1
     if page > pages:
@@ -139,28 +141,6 @@ def paginate(
         page_size=page_size,
         total=total,
         rows=ordered[start : start + page_size],
-    )
-
-
-def _nulls_first_desc(value: object) -> tuple:
-    """Match Postgres ``ORDER BY col DESC`` (NULLS FIRST is the default)."""
-    if value is None:
-        return (0,)
-    return (1, -value)  # type: ignore[operator]
-
-
-def career_order_key(row: dict[str, Any]) -> tuple:
-    """Same order as ``v_players_index_career``, plus ``player_id`` for ties.
-
-    The index query sorts by starter points, started VORP, then name. Name
-    is not unique, so the page key adds ``player_id``. That only moves a row
-    when the query's three keys were tied.
-    """
-    return (
-        _nulls_first_desc(row.get("starter_points")),
-        _nulls_first_desc(row.get("started_vorp")),
-        row.get("player_name") or "",
-        str(row.get("player_id") or ""),
     )
 
 
@@ -197,11 +177,14 @@ def load_players_career(request: Request) -> Context:
     """
     data = queries.players_index()
     career = data["career"]
+    # Keep the query order. Re-sorting the float values disagrees with
+    # ``ORDER BY starter_points DESC, started_vorp DESC, player_name`` once
+    # distinct numerics collapse to the same float. That order is what
+    # /players renders, and it does not move across requests.
     window = paginate(
         career,
         page=requested_page(request),
         page_size=DEFAULT_PAGE_SIZE,
-        key=career_order_key,
     )
     return {
         "pager": window,
