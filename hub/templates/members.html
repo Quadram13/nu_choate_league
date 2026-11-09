@@ -2,7 +2,7 @@
 {% from "plaque_macros.html" import plaque_free, person_link %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official record and win% count head-to-head plus a game vs the weekly median from 2025. H2H is head-to-head only. Median counts those median games; seasons without one (2022–24) are left out. PF/G is points per head-to-head game. Drought is seasons since last playoff. RS and PF+ count a regular season only after it is finished.</p>
+<p class="lede">Official record and win% count head-to-head plus a game vs the weekly median from 2025. H2H is head-to-head only. Median counts those median games; seasons without one (2022–24) are left out. PF/G is points per head-to-head game. Playoff is winners-bracket games, the same games as a member's playoff line. Title seasons counts a championship matchup once, including a two-week final. Drought is completed seasons played after the last winners-bracket appearance. It reads never when there has not been one. Only a season whose champion is stored is counted. RS and PF+ count a regular season only after it is finished.</p>
 {% if luck_plaques %}
 <div class="plaque-grid recap-records">
     {% for row in luck_plaques %}
@@ -27,10 +27,10 @@
             <th class="num">Titles</th>
             <th class="num">RU</th>
             <th class="num">RS</th>
-            <th data-type="num">Playoff</th>
+            <th data-type="num" title="Winners-bracket games. Both managers were in the playoff field.">Playoff</th>
             <th class="num">PO</th>
-            <th class="num">TG</th>
-            <th class="num">Drought</th>
+            <th class="num" title="Seasons as champion or runner-up. A two-week final counts as one season.">Title seasons</th>
+            <th class="num" title="Completed seasons played after the last winners-bracket appearance. Never, if there has not been one. Only a season with a stored champion counts.">Drought</th>
             <th class="num" title="Varsity Letter weeks: the top starter at the position that week">Letters</th>
             <th class="num" title="Varsity Farmer weeks: the lowest starter at the position that week">Farmers</th>
             <th class="num">Luck</th>
@@ -57,7 +57,7 @@
             <td data-value="{% if row.playoff_wins is not none %}{{ row.playoff_wins }}{% endif %}">{{ row.playoff or "—" }}</td>
             <td class="num">{{ row.playoff_appearances|int }}</td>
             <td class="num">{{ (row.title_games or 0)|int }}</td>
-            <td class="num">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% endif %}</td>
+            <td class="num" data-value="{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}-1{% endif %}">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}never{% endif %}</td>
             <td class="num">{{ (row.first_chair or 0)|int }}</td>
             <td class="num">{{ (row.last_chair or 0)|int }}</td>
             <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
