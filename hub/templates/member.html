@@ -19,7 +19,8 @@
     {% if lineups.career %}<a href="#lineups">Lineups</a>{% endif %}
     {% if luck %}<a href="#luck">Luck</a>{% endif %}
     {% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}<a href="#highs">Highs</a>{% endif %}
-    {% if volatility %}<a href="#volatility">Volatility</a>{% endif %}
+    {% if volatility %}<a href="#consistency">Consistency</a>{% endif %}
+    {% if clutch %}<a href="#clutch">Clutch</a>{% endif %}
 </p>
 <h1>{{ member.display_name }}</h1>
 <p class="lede">
@@ -477,8 +478,9 @@
 {% endif %}
 
 {% if volatility %}
-<h2 id="volatility">Volatility</h2>
-<p class="note">Weekly team totals on posted weeks. SD is the sample standard deviation. CV is SD / mean. Boom is a week at least 1.5× that row’s own mean. Bust is a week at most half of it. Team totals are tight, so boom and bust weeks are rare and CV is the consistency ranking. * 2026 is in progress: the live week is left out until the median team total reaches 40.</p>
+<a id="volatility"></a>
+<h2 id="consistency">Consistency</h2>
+<p class="note">Weekly team totals on posted weeks, including an unpaired playoff bye. SD is the sample standard deviation. CV is SD / mean. Dev on each week is points minus that season’s own mean. Boom is a week at least 1.5× that row’s own mean. Bust is a week at most half of it. Team totals are tight, so boom and bust weeks are rare and CV is the consistency ranking. This is the same volatility definition as the player page. * 2026 is in progress: the live week is left out until the median team total reaches 40.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -528,6 +530,102 @@
             <td class="num" {% if row.best_year %}title="{{ row.best_year }} W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
             <td class="num" {% if row.worst_year %}title="{{ row.worst_year }} W{{ row.worst_week }}"{% endif %}>{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
             <td class="num">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+{% if volatility.weeks %}
+<h3>Weeks</h3>
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>When</th>
+            <th class="num">Pts</th>
+            <th class="num" title="That season’s own mean">Mean</th>
+            <th class="num" title="Points minus that season’s own mean">Dev</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in volatility.weeks %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.partial_season %}*{% endif %}</td>
+            <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td class="num">{% if row.season_mean is not none %}{{ "%.2f"|format(row.season_mean) }}{% endif %}</td>
+            <td class="num{% if row.is_boom %} plus{% elif row.is_bust %} minus{% endif %}">{% if row.deviation is not none %}{{ "%+.2f"|format(row.deviation) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}
+
+{% if clutch %}
+<h2 id="clutch">Clutch</h2>
+<p class="note">
+    Regular-season head-to-head.
+    {% if clutch.career %}
+    One-score is a game decided by {{ clutch.career.one_score_margin|int }} or fewer.
+    Blowout is a game decided by {{ clutch.career.blowout_margin|int }} or more.
+    {% endif %}
+    {% if clutch.career and clutch.career.exponent is not none %}
+    Pythagorean wins use exponent {{ "%.1f"|format(clutch.career.exponent) }} on points for and against: games × PF^x / (PF^x + PA^x).
+    {% endif %}
+    vsPy is actual wins, a tie counting half, minus Pythagorean wins.
+    vsExp is the all-play lens.
+    Gap is vsPy minus vsExp.
+    The career Pythagorean row is refit on career points.
+    {% if clutch.career and clutch.career.includes_partial %}The career row includes in-progress 2026.{% endif %}
+    <a href="/records#clutch">Record book</a>.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th data-type="num">H2H</th>
+            <th data-type="num">1-score</th>
+            <th data-type="num">Blowout</th>
+            <th class="num">PF</th>
+            <th class="num">PA</th>
+            <th class="num">Pyth</th>
+            <th class="num">vsPy</th>
+            <th class="num">vsExp</th>
+            <th class="num" title="vsPy minus vsExp">Gap</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in clutch.seasons %}
+        <tr>
+            <td class="num">{{ row.year }}{% if row.partial_season %}*{% endif %}</td>
+            <td data-value="{{ row.actual_wins if row.actual_wins is not none else '' }}">{{ row.h2h or "—" }}</td>
+            <td data-value="{{ row.one_score_win_pct if row.one_score_win_pct is not none else '' }}">{{ row.one_score or "—" }}</td>
+            <td data-value="{{ row.blowout_win_pct if row.blowout_win_pct is not none else '' }}">{{ row.blowout or "—" }}</td>
+            <td class="num">{% if row.points_for is not none %}{{ "%.2f"|format(row.points_for) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.pythagorean_wins if row.pythagorean_wins is not none else '' }}">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.wins_vs_pythagorean if row.wins_vs_pythagorean is not none else '' }}">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.lens_gap if row.lens_gap is not none else '' }}">{% if row.lens_gap is not none %}{{ "%+.1f"|format(row.lens_gap) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if clutch.career %}
+    {% set row = clutch.career %}
+    <tfoot>
+        <tr>
+            <td>Career{% if row.includes_partial %}*{% endif %}</td>
+            <td>{{ row.h2h or "—" }}</td>
+            <td>{{ row.one_score or "—" }}</td>
+            <td>{{ row.blowout or "—" }}</td>
+            <td class="num">{% if row.points_for is not none %}{{ "%.2f"|format(row.points_for) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.lens_gap is not none %}{{ "%+.1f"|format(row.lens_gap) }}{% else %}—{% endif %}</td>
         </tr>
     </tfoot>
     {% endif %}
