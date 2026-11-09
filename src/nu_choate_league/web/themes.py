@@ -969,8 +969,52 @@ def _playoff_groups(year: int) -> tuple[list[dict[str, object]], list[int]]:
     groups: list[dict[str, object]] = []
     groups.extend(_tree_groups(schedule.get("winners_tree"), "Playoff"))
     groups.extend(_tree_groups(schedule.get("consolation_tree"), "Consolation"))
+    if not groups:
+        # Bracket JSON is optional. Posted playoff games still belong on the pane.
+        groups = _posted_playoff_groups(year)
     weeks = sorted({int(group["week"]) for group in groups})
     return groups, weeks
+
+
+def _posted_playoff_groups(year: int) -> list[dict[str, object]]:
+    rows = queries.fetchall(
+        """
+        SELECT
+            m.id,
+            m.week,
+            m.kind,
+            m.home_manager_id,
+            m.away_manager_id,
+            hm.display_name AS home_name,
+            am.display_name AS away_name,
+            m.home_points,
+            m.away_points
+        FROM matchups m
+        LEFT JOIN managers hm ON hm.id = m.home_manager_id
+        LEFT JOIN managers am ON am.id = m.away_manager_id
+        WHERE m.year = %(year)s
+          AND m.kind IN ('playoff', 'consolation')
+          AND (m.home_points <> 0 OR m.away_points <> 0)
+        ORDER BY m.week, m.kind, m.id
+        """,
+        {"year": year},
+    )
+    labels = {"playoff": "Playoff", "consolation": "Consolation"}
+    by_week: dict[int, dict[str, object]] = {}
+    for row in rows:
+        week = int(row["week"])
+        group = by_week.get(week)
+        if group is None:
+            group = {
+                "week": week,
+                "label": labels.get(str(row.get("kind") or ""), ""),
+                "games": [],
+            }
+            by_week[week] = group
+        games = group["games"]
+        assert isinstance(games, list)
+        games.append(_game_view(row))
+    return [by_week[week] for week in sorted(by_week)]
 
 
 def season_document(request: Request, year: int) -> HTMLResponse:
