@@ -1,0 +1,5 @@
+<li class="player-cell">
+    <span class="slot">{{ cell.slot }}</span>
+    <span class="who">{% if cell.href %}<a href="{{ cell.href }}">{{ cell.name }}</a>{% else %}{{ cell.name }}{% endif %}{% if cell.club %}<span class="tm-badge">{{ cell.club }}</span>{% endif %}{% if cell.position %}<span class="pos-badge">{{ cell.position }}</span>{% endif %}</span>
+    <span class="pts">{{ cell.points }}</span>
+</li>

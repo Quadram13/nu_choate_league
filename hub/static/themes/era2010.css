@@ -1,10 +1,13 @@
-/* ~2010 scaffold. No reached page supplied a width or a gloss hex.
-   960px and the steel gradient are unlabeled chrome, kept so the shell has
-   a fixed width and a tab strip. Stat cells stay on white. Gold is text. */
+/* ~2010 shell. ESPN-ish black/red chrome on white panels.
+   No reached fantasy page gave a hex or a pixel width. 960px stays because
+   it is the late-2000s fixed grid (960.gs, 2008) and the boot gate token.
+   Red #cc0000 is the ESPN-ish chrome color, not a sampled stylesheet.
+   Stat surfaces, including matchup cards, stay white with #0645ad links.
+   Gold #6b4f00 is still the unattested record color from A2. */
 
 body {
     margin: 0;
-    background: #d5dee8;
+    background: #e4e4e4;
     color: #1a1a1a;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 13px;
@@ -16,7 +19,7 @@ a {
 }
 
 a:visited {
-    color: #5a2d82;
+    color: #551a8b;
 }
 
 .shell {
@@ -27,10 +30,11 @@ a:visited {
 .gloss {
     padding: 8px 12px 0;
     color: #fff;
-    background: linear-gradient(#3e7ec4, #1a4e8c);
-    border: 1px solid #0e3a6b;
+    background: linear-gradient(#2b2b2b, #111);
+    border: 1px solid #000;
+    border-top: 4px solid #cc0000;
     border-bottom: none;
-    border-radius: 6px 6px 0 0;
+    border-radius: 8px 8px 0 0;
 }
 
 .utility {
@@ -39,8 +43,17 @@ a:visited {
 }
 
 .utility a,
-.utility a:visited {
+.utility a:visited,
+.brand a,
+.brand a:visited,
+.gloss .lede a,
+.gloss .lede a:visited,
+.sport-bar a,
+.sport-bar a:visited {
     color: #fff;
+}
+
+.utility a {
     margin-right: 12px;
 }
 
@@ -55,88 +68,178 @@ a:visited {
     font-weight: bold;
 }
 
-.gloss .lede {
-    margin: 2px 0 8px;
-    color: #e7eef8;
+.brand a {
+    text-decoration: none;
 }
 
-.gloss .lede a,
-.gloss .lede a:visited {
-    color: #fff;
+.gloss .lede {
+    margin: 2px 0 8px;
+    color: #f2f2f2;
 }
 
 .sport-bar {
     display: flex;
     flex-wrap: wrap;
     margin: 0 -12px;
-    background: #123a66;
+    background: #000;
 }
 
 .sport-bar a {
     padding: 7px 12px;
-    color: #fff;
     text-decoration: none;
-}
-
-.sport-bar a:visited {
-    color: #fff;
 }
 
 .sport-bar a.is-on,
 .sport-bar a:hover {
-    background: #2f6eaf;
+    background: #cc0000;
 }
 
 .sheet {
     padding: 12px 14px 18px;
     background: #fff;
-    border: 1px solid #9aabbd;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
     border-top: none;
+    border-radius: 0 0 8px 8px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.league-bar {
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e4e4e4;
+}
+
+.league-bar a {
+    margin-right: 14px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.league-bar a.is-on {
+    color: #111;
+    border-bottom: 3px solid #cc0000;
+}
+
+.promo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    background: linear-gradient(#fff, #f4f4f4);
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.promo-copy {
+    flex: 1;
+    margin: 0;
+}
+
+.btn {
+    display: inline-block;
+    padding: 6px 14px;
+    color: #fff;
+    font-weight: bold;
+    text-decoration: none;
+    background: linear-gradient(#ff5a5a, #cc0000);
+    border: 1px solid #8e0000;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.btn:visited {
+    color: #fff;
 }
 
 h1 {
     margin: 0 0 8px;
-    color: #14375f;
+    color: #111;
     font-size: 20px;
 }
 
-.tabs {
+h2 {
+    margin: 0 0 8px;
+    color: #111;
+    font-size: 16px;
+}
+
+.tabs,
+.pos-tabs {
     display: flex;
     flex-wrap: wrap;
     list-style: none;
     margin: 0;
-    padding: 0 4px;
+    padding: 0;
 }
 
-.tabs li {
+.tabs li,
+.pos-tabs li {
     margin: 0 3px 0 0;
 }
 
-.tabs a {
+.tabs a,
+.pos-tabs a {
     display: block;
     padding: 6px 12px;
-    color: #14375f;
+    color: #222;
     font-weight: bold;
     text-decoration: none;
-    background: linear-gradient(#f8f8f8, #d5dbe3);
-    border: 1px solid #9aabbd;
+    background: linear-gradient(#f8f8f8, #e4e4e4);
+    border: 1px solid #bbb;
     border-bottom: none;
     border-radius: 4px 4px 0 0;
 }
 
+.tabs a:visited,
+.pos-tabs a:visited {
+    color: #222;
+}
+
 .tabs li.is-on a,
-.tabs li.is-on a:visited {
+.pos-tabs li.is-on a,
+.tabs li.is-on a:visited,
+.pos-tabs li.is-on a:visited {
     color: #000;
     background: #fff;
+    border-top: 2px solid #cc0000;
 }
 
-.panel {
+.pos-tabs {
+    margin-top: 4px;
+}
+
+.pos-tabs a {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.pos-tabs + .module-board {
+    border-top: none;
+}
+
+.hash-aliases {
+    margin: 6px 0 8px;
+    color: #333;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.hash-aliases a {
+    margin-right: 8px;
+}
+
+.panel,
+.module-board {
     padding: 12px;
     background: #fff;
-    border: 1px solid #9aabbd;
+    color: #1a1a1a;
+    border: 1px solid #bbb;
 }
 
+.tabs + .numeral-row + .franchises + .panel,
+.tabs + .franchises + .panel,
 .tabs + .numeral-row + .panel,
 .tabs + .panel {
     border-top: none;
@@ -148,13 +251,66 @@ h1 {
 
 .related h2 {
     margin: 0 0 6px;
-    color: #14375f;
     font-size: 14px;
 }
 
-.link-list {
-    margin: 0 0 0 18px;
+.link-list,
+.franchises,
+.player-cells {
+    list-style: none;
+    margin: 0;
     padding: 0;
+}
+
+.link-list {
+    margin-left: 18px;
+}
+
+.franchises {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+.franchises a {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    background: #fff;
+    color: #1a1a1a;
+    text-decoration: none;
+    border: 1px solid #e2e2e2;
+    border-radius: 4px;
+}
+
+.franchises a:visited {
+    color: #1a1a1a;
+}
+
+.franchise-name {
+    color: #0645ad;
+    font-weight: bold;
+}
+
+.owner {
+    display: block;
+    color: #444;
+    font-size: 12px;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background: #f3f3f3;
+    object-fit: cover;
+}
+
+.avatar-lg {
+    width: 72px;
+    height: 72px;
 }
 
 table.stat {
@@ -167,15 +323,15 @@ table.stat {
 table.stat th,
 table.stat td {
     padding: 3px 6px;
-    border-bottom: 1px solid #d5dde6;
+    border-bottom: 1px solid #e2e2e2;
     text-align: left;
 }
 
 table.stat th {
-    color: #14375f;
+    color: #222;
     font-size: 12px;
     font-weight: bold;
-    background: #e8eef5;
+    background: #f4f4f4;
 }
 
 table.stat .stat-n {
@@ -186,9 +342,20 @@ table.stat .stat-n {
 table.stat caption {
     caption-side: top;
     padding: 0 0 6px;
-    color: #14375f;
+    color: #111;
     font-weight: bold;
     text-align: left;
+}
+
+table.stat a,
+table.stat a:visited,
+.player-cell a,
+.player-cell a:visited,
+.franchise-head a,
+.franchise-head a:visited,
+.score a,
+.score a:visited {
+    color: #0645ad;
 }
 
 .stat-note,
@@ -214,30 +381,136 @@ table.stat caption {
     font-style: italic;
 }
 
-.week-groups,
-.matchups {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+.matchup-card {
+    display: flex;
+    margin: 0 0 12px;
+    background: #fff;
+    color: #1a1a1a;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-.group-label {
-    margin: 8px 0;
-    font-size: 13px;
-}
-
-.matchup {
-    margin: 0 0 8px;
+.franchise {
+    flex: 1 1 50%;
     padding: 8px 10px;
-    background: linear-gradient(#fff, #f4f7fb);
-    border: 1px solid #c5d0dc;
-    border-radius: 4px;
-    box-shadow: inset 0 1px 0 #fff;
+    background: #fff;
+    color: #1a1a1a;
 }
 
-.pts {
-    margin: 0 8px;
+.franchise + .franchise {
+    border-left: 1px solid #e6e6e6;
+}
+
+.franchise.won {
+    box-shadow: inset 3px 0 0 #cc0000;
+}
+
+.franchise-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.franchise-head .who {
+    flex: 1;
+}
+
+.score {
+    margin-left: auto;
+    color: #111;
+    font-size: 22px;
     font-weight: bold;
+    text-decoration: none;
+}
+
+.score.won,
+a.score.won,
+a.score.won:visited {
+    color: #9e0e18;
+}
+
+.player-cells {
+    margin-top: 6px;
+}
+
+.player-cell {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 0;
+    background: #fff;
+    color: #1a1a1a;
+    border-top: 1px solid #f0f0f0;
+}
+
+.player-cell .slot {
+    width: 38px;
+    color: #555;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.player-cell .who {
+    flex: 1;
+}
+
+.player-cell .pts {
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+}
+
+.tm-badge,
+.pos-badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: #f2f2f2;
+    color: #222;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.pos-badge {
+    background: #f8ecec;
+    color: #6e0a18;
+}
+
+.bench-label {
+    margin: 8px 0 0;
+    color: #555;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.module {
+    margin-top: 14px;
+}
+
+.my-team {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.record {
+    margin: 0 0 4px;
+}
+
+.sibling-row {
+    margin: 0 0 10px;
+    line-height: 1.6;
+}
+
+.sibling-row a {
+    margin-right: 10px;
+}
+
+.sibling-row a.is-on {
+    font-weight: bold;
+    color: #111;
 }
 
 .numeral-label {
@@ -255,7 +528,7 @@ table.stat caption {
     text-decoration: none;
 }
 
-.kind {
-    margin-left: 6px;
-    color: #555;
+.group-label {
+    margin: 8px 0;
+    font-size: 13px;
 }

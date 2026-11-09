@@ -1,0 +1,10 @@
+{% from "fragments/stat_table.html" import stat_table %}
+<header class="my-team">
+    {% if avatar %}<img class="avatar avatar-lg" src="{{ avatar }}" alt="" width="72" height="72">{% endif %}
+    <div>
+        <p class="record">{{ record }} · {{ pct }} · {{ pf }} PF</p>
+        {% if titles %}<p class="record">{{ titles }} title{{ "s" if titles != 1 else "" }}</p>{% endif %}
+        {% if streak %}<p class="record">Current streak {{ streak }}</p>{% endif %}
+    </div>
+</header>
+{{ stat_table(board) }}

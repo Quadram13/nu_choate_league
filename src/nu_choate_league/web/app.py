@@ -498,3 +498,19 @@ def player_splits(request: Request, player_id: str) -> HTMLResponse:
     person = data["player"]
     title = person["player_name"] + " splits"
     return page(request, "player_splits.html", nav="players", title=title, **data)
+
+
+# --- C2a era2010 (#101). Home, week, gamecenter, League, and My Team.
+# Modern and era90 fall through. Season pages stay on the A2 dispatch.
+templates.env.globals["era2010_aliases"] = tuple(
+    themes.EraAlias(alias_id, pane, label) for alias_id, pane, label in themes.ERA2010_HASH_ALIASES
+)
+
+
+@app.middleware("http")
+async def era2010_pages(request: Request, call_next):
+    if request.method == "GET" and themes.resolve_theme(request) == "era2010":
+        response = themes.era2010_dispatch(request)
+        if response is not None:
+            return themes.persist_theme(request, response)
+    return await call_next(request)

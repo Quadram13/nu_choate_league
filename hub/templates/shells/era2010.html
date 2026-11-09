@@ -12,23 +12,39 @@
             <p class="utility">
                 {% for choice in frame.theme_choices %}<a href="{{ frame.theme_href(choice.theme_id) }}"{% if choice.theme_id == frame.theme %} class="is-on" aria-current="page"{% endif %}>{{ choice.label }}</a> {% endfor %}
             </p>
-            <p class="brand">Nu Choate League</p>
+            <p class="brand"><a href="{{ frame.carry('/') }}">Nu Choate League</a></p>
             {% with slot_name="lead" %}{% include "shells/_slot.html" %}{% endwith %}
-            <nav class="sport-bar">
+            <nav class="sport-bar" aria-label="Hub">
                 {% for item in frame.nav_links %}<a href="{{ frame.carry(item.href) }}"{% if item.key == frame.nav %} class="is-on" aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
             </nav>
         </header>
         <div class="sheet">
+            <nav class="league-bar" aria-label="League">
+                <a href="{{ frame.carry('/members') }}"{% if frame.nav == 'members' and not my_team %} class="is-on" aria-current="page"{% endif %}>League</a>
+                {% if my_team %}<a href="{{ frame.carry(my_team.href) }}" class="is-on" aria-current="page">My Team</a>{% endif %}
+            </nav>
+            {% if frame.nav == 'home' or frame.paged %}
+            <aside class="promo">
+                <p class="promo-copy"><strong>League archive</strong> Titles, streaks, and the record book.</p>
+                <a class="btn" href="{{ frame.carry('/records') }}">Record book</a>
+            </aside>
+            {% endif %}
             <h1>{{ frame.title }}</h1>
             {% if frame.paged %}
             <ul class="tabs">
-                {% for fragment in frame.fragments %}<li{% if fragment.name == frame.active.name %} class="is-on"{% endif %}><a href="{{ frame.pane_href(fragment.name) }}"{% if fragment.name == frame.active.name %} aria-current="page"{% endif %}>{{ fragment.label }}</a></li>{% endfor %}
+                {% for fragment in frame.fragments %}<li{% if fragment.name == frame.active.name %} class="is-on"{% endif %}><a id="{{ fragment.name }}" href="{{ frame.pane_href(fragment.name) }}"{% if fragment.name == frame.active.name %} aria-current="page"{% endif %}>{{ fragment.label }}</a></li>{% endfor %}
             </ul>
+            <p class="hash-aliases">Also
+                {% for alias in era2010_aliases|default([]) %}<a id="{{ alias.id }}" href="{{ frame.pane_href(alias.pane) }}">{{ alias.label }}</a> {% endfor %}
+            </p>
             {% endif %}
             {% include "shells/_week_nav.html" %}
+            {% if franchises %}{% include "era2010/franchises.html" %}{% endif %}
             <div class="panel">
                 {% include "shells/_fragment.html" %}
             </div>
+            {% if avg_note %}<p class="stat-note">{{ avg_note }}</p>{% endif %}
+            {% if modules %}{% include "era2010/modules.html" %}{% endif %}
             <section class="related">
                 <h2>Related</h2>
                 {% with slot_name="aside" %}{% include "shells/_slot.html" %}{% endwith %}
