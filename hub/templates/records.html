@@ -123,11 +123,12 @@
 </div>
 {% endif %}
 {% if season_pct %}
+<p class="note">Official % is the platform line. In 2025 it includes a game vs the weekly median. 2022–24 are head-to-head only.</p>
 <div class="notable-grid">
     <section>
         <h3>Best official %</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
             <tbody>
                 {% for row in season_pct.high %}
                 <tr data-year="{{ row.year }}">
@@ -135,6 +136,7 @@
                     <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -143,7 +145,7 @@
     <section>
         <h3>Worst official %</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
             <tbody>
                 {% for row in season_pct.low %}
                 <tr data-year="{{ row.year }}">
@@ -151,6 +153,7 @@
                     <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
                     <td>{{ person(row.manager_id, row.display_name) }}</td>
                     <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -384,7 +387,7 @@
 {% if platform %}
 <div data-grain="career">
 <h2 id="platform">Platform split</h2>
-<p class="note">ESPN 2022–23 vs Sleeper 2024 onward.</p>
+<p class="note">ESPN 2022–23 vs Sleeper 2024 onward. Record is the platform line: head-to-head, plus a game vs the weekly median from 2025. 2024 is head-to-head only, so those games sit in H2H. Median is played median games.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -392,7 +395,9 @@
             <th>Platform</th>
             <th>Manager</th>
             <th class="num">Yrs</th>
-            <th data-type="num">Record</th>
+            <th data-type="num" title="Platform line. Head-to-head, plus a median game from 2025.">Record</th>
+            <th data-type="num" title="Head-to-head games only.">H2H</th>
+            <th data-type="num" title="Games vs the weekly median. Blank when that platform played none.">Median</th>
             <th class="num">PF</th>
             <th class="num">Titles</th>
         </tr>
@@ -403,7 +408,9 @@
             <td>{{ row.platform }}</td>
             <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ row.seasons|int }}</td>
-            <td>{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td>{{ row.h2h or "—" }}</td>
+            <td>{{ row.median or "—" }}</td>
             <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
             <td class="num">{{ (row.titles or 0)|int }}</td>
         </tr>

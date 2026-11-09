@@ -24,7 +24,9 @@
 <h1>{{ member.display_name }}</h1>
 <p class="lede">
     {{ member.wins|int }}-{{ member.losses|int }}-{{ member.ties|int }}
-    {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}%){% endif %}
+    {% if member.win_pct is not none %} ({{ "%.1f"|format(member.win_pct * 100) }}% official){% endif %}
+    {% if member.h2h_record %} · H2H {{ member.h2h_record }}{% endif %}
+    {% if member.median_record %} · median {{ member.median_record }}{% endif %}
     · {{ "%.2f"|format(member.points_for) }} PF
     · {{ member.seasons|int }} season{{ "s" if member.seasons != 1 else "" }}
     {% if all_play %}
@@ -50,6 +52,7 @@
     <a href="/seasons/{{ member.streak.start_year }}/week/{{ member.streak.start_week }}">since {{ member.streak.start_year }} W{{ member.streak.start_week }}</a>
     {% endif %}
 </p>
+<p class="note">Official is head-to-head plus, from 2025, a game vs the weekly median. Win% uses that line. 2022–24 had no median game.</p>
 {% if member.titles or member.runner_up or member.regular_season_titles or member.most_points_titles or member.playoff_appearances or chairs or marks %}
 {% set champ_years = finishes | selectattr("champion") | map(attribute="year") | list %}
 {% set ru_years = finishes | selectattr("runner_up") | map(attribute="year") | list %}
@@ -89,7 +92,7 @@
 <p class="note">
     Platform split
     {% for row in platform %}
-    · {{ row.platform }} {{ row.seasons|int }} yr · {{ record(row.wins, row.losses, row.ties) }}{% if row.titles %} · {{ row.titles|int }} title{{ "s" if row.titles != 1 else "" }}{% endif %}
+    · {{ row.platform }} {{ row.seasons|int }} yr · {{ row.line }}{% if row.titles %} · {{ row.titles|int }} title{{ "s" if row.titles != 1 else "" }}{% endif %}
     {% endfor %}
 </p>
 {% endif %}
