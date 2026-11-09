@@ -9965,3 +9965,357 @@ def _universe_replay_year(
         "boards": boards,
         "any_champion_differs": any_champion_differs,
     }
+
+
+# ---------------------------------------------------------------------------
+# B1 player anatomy (#96). Append-only. The profile, game log, and splits
+# pages read these marks. Nothing here writes, and nothing above is edited.
+#
+# Season "led the league" is the maximum on a finished season (v_finished_seasons).
+# The in-progress year is not marked: the record book leaves it off those boards.
+# Career gold is the maximum across players. Italic is the maximum among players
+# whose last rostered year is the latest year on v_players_index_career, and
+# only when that player does not also hold the all-time mark.
+# TEAM_* counting rows are NFL team totals and are excluded, matching the
+# record-book boards. A tie with the maximum is a mark. Starts can tie when
+# several players started every week; that tie is real and is marked.
+# ---------------------------------------------------------------------------
+
+
+def _anatomy_tied(value: Any, leader: Any, places: int | None) -> bool:
+    if value is None or leader is None:
+        return False
+    if places is None:
+        return int(value) == int(leader)
+    return round(float(value), places) == round(float(leader), places)
+
+
+def _anatomy_ok(leader: Any, *, positive: bool) -> bool:
+    if leader is None:
+        return False
+    if not positive:
+        return True
+    return float(leader) > 0
+
+
+def _anatomy_career_kind(
+    value: Any,
+    all_time: Any,
+    active: Any,
+    places: int | None,
+    *,
+    positive: bool,
+) -> str:
+    if _anatomy_tied(value, all_time, places) and _anatomy_ok(all_time, positive=positive):
+        return "record"
+    if _anatomy_tied(value, active, places) and _anatomy_ok(active, positive=positive):
+        return "active"
+    return ""
+
+
+def _anatomy_counting_specs() -> tuple[list[str], list[tuple[str, bool, int, str]]]:
+    sums: list[str] = []
+    rates: list[tuple[str, bool, int, str]] = []
+    seen: set[str] = set()
+    for _slug, column, _label, _unit, descending, min_games, gate in _COUNTING_SUMMARY_BOARDS:
+        if not column.isidentifier():
+            continue
+        if column.endswith("_pg"):
+            rates.append((column, bool(descending), int(min_games), str(gate)))
+        elif column not in seen:
+            seen.add(column)
+            sums.append(column)
+    return sums, rates
+
+
+def _anatomy_rate_filter(min_games: int, gate: str) -> str:
+    parts = ["player_id NOT LIKE 'TEAM_%%'"]
+    if gate == "DEF":
+        parts.append("position = 'DEF'")
+    elif gate and gate.isidentifier():
+        parts.append(f"{gate} > 0")
+    if min_games:
+        parts.append(f"games >= {int(min_games)}")
+    return " AND ".join(parts)
+
+
+def player_anatomy(player_id: str) -> dict[str, Any]:
+    """Fantasy points and leader marks for one player's profile tables.
+
+    Summary marks use v_players_index_season / v_players_index_career.
+    Counting marks use the same columns and gates as the record-book
+    counting boards. Columns with no board are not marked and not linked.
+    """
+    sums, rates = _anatomy_counting_specs()
+    finished_rows = fetchall(
+        """
+        SELECT year
+        FROM v_finished_seasons
+        WHERE regular_season_complete
+        ORDER BY year
+        """
+    )
+    finished = [int(row["year"]) for row in finished_rows]
+    active_rows = fetchall(
+        """
+        SELECT player_id
+        FROM v_players_index_career
+        WHERE last_year = (SELECT max(last_year) FROM v_players_index_career)
+        """
+    )
+    active_ids = [row["player_id"] for row in active_rows]
+    summary_caps = {
+        int(row["year"]): row
+        for row in fetchall(
+            """
+            SELECT
+                year,
+                max(starts) AS starts,
+                max(started_points) AS started_points,
+                max(points) AS points,
+                max(started_vorp) AS started_vorp
+            FROM v_players_index_season
+            WHERE year = ANY(%(years)s)
+            GROUP BY year
+            """,
+            {"years": finished},
+        )
+    }
+    mine = fetchall(
+        """
+        SELECT year, starts, started_points, points, started_vorp
+        FROM v_players_index_season
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    career = fetchone(
+        """
+        SELECT starts, starter_points, started_vorp, last_year
+        FROM v_players_index_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    career_caps = fetchone(
+        """
+        SELECT
+            max(starts) AS starts,
+            max(starter_points) AS starter_points,
+            max(started_vorp) AS started_vorp,
+            max(starts) FILTER (WHERE player_id = ANY(%(active)s)) AS active_starts,
+            max(starter_points) FILTER (WHERE player_id = ANY(%(active)s)) AS active_starter_points,
+            max(started_vorp) FILTER (WHERE player_id = ANY(%(active)s)) AS active_started_vorp
+        FROM v_players_index_career
+        """,
+        {"active": active_ids},
+    ) or {}
+    fant = fetchone(
+        """
+        SELECT
+            max(total) AS all_time,
+            max(total) FILTER (WHERE player_id = ANY(%(active)s)) AS active
+        FROM (
+            SELECT player_id, sum(points) AS total
+            FROM v_players_index_season
+            GROUP BY player_id
+        ) totals
+        """,
+        {"active": active_ids},
+    ) or {}
+    summary_fields = (
+        ("starts", None, True),
+        ("started_points", 2, True),
+        ("points", 2, True),
+        ("started_vorp", 2, False),
+    )
+    summary_season: dict[int, dict[str, str]] = {}
+    fantasy: dict[int, float] = {}
+    fantasy_total = 0.0
+    fantasy_seen = False
+    for row in mine:
+        year = int(row["year"])
+        if row["points"] is not None:
+            fantasy[year] = float(row["points"])
+            fantasy_total += float(row["points"])
+            fantasy_seen = True
+        cap = summary_caps.get(year)
+        if cap is None:
+            continue
+        marks: dict[str, str] = {}
+        for key, places, positive in summary_fields:
+            if _anatomy_tied(row.get(key), cap.get(key), places) and _anatomy_ok(
+                cap.get(key), positive=positive
+            ):
+                marks[key] = "leader"
+        if marks:
+            summary_season[year] = marks
+    summary_career: dict[str, str] = {}
+    if career is not None:
+        summary_career["starts"] = _anatomy_career_kind(
+            career.get("starts"),
+            career_caps.get("starts"),
+            career_caps.get("active_starts"),
+            None,
+            positive=True,
+        )
+        summary_career["started_points"] = _anatomy_career_kind(
+            career.get("starter_points"),
+            career_caps.get("starter_points"),
+            career_caps.get("active_starter_points"),
+            2,
+            positive=True,
+        )
+        summary_career["started_vorp"] = _anatomy_career_kind(
+            career.get("started_vorp"),
+            career_caps.get("started_vorp"),
+            career_caps.get("active_started_vorp"),
+            2,
+            positive=False,
+        )
+        summary_career = {key: kind for key, kind in summary_career.items() if kind}
+    if fantasy_seen:
+        fant_kind = _anatomy_career_kind(
+            fantasy_total,
+            fant.get("all_time"),
+            fant.get("active"),
+            2,
+            positive=True,
+        )
+        if fant_kind:
+            summary_career["points"] = fant_kind
+    sum_sql = ",\n".join(
+        f"max({column}) FILTER (WHERE player_id NOT LIKE 'TEAM_%%') AS {column}"
+        for column in sums
+    )
+    rate_sql_bits: list[str] = []
+    for column, descending, min_games, gate in rates:
+        fn = "max" if descending else "min"
+        alias = f"{column}_{'high' if descending else 'low'}"
+        rate_sql_bits.append(
+            f"{fn}({column}) FILTER (WHERE {_anatomy_rate_filter(min_games, gate)}) AS {alias}"
+        )
+    rate_sql = ",\n".join(rate_sql_bits)
+    select_bits = ",\n".join(bit for bit in (sum_sql, rate_sql) if bit)
+    counting_caps = {
+        int(row["year"]): row
+        for row in fetchall(
+            f"""
+            SELECT year,
+            {select_bits}
+            FROM v_player_counting_season
+            WHERE year = ANY(%(years)s)
+            GROUP BY year
+            """,
+            {"years": finished},
+        )
+    } if select_bits and finished else {}
+    active_sum = ",\n".join(
+        "max({column}) FILTER (WHERE player_id NOT LIKE 'TEAM_%%' AND player_id = ANY(%(active)s)) AS active_{column}".format(
+            column=column
+        )
+        for column in sums
+    )
+    active_rate_bits = []
+    for column, descending, min_games, gate in rates:
+        fn = "max" if descending else "min"
+        alias = f"active_{column}_{'high' if descending else 'low'}"
+        active_rate_bits.append(
+            "{fn}({column}) FILTER (WHERE {filt} AND player_id = ANY(%(active)s)) AS {alias}".format(
+                fn=fn,
+                column=column,
+                filt=_anatomy_rate_filter(min_games, gate),
+                alias=alias,
+            )
+        )
+    career_select = ",\n".join(
+        bit for bit in (sum_sql, rate_sql, active_sum, ",\n".join(active_rate_bits)) if bit
+    )
+    counting_career_caps = fetchone(
+        f"""
+        SELECT
+        {career_select}
+        FROM v_player_counting_career
+        """,
+        {"active": active_ids},
+    ) if career_select else None
+    counting_career_caps = counting_career_caps or {}
+    mine_seasons = fetchall(
+        """
+        SELECT *
+        FROM v_player_counting_season
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    mine_career = fetchone(
+        """
+        SELECT *
+        FROM v_player_counting_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    counting_season: dict[int, dict[str, str]] = {}
+    if not str(player_id).startswith("TEAM_"):
+        for row in mine_seasons:
+            year = int(row["year"])
+            cap = counting_caps.get(year)
+            if cap is None:
+                continue
+            marks = {}
+            for column in sums:
+                if _anatomy_tied(row.get(column), cap.get(column), None) and _anatomy_ok(
+                    cap.get(column), positive=True
+                ):
+                    marks[column] = "leader"
+            for column, descending, min_games, gate in rates:
+                if gate == "DEF" and row.get("position") != "DEF":
+                    continue
+                if min_games and int(row.get("games") or 0) < min_games:
+                    continue
+                alias = f"{column}_{'high' if descending else 'low'}"
+                if _anatomy_tied(row.get(column), cap.get(alias), 4):
+                    marks[column] = "leader"
+            if marks:
+                counting_season[year] = marks
+    counting_career: dict[str, str] = {}
+    if mine_career is not None and not str(player_id).startswith("TEAM_"):
+        for column in sums:
+            kind = _anatomy_career_kind(
+                mine_career.get(column),
+                counting_career_caps.get(column),
+                counting_career_caps.get(f"active_{column}"),
+                None,
+                positive=True,
+            )
+            if kind:
+                counting_career[column] = kind
+        for column, descending, min_games, gate in rates:
+            if gate == "DEF" and mine_career.get("position") != "DEF":
+                continue
+            if min_games and int(mine_career.get("games") or 0) < min_games:
+                continue
+            alias = f"{column}_{'high' if descending else 'low'}"
+            kind = _anatomy_career_kind(
+                mine_career.get(column),
+                counting_career_caps.get(alias),
+                counting_career_caps.get(f"active_{alias}"),
+                4,
+                positive=False,
+            )
+            if kind:
+                counting_career[column] = kind
+    linked = list(sums)
+    for column, _descending, _min_games, _gate in rates:
+        if column not in linked:
+            linked.append(column)
+    return {
+        "summary_season": summary_season,
+        "summary_career": summary_career,
+        "counting_season": counting_season,
+        "counting_career": counting_career,
+        "fantasy": fantasy,
+        "fantasy_total": fantasy_total if fantasy_seen else None,
+        "linked_columns": linked,
+    }

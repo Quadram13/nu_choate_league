@@ -1,0 +1,241 @@
+{% from "plaque_macros.html" import person_link %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+{% macro pct(value) %}
+{% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
+{% endmacro %}
+{% macro num1(value) %}
+{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}
+{% endmacro %}
+{% macro cell(line, key) -%}
+{%- if line and line[key] -%}{{ line[key]|int }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% macro leader_class(kind) -%}
+{%- if kind == 'leader' %} is-leader{% elif kind == 'record' %} is-record{% elif kind == 'active' %} is-active-leader{% endif -%}
+{%- endmacro %}
+{% macro kind_for(marks, key) -%}
+{%- if marks and key in marks -%}{{ marks[key] }}{%- endif -%}
+{%- endmacro %}
+{% macro cell_link(key, href, linked, row) -%}
+{%- if href and linked and key in linked -%}
+{%- if key == 'pts_allow_pg' or key == 'yds_allow_pg' -%}
+{%- if row.position == 'DEF' -%}{{ href }}{%- endif -%}
+{%- else -%}{{ href }}{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
+{% macro marked(text, kind='', href='') -%}
+{%- if text is not none and text != '' -%}
+{%- if href -%}<a href="{{ href }}">{{ text }}</a>{%- else -%}{{ text }}{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
+{% macro leader_note() %}
+<p class="note">Bold season totals indicate the player led the league that finished season, including a tie for the high. Gold career totals indicate an all-time record. Italic career totals indicate the active leader. A linked number has a leaderboard. The in-progress season is not marked.</p>
+{% endmacro %}
+{% macro week_href(row) -%}
+{%- if row.matchup_id -%}/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}{%- else -%}/seasons/{{ row.year }}/week/{{ row.week }}{%- endif -%}
+{%- endmacro %}
+{% macro box_head() %}
+<th class="num" title="Counting-stat rows. Byes and all-zero weeks have no row.">G</th>
+<th class="num" title="Pass completions">Cmp</th>
+<th class="num" title="Pass attempts">Att</th>
+<th class="num" title="Pass yards">PYd</th>
+<th class="num" title="Pass yards per counting game">PYd/G</th>
+<th class="num" title="Pass touchdowns">PTD</th>
+<th class="num" title="Interceptions thrown">INT</th>
+<th class="num" title="Rush attempts">RuAtt</th>
+<th class="num" title="Rush yards">RuYd</th>
+<th class="num" title="Rush yards per counting game">RuYd/G</th>
+<th class="num" title="Rush touchdowns">RuTD</th>
+<th class="num" title="Receptions">Rec</th>
+<th class="num" title="Targets">Tgt</th>
+<th class="num" title="Receiving yards">RecYd</th>
+<th class="num" title="Receiving yards per counting game">RecYd/G</th>
+<th class="num" title="Receiving touchdowns">RecTD</th>
+<th class="num" title="Fumbles lost">FL</th>
+<th class="num" title="Pass 2-pt conversions">P2</th>
+<th class="num" title="Rush 2-pt conversions">Ru2</th>
+<th class="num" title="Receiving 2-pt conversions">Rec2</th>
+<th class="num" title="Pass first downs">PFD</th>
+<th class="num" title="Rush first downs">RuFD</th>
+<th class="num" title="Receiving first downs">RecFD</th>
+<th class="num" title="Pass red-zone attempts. 0 in 2022-2023.">PRZ</th>
+<th class="num" title="Rush red-zone attempts. 0 in 2022-2023.">RuRZ</th>
+<th class="num" title="Red-zone targets. 0 in 2022-2023.">RecRZ</th>
+<th class="num" title="Field goals made">FGM</th>
+<th class="num" title="Field goals attempted">FGA</th>
+<th class="num" title="Field goals made per counting game">FG/G</th>
+<th class="num" title="Extra points made">XPM</th>
+<th class="num" title="Extra points attempted">XPA</th>
+<th class="num" title="Field goals made from 50 or more">50+</th>
+<th class="num" title="Sacks">Sack</th>
+<th class="num" title="Sacks per counting game">Sk/G</th>
+<th class="num" title="Defensive interceptions">DInt</th>
+<th class="num" title="Fumbles recovered">FR</th>
+<th class="num" title="Defensive touchdowns">DTD</th>
+<th class="num" title="Special-teams touchdowns">STTD</th>
+<th class="num" title="Blocked kicks">Blk</th>
+<th class="num" title="Safeties">Sfty</th>
+<th class="num" title="Points allowed, sum of stored weeks">PA</th>
+<th class="num" title="Points allowed per counting game">PA/G</th>
+<th class="num" title="Yards allowed, sum of stored weeks">YA</th>
+<th class="num" title="Yards allowed per counting game">YA/G</th>
+<th class="num" title="Rush + rec + pass touchdowns">TD</th>
+<th class="num" title="Total touchdowns per counting game">TD/G</th>
+<th class="num" title="Games with 100 or more rush yards">100Ru</th>
+<th class="num" title="Games with 100 or more receiving yards">100Rec</th>
+<th class="num" title="Games with 300 or more pass yards">300P</th>
+<th class="num" title="Games with 2 or more rush+rec+pass touchdowns">2TD</th>
+{% endmacro %}
+{% macro box_rate(value, kind='', link='') %}<td class="num{{ leader_class(kind) }}" data-value="{{ value if value is not none else '' }}">{% if value is not none %}{% if link %}<a href="{{ link }}">{{ "%.1f"|format(value) }}</a>{% else %}{{ "%.1f"|format(value) }}{% endif %}{% endif %}</td>{% endmacro %}
+{% macro box_num(value, kind='', link='') %}<td class="num{{ leader_class(kind) }}">{% if link %}<a href="{{ link }}">{{ value|int }}</a>{% else %}{{ value|int }}{% endif %}</td>{% endmacro %}
+{% macro box(row, marks=none, href=none, linked=none) %}
+{{ box_num(row.counting_games if row.counting_games is defined else row.games) }}
+{{ box_num(row.pass_cmp) }}
+{{ box_num(row.pass_att) }}
+{{ box_num(row.pass_yd, kind_for(marks, 'pass_yd'), cell_link('pass_yd', href, linked, row)) }}
+{{ box_rate(row.pass_yd_pg) }}
+{{ box_num(row.pass_td, kind_for(marks, 'pass_td'), cell_link('pass_td', href, linked, row)) }}
+{{ box_num(row.pass_int) }}
+{{ box_num(row.rush_att) }}
+{{ box_num(row.rush_yd, kind_for(marks, 'rush_yd'), cell_link('rush_yd', href, linked, row)) }}
+{{ box_rate(row.rush_yd_pg) }}
+{{ box_num(row.rush_td, kind_for(marks, 'rush_td'), cell_link('rush_td', href, linked, row)) }}
+{{ box_num(row.rec, kind_for(marks, 'rec'), cell_link('rec', href, linked, row)) }}
+{{ box_num(row.rec_tgt, kind_for(marks, 'rec_tgt'), cell_link('rec_tgt', href, linked, row)) }}
+{{ box_num(row.rec_yd, kind_for(marks, 'rec_yd'), cell_link('rec_yd', href, linked, row)) }}
+{{ box_rate(row.rec_yd_pg) }}
+{{ box_num(row.rec_td, kind_for(marks, 'rec_td'), cell_link('rec_td', href, linked, row)) }}
+{{ box_num(row.fum_lost) }}
+{{ box_num(row.pass_2pt) }}
+{{ box_num(row.rush_2pt) }}
+{{ box_num(row.rec_2pt) }}
+{{ box_num(row.pass_fd) }}
+{{ box_num(row.rush_fd) }}
+{{ box_num(row.rec_fd) }}
+{{ box_num(row.pass_rz_att) }}
+{{ box_num(row.rush_rz_att) }}
+{{ box_num(row.rec_rz_tgt) }}
+{{ box_num(row.fgm, kind_for(marks, 'fgm'), cell_link('fgm', href, linked, row)) }}
+{{ box_num(row.fga) }}
+{{ box_rate(row.fgm_pg) }}
+{{ box_num(row.xpm) }}
+{{ box_num(row.xpa) }}
+{{ box_num(row.fgm_50p) }}
+{{ box_num(row.sack, kind_for(marks, 'sack'), cell_link('sack', href, linked, row)) }}
+{{ box_rate(row.sack_pg) }}
+{{ box_num(row.def_int, kind_for(marks, 'def_int'), cell_link('def_int', href, linked, row)) }}
+{{ box_num(row.fum_rec) }}
+{{ box_num(row.def_td) }}
+{{ box_num(row.st_td) }}
+{{ box_num(row.blk_kick) }}
+{{ box_num(row.safe) }}
+{{ box_num(row.pts_allow) }}
+{{ box_rate(row.pts_allow_pg, kind_for(marks, 'pts_allow_pg'), cell_link('pts_allow_pg', href, linked, row)) }}
+{{ box_num(row.yds_allow) }}
+{{ box_rate(row.yds_allow_pg, kind_for(marks, 'yds_allow_pg'), cell_link('yds_allow_pg', href, linked, row)) }}
+{{ box_num(row.total_td, kind_for(marks, 'total_td'), cell_link('total_td', href, linked, row)) }}
+{{ box_rate(row.total_td_pg) }}
+{{ box_num(row.g_rush_100, kind_for(marks, 'g_rush_100'), cell_link('g_rush_100', href, linked, row)) }}
+{{ box_num(row.g_rec_100, kind_for(marks, 'g_rec_100'), cell_link('g_rec_100', href, linked, row)) }}
+{{ box_num(row.g_pass_300, kind_for(marks, 'g_pass_300'), cell_link('g_pass_300', href, linked, row)) }}
+{{ box_num(row.g_td_2, kind_for(marks, 'g_td_2'), cell_link('g_td_2', href, linked, row)) }}
+{% endmacro %}
+{% macro week_table(rows) %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num" title="Count of the rows from top to bottom. Recalculated when a column is sorted.">Rk</th>
+            <th>When</th>
+            <th>Manager</th>
+            <th>Role</th>
+            <th title="2022-2023 NFL opponent for this player's current club">NFL</th>
+            <th class="num">PF</th>
+            <th class="num" title="Points minus this season's own mean">Dev</th>
+            <th class="num" title="Pass yards">P yd</th>
+            <th class="num" title="Pass touchdowns">P TD</th>
+            <th class="num" title="Rush yards">Ru yd</th>
+            <th class="num" title="Rush touchdowns">Ru TD</th>
+            <th class="num" title="Receptions">Rec</th>
+            <th class="num" title="Targets">Tgt</th>
+            <th class="num" title="Receiving yards">Rec yd</th>
+            <th class="num" title="Receiving touchdowns">Rec TD</th>
+            <th title="Attempts, turnovers, first downs, red zone, kicking, defense">Count</th>
+            <th>Line</th>
+            <th class="num" title="Sleeper PPR positional rank, 2024–2026. Hover a cell for half-PPR and standard. Blank on ESPN seasons.">Rank</th>
+            <th class="num" title="Snap count and share of team snaps. Offensive when the player took an offensive snap, otherwise defensive, then special teams. Blank in 2022–23, when there are no snap rows. The share is blank when that snap family has no team total.">Snaps</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        {% set ctx = row.sleeper_context %}
+        {% set played_snap = ctx and ((ctx.gp or 0) > 0 or (ctx.off_snp or 0) > 0 or (ctx.def_snp or 0) > 0 or (ctx.st_snp or 0) > 0) %}
+        {% set quiet = (not row.line) and (row.points is none or row.points == 0) and not played_snap %}
+        {% set is_bye = row.bye_only or row.nfl_opponent == 'BYE' %}
+        <tr data-year="{{ row.year }}">
+            <td class="num rk">{{ loop.index }}</td>
+            <td><a href="{{ week_href(row) }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>
+                {% if row.bye_only %}—{% elif row.rostered %}{{ person(row.manager_id, row.manager_name) }}{% else %}FA{% endif %}
+            </td>
+            <td>{% if row.bye_only %}bye{% elif row.started %}start{% elif row.rostered %}bench{% else %}FA{% endif %}</td>
+            <td>{% if row.nfl_opponent %}<a href="{{ week_href(row) }}">{{ row.nfl_opponent }}</a>{% else %}—{% endif %}</td>
+            {% if quiet %}
+            <td colspan="14">{% if is_bye %}bye{% else %}Inactive{% endif %}</td>
+            {% else %}
+            <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td class="num{% if row.is_boom %} plus{% elif row.is_bust %} minus{% endif %}">{% if row.deviation is not none %}{{ "%+.2f"|format(row.deviation) }}{% endif %}</td>
+            <td class="num">{{ cell(row.line, "pass_yd") }}</td>
+            <td class="num">{{ cell(row.line, "pass_td") }}</td>
+            <td class="num">{{ cell(row.line, "rush_yd") }}</td>
+            <td class="num">{{ cell(row.line, "rush_td") }}</td>
+            <td class="num">{{ cell(row.line, "rec") }}</td>
+            <td class="num">{{ cell(row.line, "rec_tgt") }}</td>
+            <td class="num">{{ cell(row.line, "rec_yd") }}</td>
+            <td class="num">{{ cell(row.line, "rec_td") }}</td>
+            <td>{% if row.line and row.line.counting_note %}{{ row.line.counting_note }}{% else %}—{% endif %}</td>
+            <td>
+                {% if row.line %}
+                {% if row.line.pass_points %}pass {{ "%.1f"|format(row.line.pass_points) }}{% endif %}
+                {% if row.line.rush_points %}{% if row.line.pass_points %} · {% endif %}rush {{ "%.1f"|format(row.line.rush_points) }}{% endif %}
+                {% if row.line.rec_points %}{% if row.line.pass_points or row.line.rush_points %} · {% endif %}rec {{ "%.1f"|format(row.line.rec_points) }}{% endif %}
+                {% if row.line.misc_points %}{% if row.line.pass_points or row.line.rush_points or row.line.rec_points %} · {% endif %}misc {{ "%.1f"|format(row.line.misc_points) }}{% endif %}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+            <td class="num"{% if row.sleeper_context and row.sleeper_context.rank_title %} title="{{ row.sleeper_context.rank_title }}"{% endif %}>{% if row.sleeper_context and row.sleeper_context.pos_rank_ppr is not none %}{{ row.sleeper_context.pos_rank_ppr|int }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.sleeper_context and row.sleeper_context.snap_note %}{{ row.sleeper_context.snap_note }}{% else %}—{% endif %}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+<p class="note">Rk counts the rows and is recalculated when a column is sorted. Bye is a 2022–2023 NFL bye. Inactive is a stored week with no counting line and no games-played or snap flag. A one-game season is this same table with one row.</p>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("table.js-sort").forEach(function (table) {
+        if (!table.querySelector("td.rk")) {
+            return;
+        }
+        table.addEventListener("click", function (event) {
+            var header = event.target.closest("thead th");
+            if (!header || !table.contains(header)) {
+                return;
+            }
+            var n = 0;
+            table.querySelectorAll("tbody tr").forEach(function (row) {
+                var cell = row.querySelector("td.rk");
+                if (!cell) {
+                    return;
+                }
+                n += 1;
+                cell.textContent = String(n);
+            });
+        });
+    });
+});
+</script>
+{% endmacro %}

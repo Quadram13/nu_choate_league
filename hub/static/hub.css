@@ -2559,3 +2559,20 @@ tr.podium td:nth-child(3) {
         grid-template-columns: 1fr;
     }
 }
+
+/* B1 player anatomy (#96). Text marks only: no cell fill. */
+td.is-leader,
+td.is-leader a {
+    font-weight: 700;
+}
+
+td.is-record,
+td.is-record a {
+    color: #e0c36a;
+    font-weight: 700;
+}
+
+td.is-active-leader,
+td.is-active-leader a {
+    font-style: italic;
+}

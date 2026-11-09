@@ -353,11 +353,44 @@ def players(request: Request) -> HTMLResponse:
     )
 
 
-@app.get("/players/{player_id}", response_class=HTMLResponse)
-def player(request: Request, player_id: str) -> HTMLResponse:
+def _player_years(weeks: list) -> list[int]:
+    return sorted({int(row["year"]) for row in weeks}, reverse=True)
+
+
+def _filter_year(rows: list, year: int | None) -> list:
+    if year is None:
+        return list(rows)
+    return [row for row in rows if int(row["year"]) == year]
+
+
+def _load_player(player_id: str, *, anatomy: bool) -> dict | None:
     data = queries.player_page(player_id)
     if data is None:
+        return None
+    years = _player_years(data["weeks"])
+    data["log_years"] = years
+    data["current_year"] = years[0] if years else None
+    if anatomy:
+        data["anatomy"] = queries.player_anatomy(player_id)
+    return data
+
+
+def _selected_year(request: Request) -> int | None:
+    raw = request.query_params.get("year")
+    if raw and raw.isdigit():
+        return int(raw)
+    return None
+
+
+# --- B1 player anatomy (#96). Profile keeps /players/{id}. Log and splits are the two new routes. ---
+
+
+@app.get("/players/{player_id}", response_class=HTMLResponse)
+def player(request: Request, player_id: str) -> HTMLResponse:
+    data = _load_player(player_id, anatomy=True)
+    if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No player {player_id}.")
+    data["shown_weeks"] = _filter_year(data["weeks"], data["current_year"]) if data["current_year"] else []
     person = data["player"]
     return page(
         request,
@@ -366,3 +399,34 @@ def player(request: Request, player_id: str) -> HTMLResponse:
         title=person["player_name"],
         **data,
     )
+
+
+@app.get("/players/{player_id}/log", response_class=HTMLResponse)
+def player_log(request: Request, player_id: str) -> HTMLResponse:
+    data = _load_player(player_id, anatomy=False)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No player {player_id}.")
+    selected = _selected_year(request)
+    data["selected_year"] = selected
+    data["shown_weeks"] = _filter_year(data["weeks"], selected)
+    person = data["player"]
+    title = person["player_name"] + " game log"
+    return page(request, "player_log.html", nav="players", title=title, **data)
+
+
+@app.get("/players/{player_id}/splits", response_class=HTMLResponse)
+def player_splits(request: Request, player_id: str) -> HTMLResponse:
+    data = _load_player(player_id, anatomy=False)
+    if data is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No player {player_id}.")
+    selected = _selected_year(request)
+    data["selected_year"] = selected
+    splits = data.get("splits") or {}
+    rows = _filter_year(splits.get("rows") or [], selected)
+    data["phase_rows"] = [row for row in rows if row.get("split_family") == "phase"]
+    data["half_rows"] = [row for row in rows if row.get("split_family") == "half"]
+    data["site_rows"] = _filter_year(splits.get("sites") or [], selected)
+    data["opponent_rows"] = _filter_year(splits.get("opponents") or [], selected)
+    person = data["player"]
+    title = person["player_name"] + " splits"
+    return page(request, "player_splits.html", nav="players", title=title, **data)
