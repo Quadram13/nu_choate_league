@@ -4452,7 +4452,8 @@ def players_index() -> dict[str, Any]:
         SELECT
             i.player_id, i.player_name, i.position, i.seasons, i.first_year, i.last_year,
             i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
-            i.vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added, i.times_traded,
+            i.started_vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added,
+            i.times_traded,
             coalesce(r.rings, 0) AS rings
         FROM v_player_index i
         LEFT JOIN (
@@ -4462,17 +4463,17 @@ def players_index() -> dict[str, Any]:
             WHERE pw.started
             GROUP BY pw.player_id
         ) r ON r.player_id = i.player_id
-        ORDER BY i.starter_points DESC, i.vorp DESC, i.player_name
+        ORDER BY i.starter_points DESC, i.started_vorp DESC, i.player_name
         """
     )
     seasons = fetchall(
         """
         SELECT
             year, player_id, player_name, position, rostered_weeks, starts,
-            fa_weeks, points, started_points, vorp, own_pct, manager_id,
+            fa_weeks, points, started_points, vorp, started_vorp, own_pct, manager_id,
             owner_name, owned_weeks, lineup_weeks
         FROM v_player_season
-        ORDER BY year DESC, started_points DESC, vorp DESC, player_name
+        ORDER BY year DESC, started_points DESC, started_vorp DESC, player_name
         """
     )
     for row in career:
@@ -4670,7 +4671,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         SELECT
             player_id, player_name, position, seasons, first_year, last_year,
             starts, bench_weeks, starter_points, rostered_weeks, fa_weeks,
-            vorp, own_pct, lineup_weeks, times_drafted, times_added, times_dropped,
+            started_vorp, NULL::double precision AS unowned_points,
+            own_pct, lineup_weeks, times_drafted, times_added, times_dropped,
             times_traded
         FROM v_player_index
         WHERE player_id = %(player_id)s
@@ -4678,6 +4680,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         {"player_id": player_id},
     )
     if identity is None:
+        # No index row means the player was never rostered. Every stored
+        # week is unowned, so that sum must not wear the starter-PF name.
         identity = fetchone(
             """
             SELECT
@@ -4689,10 +4693,11 @@ def player_page(player_id: str) -> dict[str, Any] | None:
                 max(v.year) AS last_year,
                 sum(v.starts) AS starts,
                 NULL::bigint AS bench_weeks,
-                sum(v.points) AS starter_points,
+                sum(v.started_points) AS starter_points,
+                sum(v.points) AS unowned_points,
                 sum(v.rostered_weeks) AS rostered_weeks,
                 sum(v.fa_weeks) AS fa_weeks,
-                sum(v.vorp) AS vorp,
+                sum(v.started_vorp) AS started_vorp,
                 max(lineups.lineup_weeks) AS lineup_weeks,
                 CASE
                     WHEN coalesce(max(lineups.lineup_weeks), 0) = 0 THEN NULL
@@ -4722,8 +4727,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         """
         SELECT
             year, player_id, player_name, position, weeks, rostered_weeks,
-            starts, fa_weeks, points, vorp, fa_vorp, own_pct, manager_id,
-            owner_name, owned_weeks, lineup_weeks
+            starts, fa_weeks, started_points, started_vorp, fa_vorp, own_pct,
+            manager_id, owner_name, owned_weeks, lineup_weeks
         FROM v_player_season
         WHERE player_id = %(player_id)s
         ORDER BY year DESC
@@ -4825,8 +4830,8 @@ def _fa_only_seasons(player_id: str) -> list[dict[str, Any]]:
             v.rostered_weeks,
             v.starts,
             v.fa_weeks,
-            v.points,
-            v.vorp,
+            v.started_points,
+            v.started_vorp,
             v.fa_vorp,
             CASE
                 WHEN v.lineup_weeks = 0 THEN NULL

@@ -24,9 +24,13 @@
     {% if bio and bio.college %} · {{ bio.college }}{% endif %}
     {% if bio and bio.years_exp is not none %} · {{ bio.years_exp }} yr NFL{% endif %}
     · {{ (player.starts or 0)|int }} start{{ "s" if player.starts != 1 else "" }}
+    {% if (player.rostered_weeks or 0)|int > 0 or (player.starts or 0)|int > 0 %}
     {% if player.starter_points is not none %} · {{ "%.1f"|format(player.starter_points) }} starter PF{% endif %}
+    {% if player.started_vorp is not none %} · <span title="VORP on starts">{{ "%+.1f"|format(player.started_vorp) }} VORP</span>{% endif %}
+    {% elif player.unowned_points is defined and player.unowned_points is not none %}
+    · {{ "%.1f"|format(player.unowned_points) }} points while unowned
+    {% endif %}
     {% if player.own_pct is not none %} · <span title="{{ (player.rostered_weeks or 0)|int }} of {{ (player.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(player.own_pct) }} owned</span>{% endif %}
-    {% if player.vorp is not none %} · {{ "%+.1f"|format(player.vorp) }} VORP{% endif %}
     {% if player.first_year %} · {{ player.first_year }}–{{ player.last_year }}{% endif %}
 </p>
 {% if chairs %}
@@ -92,7 +96,7 @@
     · {{ (player.times_traded or 0)|int }} trade{{ "s" if player.times_traded != 1 else "" }}.
 </p>
 {% endif %}
-<p class="note">Each run is consecutive stored weeks for one manager. A missing week starts a new run.</p>
+<p class="note">Each run is consecutive stored weeks for one manager. A missing week starts a new run. Pts sums those stored weeks, bench included. An FA run is points while unowned.</p>
 <table>
     <thead>
         <tr>
@@ -101,7 +105,7 @@
             <th>Manager</th>
             <th class="num">Held</th>
             <th class="num">Starts</th>
-            <th class="num">PF</th>
+            <th class="num" title="Points on every stored week in the run, bench included. An FA run is points while unowned.">Pts</th>
         </tr>
     </thead>
     <tbody>
@@ -119,7 +123,7 @@
 </table>
 
 <h2 id="seasons">By season</h2>
-<p class="note">Wk through Top3 are scored weeks only: a non-zero week, or a start that scored zero. SD is the sample standard deviation. Boom is at least 1.5× that season’s mean. Bust is at most half. Dev on each week is points minus that season mean. A live week stays out until the median team total reaches 40.</p>
+<p class="note">PF and VORP count starts only. FA VORP is posted weeks the player was not rostered, and a missing score counts as zero. Wk through Top3 are scored weeks only: a non-zero week, or a start that scored zero. SD is the sample standard deviation. Boom is at least 1.5× that season’s mean. Bust is at most half. Dev on each week is points minus that season mean. A live week stays out until the median team total reaches 40.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -129,8 +133,8 @@
             <th class="num" title="Rostered weeks, any manager">Rstr</th>
             <th class="num">Starts</th>
             <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
-            <th class="num">PF</th>
-            <th class="num">VORP</th>
+            <th class="num" title="Points on starts">PF</th>
+            <th class="num" title="VORP on starts">VORP</th>
             <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
             <th class="num" title="Rostered weeks divided by posted lineup weeks">Own</th>
             <th class="num" title="Scored weeks">Wk</th>
@@ -154,8 +158,8 @@
             <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
             <td class="num">{{ (row.starts or 0)|int }}</td>
             <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
-            <td class="num" data-value="{{ row.points }}">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
             <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
             <td class="num" data-value="{{ vol.weeks_scored if vol and vol.weeks_scored is not none else '' }}">{% if vol and vol.weeks_scored is not none %}{{ vol.weeks_scored|int }}{% endif %}</td>
