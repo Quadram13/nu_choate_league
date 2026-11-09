@@ -63,6 +63,9 @@ def apply_schema(
 # Load applies schema before it truncates facts, then refreshes these
 # snapshots. Later names read earlier ones. The fa chain reads plain views
 # (and, when those are snapshots too, the fa snapshot before them).
+# The players-index names read plain views, not each other, and not the fa
+# chain. 60_players.sql and 97_volatility.sql drop them by CASCADE; the
+# snapshot file recreates them before this refresh.
 ANALYSIS_SNAPSHOTS = (
     "v_asset_value",
     "v_optimal_slots",
@@ -73,6 +76,11 @@ ANALYSIS_SNAPSHOTS = (
     "v_fa_weeks",
     "v_fa_season",
     "v_fa_career",
+    "v_players_index_vol_season",
+    "v_players_index_vol_career",
+    "v_players_index_career",
+    "v_players_index_season",
+    "v_players_index_gap",
 )
 
 
