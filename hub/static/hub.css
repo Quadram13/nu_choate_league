@@ -2559,3 +2559,51 @@ tr.podium td:nth-child(3) {
         grid-template-columns: 1fr;
     }
 }
+
+/* === A3 loading (append-only; do not edit rules above) ===
+   Sticky log headers. The class is the only hook. Tables without
+   .sticky-head are untouched.
+
+   The header background has to be opaque or body rows show through while
+   the header sticks. Modern's page background (--bg, #0f1419) is opaque.
+   Era stylesheets set --sticky-head to their own opaque stat-surface color
+   (era90 a light grid, era2010 the same). Do not set it to transparent
+   or to a color with an alpha below 1.
+
+   position: sticky is relative to the nearest scrollport. An ancestor with
+   overflow other than visible becomes that scrollport. Home's standings
+   table sits in .standings-wrap (overflow-x: auto), so its header sticks
+   inside that wrap. A log page that should stick to the viewport does not
+   wrap .sticky-head in a horizontal scroller.
+*/
+.sticky-head thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #0f1419;
+    background-color: var(--sticky-head, var(--bg, #0f1419));
+    box-shadow: inset 0 -1px 0 #1f2933;
+}
+
+.sticky-head.sticky-first thead th:first-child {
+    top: 0;
+    left: 0;
+    z-index: 3;
+    background-color: #0f1419;
+    background-color: var(--sticky-head, var(--bg, #0f1419));
+}
+
+.numeral-row {
+    margin: 10px 0 16px;
+    line-height: 1.6;
+}
+
+.numeral-row .numeral,
+.numeral-row .numeral-gap,
+.numeral-row .numeral-label {
+    margin-right: 0.4em;
+}
+
+.numeral-row strong.numeral {
+    font-weight: 700;
+}

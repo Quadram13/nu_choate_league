@@ -1,0 +1,5 @@
+{# Full-document envelope for one fragment. Not a fragment: fragments must not extend a shell. #}
+{% extends "base.html" %}
+{% block body %}
+{{ fragment_html|safe }}
+{% endblock %}
