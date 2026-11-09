@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..paths import project_root
-from . import queries
+from . import queries, themes
 from .names import flavor_team, manager_hue
 from .photos import avatar_url, headshot_url
 
@@ -21,6 +21,9 @@ templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(mem
 templates.env.globals["headshot_url"] = headshot_url
 templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["manager_hue"] = manager_hue
+
+# --- A2 theme wiring (#98). Fail closed before any route is registered. ---
+themes.install(templates)
 
 
 def _with_db(endpoint):
@@ -50,11 +53,18 @@ app.router.route_class = HubRoute
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 
+# --- A2 theme wiring (#98). ?theme= wins, then the cookie, then modern. ---
+@app.middleware("http")
+async def persist_theme_cookie(request: Request, call_next):
+    response = await call_next(request)
+    return themes.persist_theme(request, response)
+
+
 def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         name,
-        {"nav": nav, "title": title, **context},
+        {"nav": nav, "title": title, **context, "theme": themes.resolve_theme(request)},
     )
 
 
@@ -66,7 +76,13 @@ async def http_error(request: Request, exc: StarletteHTTPException) -> HTMLRespo
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"nav": "", "title": heading, "status": status, "detail": exc.detail},
+        {
+            "nav": "",
+            "title": heading,
+            "theme": themes.resolve_theme(request),
+            "status": status,
+            "detail": exc.detail,
+        },
         status_code=status,
     )
 
@@ -100,6 +116,9 @@ def seasons(request: Request) -> HTMLResponse | RedirectResponse:
 
 @app.get("/seasons/{year}", response_class=HTMLResponse)
 def season(request: Request, year: int) -> HTMLResponse:
+    # --- A2 era dispatch (#98). Modern falls through to the legacy document. ---
+    if themes.resolve_theme(request) != "modern":
+        return themes.season_document(request, year)
     data = queries.season_page(year)
     if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")

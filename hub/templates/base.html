@@ -28,6 +28,7 @@
                 <a href="/players" {% if nav == "players" %}class="on"{% endif %}>Players</a>
             </nav>
         </header>
+        <nav class="theme-switch" aria-label="Theme"><a href="?theme=modern"{% if theme|default('modern') == 'modern' %} class="is-on" aria-current="page"{% endif %}>Modern</a> <a href="?theme=era90"{% if theme|default('modern') == 'era90' %} class="is-on" aria-current="page"{% endif %}>1998</a> <a href="?theme=era2010"{% if theme|default('modern') == 'era2010' %} class="is-on" aria-current="page"{% endif %}>2010</a></nav>
         {% block body %}{% endblock %}
     </div>
 </body>
