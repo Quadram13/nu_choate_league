@@ -1,5 +1,8 @@
 -- Games: one row per manager per scored matchup (base for most views).
 -- Facts/tables live in sql/facts.sql.
+-- Only posted weeks (v_posted_weeks). A live leg with a few non-zero
+-- totals is not a finished game. The non-zero filter still drops an
+-- unscored bye inside a posted week.
 
 DROP VIEW IF EXISTS
     v_games
@@ -22,10 +25,13 @@ SELECT
         ELSE 'tie'
     END AS result
 FROM matchups m
-JOIN seasons s ON s.year = m.year
 WHERE m.home_manager_id IS NOT NULL
-    AND (s.through_week IS NULL OR m.week <= s.through_week)
     AND (m.home_points <> 0 OR m.away_points <> 0)
+    AND EXISTS (
+        SELECT 1
+        FROM v_posted_weeks pw
+        WHERE pw.year = m.year AND pw.week = m.week
+    )
 UNION ALL
 SELECT
     m.id,
@@ -43,7 +49,10 @@ SELECT
         ELSE 'tie'
     END
 FROM matchups m
-JOIN seasons s ON s.year = m.year
 WHERE m.away_manager_id IS NOT NULL
-    AND (s.through_week IS NULL OR m.week <= s.through_week)
-    AND (m.home_points <> 0 OR m.away_points <> 0);
+    AND (m.home_points <> 0 OR m.away_points <> 0)
+    AND EXISTS (
+        SELECT 1
+        FROM v_posted_weeks pw
+        WHERE pw.year = m.year AND pw.week = m.week
+    );

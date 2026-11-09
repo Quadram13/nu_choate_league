@@ -316,6 +316,7 @@ def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
 RECORDS_TOP = 10
 _request_conn: ContextVar[psycopg.Connection | None] = ContextVar("hub_conn", default=None)
 
+# Regular season, and a posted week (v_posted_weeks: median team total >= 40).
 _SCORED_REGULAR = """
 EXISTS (
     SELECT 1
@@ -323,6 +324,11 @@ EXISTS (
     WHERE m.year = w.year AND m.week = w.week
         AND m.kind = 'regular'
         AND (m.home_points <> 0 OR m.away_points <> 0)
+)
+AND EXISTS (
+    SELECT 1
+    FROM v_posted_weeks pw
+    WHERE pw.year = w.year AND pw.week = w.week
 )
 """
 
@@ -887,10 +893,9 @@ def _season_scoring(year: int) -> dict[str, Any] | None:
             avg(w.points) AS avg,
             percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) AS median
         FROM week_scores w
-        JOIN seasons s ON s.year = w.year
+        JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
         WHERE w.year = %(year)s
             AND w.paired
-            AND (s.through_week IS NULL OR w.week <= s.through_week)
             AND EXISTS (
                 SELECT 1
                 FROM matchups m
@@ -4314,9 +4319,14 @@ def _fa_vorp_board(*, leader_limit: int = 15, unowned_points: float = 15) -> dic
                 player_id,
                 sum(points) AS fa_points,
                 max(points) AS best_week
-            FROM v_pool_weeks
-            WHERE NOT rostered
-            GROUP BY year, player_id
+            FROM v_pool_weeks p
+            WHERE NOT p.rostered
+                AND EXISTS (
+                    SELECT 1
+                    FROM v_posted_weeks pw
+                    WHERE pw.year = p.year AND pw.week = p.week
+                )
+            GROUP BY p.year, p.player_id
         ) fa ON fa.year = v.year AND fa.player_id = v.player_id
     """
     leaders = fetchall(
@@ -6071,6 +6081,9 @@ def _record_counting_leaders(limit: int = 10) -> list[dict[str, Any]]:
                 s.manager_id,
                 m.display_name AS manager_name
             FROM player_week_counting_stats c
+            JOIN v_posted_weeks pw
+                ON pw.year = c.year
+                AND pw.week = c.week
             JOIN player_week_scores s
                 ON s.year = c.year
                 AND s.week = c.week
@@ -6156,10 +6169,9 @@ def _week_spread(year: int) -> dict[str, Any] | None:
             percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) AS median,
             stddev_samp(w.points) AS spread
         FROM week_scores w
-        JOIN seasons s ON s.year = w.year
+        JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
         WHERE w.year = %(year)s
             AND w.paired
-            AND (s.through_week IS NULL OR w.week <= s.through_week)
             AND EXISTS (
                 SELECT 1
                 FROM matchups m

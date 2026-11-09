@@ -8,13 +8,11 @@
 -- lineup. Weeks after seasons.through_week are ignored, matching the
 -- record book (2024 and 2025 week 18 are stored and uncounted).
 --
--- Posted week. seasons.through_week includes the live NFL leg before
--- scores exist. 2026 week 9 is that leg: median team total 2.10, max 23,
--- 111 of 120 starts at 0. Every other counted week in 2022-2026 has a
--- median team total of at least 89.95. A week is posted when that median
--- is at least 40, which sits in the gap. 2026 volatility is the posted
--- weeks only. partial_season is through_week < 17 (completed Sleeper
--- seasons store last_scored_leg 17; ESPN history stores NULL).
+-- Posted week. The predicate lives in v_posted_weeks: median team total
+-- at least 40, and not past seasons.through_week. This view is that set.
+-- 2026 volatility is the posted weeks only. partial_season is
+-- through_week < 17 (completed Sleeper seasons store last_scored_leg 17;
+-- ESPN history stores NULL).
 --
 -- Spread. stddev_samp (n-1), not stddev_pop. One week has no spread
 -- (NULL, not a fake 0). 2026 is a partial sample, and a career is a
@@ -64,17 +62,11 @@ DROP VIEW IF EXISTS
 CASCADE;
 
 CREATE VIEW v_volatility_posted_weeks AS
-SELECT
-    w.year,
-    w.week
-FROM week_scores w
-JOIN seasons s ON s.year = w.year
-WHERE s.through_week IS NULL OR w.week <= s.through_week
-GROUP BY w.year, w.week
-HAVING percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) >= 40;
+SELECT year, week
+FROM v_posted_weeks;
 
 COMMENT ON VIEW v_volatility_posted_weeks IS
-    'Weeks whose median team total is at least 40, and not past seasons.through_week. Drops the live leg before scores post (2026 week 9 median was 2.10).';
+    'Posted weeks (v_posted_weeks). Median team total at least 40, and not past seasons.through_week.';
 
 CREATE VIEW v_player_volatility_weeks AS
 SELECT

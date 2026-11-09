@@ -17,7 +17,7 @@ CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS v_marks_weeks CASCADE;
 DROP VIEW IF EXISTS v_marks_weeks CASCADE;
 
--- Regular-season scored weeks only (same filter as records highs/lows).
+-- Regular-season posted weeks only (same filter as records highs/lows).
 CREATE VIEW v_week_scores_ranked AS
 SELECT
     w.year,
@@ -35,10 +35,9 @@ SELECT
     ) AS pf_low_rank,
     count(*) OVER (PARTITION BY w.year, w.week) AS teams
 FROM week_scores w
-JOIN seasons s ON s.year = w.year
 JOIN managers m ON m.id = w.manager_id
-WHERE (s.through_week IS NULL OR w.week <= s.through_week)
-    AND EXISTS (
+JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
+WHERE EXISTS (
         SELECT 1
         FROM matchups mu
         WHERE mu.year = w.year
@@ -75,6 +74,11 @@ JOIN v_asset_value w
         OR (w.next_year = pw.year AND pw.week < w.next_week)
     )
 WHERE pw.started
+    AND EXISTS (
+        SELECT 1
+        FROM v_posted_weeks posted
+        WHERE posted.year = pw.year AND posted.week = pw.week
+    )
 ORDER BY
     pw.year,
     pw.week,
@@ -91,10 +95,15 @@ SELECT
     year,
     player_id,
     min(week) AS week
-FROM v_player_weeks
-WHERE started
-    AND points >= 15
-GROUP BY year, player_id;
+FROM v_player_weeks pw
+WHERE pw.started
+    AND pw.points >= 15
+    AND EXISTS (
+        SELECT 1
+        FROM v_posted_weeks posted
+        WHERE posted.year = pw.year AND posted.week = pw.week
+    )
+GROUP BY pw.year, pw.player_id;
 
 -- One pass: first 15+ start this season, then the week's highest among those.
 CREATE VIEW v_stream_weeks AS
