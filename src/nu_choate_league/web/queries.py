@@ -1046,6 +1046,18 @@ def standings(year: int) -> list[dict[str, Any]]:
             ap.win_pct AS all_play_win_pct,
             lk.net_luck,
             lk.wins_vs_expected,
+            vol.cv AS vol_cv,
+            vol.stddev_points AS vol_stddev,
+            vol.weeks_scored AS vol_weeks,
+            cl.one_score_games,
+            cl.one_score_wins,
+            cl.one_score_losses,
+            cl.one_score_ties,
+            cl.one_score_win_pct,
+            cl.one_score_margin,
+            py.pythagorean_wins,
+            py.wins_vs_pythagorean,
+            py.exponent AS pythagorean_exponent,
             mg.management_pct,
             mg.left_on_bench,
             ch.first_chair,
@@ -1086,6 +1098,12 @@ def standings(year: int) -> list[dict[str, Any]]:
             ON ap.year = o.year AND ap.manager_id = o.manager_id
         LEFT JOIN v_luck_season lk
             ON lk.year = o.year AND lk.manager_id = o.manager_id
+        LEFT JOIN v_manager_volatility_season vol
+            ON vol.year = o.year AND vol.manager_id = o.manager_id
+        LEFT JOIN v_clutch_season cl
+            ON cl.year = o.year AND cl.manager_id = o.manager_id
+        LEFT JOIN v_pythagorean_season py
+            ON py.year = o.year AND py.manager_id = o.manager_id
         LEFT JOIN v_management_season mg
             ON mg.year = o.year AND mg.manager_id = o.manager_id
         LEFT JOIN v_chair_season ch
@@ -1102,6 +1120,7 @@ def standings(year: int) -> list[dict[str, Any]]:
         row["all_play"] = _maybe_record(
             row["all_play_wins"], row["all_play_losses"], row["all_play_ties"]
         )
+        row["one_score"] = _margin_record(row, "one_score")
         row["hue"] = manager_hue(row["manager_id"])
     return rows
 
@@ -3857,6 +3876,7 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "labels": MARK_LABELS,
         "meta": MARK_META,
         "volatility": _manager_volatility_bundle(manager_id),
+        "clutch": _manager_clutch_bundle(manager_id),
     }
 
 
@@ -7000,6 +7020,11 @@ def records_page() -> dict[str, Any]:
         "positional_finish_leaders": _record_positional_finishes(),
         "league_week_records": _record_league_weeks(),
         "scoring_seasons": _scoring_environment_table(),
+        "consistency": _record_consistency(),
+        "one_score": _record_one_score_career(),
+        "blowout_record": _record_blowout_career(),
+        "pythagorean": _record_pythagorean(),
+        "clutch_cuts": _clutch_cuts(),
     }
 
 
@@ -7890,9 +7915,18 @@ def _manager_volatility_bundle(manager_id: str) -> dict[str, Any] | None:
         """,
         {"manager_id": manager_id},
     )
+    weeks = fetchall(
+        """
+        SELECT year, week, points, season_mean, deviation, is_boom, is_bust, partial_season
+        FROM v_manager_week_deviation
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year, week
+        """,
+        {"manager_id": manager_id},
+    )
     if career is None and not seasons:
         return None
-    return {"career": career, "seasons": seasons}
+    return {"career": career, "seasons": seasons, "weeks": weeks}
 
 
 # Ownership journey (sql/analysis/61_ownership_journey.sql, issue #35).
@@ -8393,3 +8427,206 @@ def _replacement_board(year: int) -> dict[str, Any] | None:
         "playoff_weeks": sum(1 for week in weeks if not week["regular"]),
         "baseline_weeks": baseline_weeks.pop() if len(baseline_weeks) == 1 else None,
     }
+
+
+def _margin_record(row: dict[str, Any], band: str) -> str | None:
+    games = row.get(f"{band}_games")
+    if not games:
+        return None
+    return _record(
+        int(row[f"{band}_wins"] or 0),
+        int(row[f"{band}_losses"] or 0),
+        int(row[f"{band}_ties"] or 0),
+    )
+
+
+def _stamp_h2h(row: dict[str, Any]) -> None:
+    if row.get("wins") is None and row.get("losses") is None and row.get("ties") is None:
+        row["h2h"] = None
+        return
+    row["h2h"] = _record(int(row["wins"] or 0), int(row["losses"] or 0), int(row["ties"] or 0))
+
+
+def _clutch_cuts() -> dict[str, Any] | None:
+    return fetchone(
+        """
+        SELECT one_score_margin, blowout_margin, pythagorean_exponent
+        FROM v_clutch_cuts
+        """
+    )
+
+
+def _manager_clutch_bundle(manager_id: str) -> dict[str, Any] | None:
+    seasons = fetchall(
+        """
+        SELECT
+            c.year, c.games, c.partial_season,
+            c.one_score_games, c.one_score_wins, c.one_score_losses, c.one_score_ties,
+            c.one_score_win_pct,
+            c.blowout_games, c.blowout_wins, c.blowout_losses, c.blowout_ties,
+            c.blowout_win_pct,
+            c.one_score_margin, c.blowout_margin,
+            p.wins, p.losses, p.ties, p.points_for, p.points_against,
+            p.actual_wins, p.exponent, p.pythagorean_wins, p.wins_vs_pythagorean,
+            p.wins_vs_expected, p.lens_gap
+        FROM v_clutch_season c
+        LEFT JOIN v_pythagorean_season p
+            ON p.year = c.year AND p.manager_id = c.manager_id
+        WHERE c.manager_id = %(manager_id)s
+        ORDER BY c.year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT
+            c.seasons, c.games, c.includes_partial,
+            c.one_score_games, c.one_score_wins, c.one_score_losses, c.one_score_ties,
+            c.one_score_win_pct,
+            c.blowout_games, c.blowout_wins, c.blowout_losses, c.blowout_ties,
+            c.blowout_win_pct,
+            c.one_score_margin, c.blowout_margin,
+            p.wins, p.losses, p.ties, p.points_for, p.points_against,
+            p.actual_wins, p.exponent, p.pythagorean_wins, p.wins_vs_pythagorean,
+            p.wins_vs_expected, p.lens_gap
+        FROM v_clutch_career c
+        LEFT JOIN v_pythagorean_career p ON p.manager_id = c.manager_id
+        WHERE c.manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    if not seasons and career is None:
+        return None
+    for row in seasons:
+        row["one_score"] = _margin_record(row, "one_score")
+        row["blowout"] = _margin_record(row, "blowout")
+        _stamp_h2h(row)
+    if career is not None:
+        career["one_score"] = _margin_record(career, "one_score")
+        career["blowout"] = _margin_record(career, "blowout")
+        _stamp_h2h(career)
+    return {"seasons": seasons, "career": career}
+
+
+def _record_consistency(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    steady = fetchall(
+        f"""
+        SELECT year, manager_id, display_name, weeks_scored, stddev_points, cv, mean_points
+        FROM v_manager_volatility_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND weeks_scored >= 8
+            AND cv IS NOT NULL
+        ORDER BY cv ASC, stddev_points ASC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    wild = fetchall(
+        f"""
+        SELECT year, manager_id, display_name, weeks_scored, stddev_points, cv, mean_points
+        FROM v_manager_volatility_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND weeks_scored >= 8
+            AND cv IS NOT NULL
+        ORDER BY cv DESC, stddev_points DESC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    return {"steady": steady, "wild": wild}
+
+
+def _record_one_score_career(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    best = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            one_score_games, one_score_wins, one_score_losses, one_score_ties,
+            one_score_win_pct
+        FROM v_clutch_career
+        WHERE one_score_games > 0
+        ORDER BY one_score_win_pct DESC, one_score_wins DESC, one_score_games DESC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    worst = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            one_score_games, one_score_wins, one_score_losses, one_score_ties,
+            one_score_win_pct
+        FROM v_clutch_career
+        WHERE one_score_games > 0
+        ORDER BY one_score_win_pct ASC, one_score_wins ASC, one_score_games ASC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in best + worst:
+        row["one_score"] = _margin_record(row, "one_score")
+    return {"best": best, "worst": worst}
+
+
+def _record_blowout_career(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    best = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            blowout_games, blowout_wins, blowout_losses, blowout_ties,
+            blowout_win_pct
+        FROM v_clutch_career
+        WHERE blowout_games > 0
+        ORDER BY blowout_win_pct DESC, blowout_wins DESC, blowout_games DESC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    worst = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            blowout_games, blowout_wins, blowout_losses, blowout_ties,
+            blowout_win_pct
+        FROM v_clutch_career
+        WHERE blowout_games > 0
+        ORDER BY blowout_win_pct ASC, blowout_wins ASC, blowout_games ASC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in best + worst:
+        row["blowout"] = _margin_record(row, "blowout")
+    return {"best": best, "worst": worst}
+
+
+def _record_pythagorean(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    columns = """
+        year, manager_id, display_name, wins, losses, ties,
+        pythagorean_wins, wins_vs_pythagorean, wins_vs_expected, lens_gap, exponent
+    """
+    over = fetchall(
+        f"""
+        SELECT {columns}
+        FROM v_pythagorean_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND wins_vs_pythagorean IS NOT NULL
+        ORDER BY wins_vs_pythagorean DESC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    under = fetchall(
+        f"""
+        SELECT {columns}
+        FROM v_pythagorean_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND wins_vs_pythagorean IS NOT NULL
+        ORDER BY wins_vs_pythagorean ASC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in over + under:
+        _stamp_h2h(row)
+    return {"over": over, "under": under}

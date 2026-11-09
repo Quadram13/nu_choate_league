@@ -27,9 +27,13 @@
     <a href="#journeymen" data-grain="career">Journeymen</a>
     <a href="#traded" data-grain="career">Most traded</a>
     <a href="#rings" data-grain="career">Rings</a>
+    <a href="#one-score" data-grain="career">One-score</a>
+    <a href="#blowout-record" data-grain="career">Blowout record</a>
     <span class="jump-label">By year</span>
     <a href="#awards">Awards</a>
     <a href="#season">Season</a>
+    <a href="#consistency">Consistency</a>
+    <a href="#pythagorean">Pythagorean</a>
     <a href="#playoff">Playoff</a>
     <a href="#high">Highest weeks</a>
     <a href="#low">Lowest weeks</a>
@@ -235,6 +239,204 @@
             </tbody>
         </table>
     </section>
+</div>
+{% endif %}
+
+{% if consistency.steady or consistency.wild or pythagorean.over or pythagorean.under or one_score.best or blowout_record.best %}
+<h2 id="clutch">Consistency and clutch</h2>
+<p class="note">
+    Finished regular seasons.
+    CV is the sample standard deviation of posted weekly totals divided by the mean, the same definition as the member page.
+    A season needs eight scored weeks to land on the CV board.
+    {% if clutch_cuts %}
+    Pythagorean wins use exponent {{ "%.1f"|format(clutch_cuts.pythagorean_exponent) }} on head-to-head points.
+    {% endif %}
+    vsPy is actual wins, a tie counting half, minus Pythagorean wins.
+    vsExp is the all-play lens.
+</p>
+{% if consistency.steady or consistency.wild %}
+<h3 id="consistency">Weekly consistency</h3>
+<div class="notable-grid">
+    {% if consistency.steady %}
+    <section>
+        <h3>Steadiest seasons</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Wk</th><th class="num">SD</th><th class="num">CV</th></tr></thead>
+            <tbody>
+                {% for row in consistency.steady %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.weeks_scored|int }}</td>
+                    <td class="num">{{ "%.1f"|format(row.stddev_points) }}</td>
+                    <td class="num">{{ "%.2f"|format(row.cv) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if consistency.wild %}
+    <section>
+        <h3>Wildest seasons</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Wk</th><th class="num">SD</th><th class="num">CV</th></tr></thead>
+            <tbody>
+                {% for row in consistency.wild %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.weeks_scored|int }}</td>
+                    <td class="num">{{ "%.1f"|format(row.stddev_points) }}</td>
+                    <td class="num">{{ "%.2f"|format(row.cv) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% if pythagorean.over or pythagorean.under %}
+<h3 id="pythagorean">Pythagorean wins</h3>
+<div class="notable-grid">
+    {% if pythagorean.over %}
+    <section>
+        <h3>Most above Pythagorean</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th>H2H</th><th class="num">Pyth</th><th class="num">vsPy</th><th class="num">vsExp</th></tr></thead>
+            <tbody>
+                {% for row in pythagorean.over %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td>{{ row.h2h }}</td>
+                    <td class="num">{{ "%.1f"|format(row.pythagorean_wins) }}</td>
+                    <td class="num">{{ "%+.1f"|format(row.wins_vs_pythagorean) }}</td>
+                    <td class="num">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if pythagorean.under %}
+    <section>
+        <h3>Most below Pythagorean</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th>H2H</th><th class="num">Pyth</th><th class="num">vsPy</th><th class="num">vsExp</th></tr></thead>
+            <tbody>
+                {% for row in pythagorean.under %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td>{{ row.h2h }}</td>
+                    <td class="num">{{ "%.1f"|format(row.pythagorean_wins) }}</td>
+                    <td class="num">{{ "%+.1f"|format(row.wins_vs_pythagorean) }}</td>
+                    <td class="num">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+<div data-grain="career">
+<p class="note">
+    Career records count every posted regular-season head-to-head game, including the open season.
+    {% if clutch_cuts %}
+    One-score is a margin of {{ clutch_cuts.one_score_margin|int }} or fewer.
+    Blowout is a margin of {{ clutch_cuts.blowout_margin|int }} or more.
+    {% endif %}
+    * played in 2026.
+</p>
+{% if one_score.best or one_score.worst %}
+<h3 id="one-score">One-score record</h3>
+<div class="notable-grid">
+    {% if one_score.best %}
+    <section>
+        <h3>Best one-score</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th>Record</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in one_score.best %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/members/{{ row.manager_id }}#clutch">{{ row.display_name }}</a>{% if row.includes_partial %}*{% endif %}</td>
+                    <td>{{ row.one_score }}</td>
+                    <td class="num">{% if row.one_score_win_pct is not none %}{{ "%.1f"|format(row.one_score_win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if one_score.worst %}
+    <section>
+        <h3>Worst one-score</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th>Record</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in one_score.worst %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/members/{{ row.manager_id }}#clutch">{{ row.display_name }}</a>{% if row.includes_partial %}*{% endif %}</td>
+                    <td>{{ row.one_score }}</td>
+                    <td class="num">{% if row.one_score_win_pct is not none %}{{ "%.1f"|format(row.one_score_win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% if blowout_record.best or blowout_record.worst %}
+<h3 id="blowout-record">Blowout record</h3>
+<div class="notable-grid">
+    {% if blowout_record.best %}
+    <section>
+        <h3>Best blowout record</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th>Record</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in blowout_record.best %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/members/{{ row.manager_id }}#clutch">{{ row.display_name }}</a>{% if row.includes_partial %}*{% endif %}</td>
+                    <td>{{ row.blowout }}</td>
+                    <td class="num">{% if row.blowout_win_pct is not none %}{{ "%.1f"|format(row.blowout_win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if blowout_record.worst %}
+    <section>
+        <h3>Worst blowout record</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th>Record</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in blowout_record.worst %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/members/{{ row.manager_id }}#clutch">{{ row.display_name }}</a>{% if row.includes_partial %}*{% endif %}</td>
+                    <td>{{ row.blowout }}</td>
+                    <td class="num">{% if row.blowout_win_pct is not none %}{{ "%.1f"|format(row.blowout_win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
 </div>
 {% endif %}
 
