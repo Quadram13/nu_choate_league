@@ -5,8 +5,20 @@
 -- v_player_vorp. pool.py drops a zero-score free-agent week, so that
 -- week is not a row here. A position outside QB/RB/WR/TE/K/DEF has no
 -- replacement row, so those weeks are absent, the same cut v_vorp_season
--- makes. The season CTEs are MATERIALIZED so a leaderboard does not
--- recompute replacement once per player.
+-- makes.
+--
+-- v_fa_weeks, v_fa_season, and v_fa_career are snapshots. As a plain
+-- view, v_fa_weeks cost about 250-300ms of one backend core on every
+-- statement. After that snapshot, v_fa_season leaders stayed about
+-- 240ms, so v_fa_season is a snapshot too. v_fa_career leaders then
+-- stayed about 210ms, so v_fa_career is a snapshot as well.
+-- load applies this file before it truncates facts, so each snapshot
+-- is created WITH NO DATA. refresh_analysis fills v_fa_weeks, then
+-- v_fa_season, then v_fa_career (see ANALYSIS_SNAPSHOTS). A manual
+-- reapply must REFRESH those three in that order, in the same session,
+-- or readers see an unpopulated snapshot.
+-- Float8 sums follow the snapshot scan. They are stable for a given
+-- snapshot and match the view defined on it.
 --
 -- v_fa_season is one v_vorp_season player with fa_weeks > 0. fa_points
 -- and stored_vorp sum the stored unowned weeks. fa_vorp is copied from
@@ -17,14 +29,37 @@
 --
 -- v_fa_career sums those seasons. never_rostered is zero rostered weeks
 -- across every v_vorp_season row, including a fully rostered year that
--- this file does not list. Reapplying 60_players.sql drops v_pool_weeks
--- and these views with it. Reapply this file after that.
+-- this file does not list.
+--
+-- Reapply order: 60_players.sql drops v_pool_weeks and this snapshot
+-- with it. This file runs after that file and builds the chain again:
+-- v_fa_weeks, then v_fa_season, then v_fa_career. The drop accepts a
+-- plain view or a materialized view. CASCADE from a base removes the
+-- views above it; this file creates them again.
 
-DROP VIEW IF EXISTS v_fa_career;
-DROP VIEW IF EXISTS v_fa_season;
-DROP VIEW IF EXISTS v_fa_weeks;
+DO $drop_fa$
+DECLARE
+    target text;
+    kind "char";
+BEGIN
+    FOREACH target IN ARRAY ARRAY['v_fa_career', 'v_fa_season', 'v_fa_weeks']
+    LOOP
+        kind := NULL;
+        SELECT c.relkind INTO kind
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = target;
+        IF kind = 'v' THEN
+            EXECUTE format('DROP VIEW %I CASCADE', target);
+        ELSIF kind = 'm' THEN
+            EXECUTE format('DROP MATERIALIZED VIEW %I CASCADE', target);
+        END IF;
+    END LOOP;
+END
+$drop_fa$;
 
-CREATE VIEW v_fa_weeks AS
+CREATE MATERIALIZED VIEW v_fa_weeks AS
 SELECT
     p.year,
     p.week,
@@ -46,12 +81,13 @@ JOIN v_posted_weeks pw
     ON pw.year = p.year
     AND pw.week = p.week
 LEFT JOIN players rp ON rp.id = r.replacement_player_id
-WHERE NOT p.rostered;
+WHERE NOT p.rostered
+WITH NO DATA;
 
-COMMENT ON VIEW v_fa_weeks IS
-    'Posted player-weeks with rostered = false, and VORP against that week''s replacement. A zero-score free-agent week is not stored.';
+COMMENT ON MATERIALIZED VIEW v_fa_weeks IS
+    'Posted player-weeks with rostered = false, and VORP against that week''s replacement. A zero-score free-agent week is not stored. Snapshot, refreshed by load.';
 
-CREATE VIEW v_fa_season AS
+CREATE MATERIALIZED VIEW v_fa_season AS
 WITH stored AS MATERIALIZED (
     SELECT
         year,
@@ -100,12 +136,13 @@ LEFT JOIN best
     ON best.year = v.year
     AND best.player_id = v.player_id
     AND best.position = v.position
-WHERE v.fa_weeks > 0;
+WHERE v.fa_weeks > 0
+WITH NO DATA;
 
-COMMENT ON VIEW v_fa_season IS
-    'Unowned season totals. fa_vorp matches v_vorp_season.fa_vorp. missing_vorp is 0 minus replacement on posted weeks with no stored row.';
+COMMENT ON MATERIALIZED VIEW v_fa_season IS
+    'Unowned season totals. fa_vorp matches v_vorp_season.fa_vorp. missing_vorp is 0 minus replacement on posted weeks with no stored row. Snapshot, refreshed by load after v_fa_weeks.';
 
-CREATE VIEW v_fa_career AS
+CREATE MATERIALIZED VIEW v_fa_career AS
 WITH sums AS MATERIALIZED (
     SELECT
         player_id,
@@ -153,7 +190,8 @@ SELECT
     owned.rostered_weeks = 0 AS never_rostered
 FROM sums
 JOIN pos ON pos.player_id = sums.player_id
-JOIN owned ON owned.player_id = sums.player_id;
+JOIN owned ON owned.player_id = sums.player_id
+WITH NO DATA;
 
-COMMENT ON VIEW v_fa_career IS
-    'Career sum of v_fa_season. never_rostered means zero rostered weeks in v_vorp_season, fully rostered seasons included.';
+COMMENT ON MATERIALIZED VIEW v_fa_career IS
+    'Career sum of v_fa_season. never_rostered means zero rostered weeks in v_vorp_season, fully rostered seasons included. Snapshot, refreshed by load after v_fa_season.';
