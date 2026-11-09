@@ -105,12 +105,19 @@ _ERA90_STANDINGS: tuple[str, ...] = (
     "points_for",
     "points_against",
 )
+# MFL dense row, landed columns only. Franchise replaces Manager on this
+# projection. GB, Strk, and the two averages are derived in _standings_board.
+# Div W-L-T is absent: the league has no division records.
 _ERA2010_STANDINGS: tuple[str, ...] = (
-    "manager",
+    "franchise",
     "record",
     "win_pct",
+    "games_back",
+    "streak",
     "points_for",
+    "avg_pf",
     "points_against",
+    "avg_pa",
 )
 _DRAFT_KEYS: tuple[str, ...] = ("overall", "round", "manager", "player", "position")
 _MOVES_KEYS: tuple[str, ...] = ("week", "left", "right", "gap")
@@ -263,7 +270,11 @@ class Frame:
 
     def theme_href(self, theme: str) -> str:
         chosen = theme if theme in THEMES else "modern"
-        return self.path + "?" + urlencode((("pane", self.active.name), ("theme", chosen)))
+        pairs: list[tuple[str, str]] = []
+        if self.paged:
+            pairs.append(("pane", self.active.name))
+        pairs.append(("theme", chosen))
+        return self.path + "?" + urlencode(pairs)
 
     def carry(self, href: str) -> str:
         """Append the theme to a shell link. Fragments do not call this."""
@@ -462,6 +473,11 @@ BOARDS: dict[str, BoardSpec] = {
             _column("points_against", "PA", True, "num2"),
             _column("win_pct", "Pct", True, "num3"),
             _column("record", "W-L-T", True, "text"),
+            _column("franchise", "Franchise", False, "text"),
+            _column("games_back", "GB", True, "num1"),
+            _column("streak", "Strk", False, "text"),
+            _column("avg_pf", "Avg PF", True, "num2"),
+            _column("avg_pa", "Avg PA", True, "num2"),
         ),
         projections={
             "modern": (
@@ -819,22 +835,42 @@ def _tree_groups(tree: Mapping[str, object] | None, fallback: str) -> list[dict[
 def _standings_board(year: int, theme: str) -> dict[str, object]:
     rows = queries.standings(year)
     high = _max_number(row.get("points_for") for row in rows)
+    streaks = queries.era2010_season_streaks(year) if theme == "era2010" else {}
+    diffs = [int(row.get("wins") or 0) - int(row.get("losses") or 0) for row in rows]
+    lead = max(diffs) if diffs else 0
+    chips: list[dict[str, object]] = []
     body: list[dict[str, object]] = []
-    for row in rows:
+    for row, diff in zip(rows, diffs):
         wins = int(row.get("wins") or 0)
         losses = int(row.get("losses") or 0)
         ties = int(row.get("ties") or 0)
+        display = str(row.get("display_name") or "")
+        identity = _era2010_identity(
+            display,
+            row.get("team_name"),
+            row.get("manager_id"),
+            with_avatar=theme == "era2010",
+        )
         marks: dict[str, str] = {}
         if row.get("champion"):
             marks["manager"] = "is-leader"
         elif int(row.get("rank") or 0) == 1:
             marks["manager"] = "is-active-leader"
+        if marks.get("manager"):
+            marks["franchise"] = marks["manager"]
         if _same(row.get("points_for"), high):
             marks["points_for"] = "is-record"
+        h2h_games = (
+            int(row.get("h2h_wins") or 0)
+            + int(row.get("h2h_losses") or 0)
+            + int(row.get("h2h_ties") or 0)
+        )
+        href = _path("/members", row.get("manager_id"))
         body.append(
             {
                 "rank": row.get("rank"),
-                "manager": row.get("display_name") or "",
+                "manager": display,
+                "franchise": identity["franchise"],
                 "wins": wins,
                 "losses": losses,
                 "ties": ties,
@@ -842,11 +878,19 @@ def _standings_board(year: int, theme: str) -> dict[str, object]:
                 "points_against": row.get("points_against"),
                 "win_pct": row.get("win_pct"),
                 "record": f"{wins}-{losses}-{ties}",
-                "_href": {"manager": _path("/members", row.get("manager_id"))},
+                "games_back": Decimal(lead - diff) / Decimal(2),
+                "streak": streaks.get(str(row.get("manager_id") or "")) or None,
+                "avg_pf": _era2010_average(row.get("points_for"), h2h_games),
+                "avg_pa": _era2010_average(row.get("points_against"), h2h_games),
+                "_href": {"manager": href, "franchise": href},
                 "_mark": marks,
             }
         )
-    return present("standings", body, theme, caption=f"{year} standings")
+        chips.append(identity)
+    board = present("standings", body, theme, caption=f"{year} standings")
+    if theme == "era2010":
+        board["franchises"] = chips
+    return board
 
 
 def _moves_board(year: int, theme: str) -> dict[str, object]:
@@ -1034,7 +1078,18 @@ def season_document(request: Request, year: int) -> HTMLResponse:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
 
     def standings() -> dict[str, object]:
-        return {"board": _standings_board(year, theme)}
+        board = _standings_board(year, theme)
+        payload: dict[str, object] = {"board": board}
+        if theme == "era2010":
+            payload["franchises"] = board.pop("franchises", ())
+            payload["avg_note"] = ERA2010_AVG_NOTE
+            payload["modules"] = era2010_modules(
+                request,
+                year,
+                f"/seasons/{year}",
+                (("pane", "standings"),),
+            )
+        return payload
 
     def weeks() -> dict[str, object]:
         groups, week_nums = _week_groups(year)
@@ -1117,8 +1172,20 @@ _FIXTURES: dict[str, list[dict[str, object]]] = {
             "points_against": Decimal("1400.25"),
             "win_pct": Decimal("0.714"),
             "record": "10-4-0",
-            "_href": {"manager": "/members/alex-coletti"},
-            "_mark": {"manager": "is-leader", "points_for": "is-record"},
+            "franchise": "Coletti FC",
+            "games_back": Decimal("0.0"),
+            "streak": "W3",
+            "avg_pf": Decimal("114.32"),
+            "avg_pa": Decimal("100.02"),
+            "_href": {
+                "manager": "/members/alex-coletti",
+                "franchise": "/members/alex-coletti",
+            },
+            "_mark": {
+                "manager": "is-leader",
+                "franchise": "is-leader",
+                "points_for": "is-record",
+            },
         },
         {
             "rank": 2,
@@ -1130,8 +1197,16 @@ _FIXTURES: dict[str, list[dict[str, object]]] = {
             "points_against": Decimal("1499.50"),
             "win_pct": Decimal("0.633"),
             "record": "9-5-1",
-            "_href": {"manager": "/members/jamie-active"},
-            "_mark": {"manager": "is-active-leader"},
+            "franchise": "Active FC",
+            "games_back": Decimal("1.0"),
+            "streak": "L2",
+            "avg_pf": Decimal("100.00"),
+            "avg_pa": Decimal("99.97"),
+            "_href": {
+                "manager": "/members/jamie-active",
+                "franchise": "/members/jamie-active",
+            },
+            "_mark": {"manager": "is-active-leader", "franchise": "is-active-leader"},
         },
     ],
     "moves": [
@@ -2187,3 +2262,915 @@ def era90_family_document(
         year=year,
         weeks=weeks,
     )
+
+
+# --- C2a era2010 (#101). Module boards, matchup cards, League / My Team. ---
+# Top-10 boards stay out of BOARDS. The boot gate equates that registry with
+# the season pane catalog, and these modules are not season panes. They still
+# render through the stat_table macro.
+
+from jinja2 import pass_context
+
+from .names import flavor_team
+from .photos import avatar_url
+
+
+@pass_context
+def era2010_avatar_url(context: object, manager_id: object) -> str | None:
+    """Jinja ``avatar_url`` global. Person chips stay hue marks unless the theme is era2010.
+
+    ``plaque_macros.person_link`` prefers this global over the hue span. The
+    sleeper avatar files live on disk for the era2010 cards, and an ungated
+    global would swap those chips on modern and era90 too.
+    """
+    request = context.get("request") if hasattr(context, "get") else None
+    if request is None or resolve_theme(request) != "era2010":
+        return None
+    if manager_id is None or str(manager_id).strip() == "":
+        return None
+    return avatar_url(str(manager_id))
+
+ERA2010_TOP = 10
+ERA2010_AVG_NOTE = (
+    "Avg PF divides official points for by head-to-head games. "
+    "Avg PA divides head-to-head points against by those games. "
+    "W-L-T and Pct include a median game when the season played one. "
+    "GB is half the wins-minus-losses gap behind the best mark in this table. "
+    "Strk is the trailing run of regular and median results through the last week of this season. "
+    "This league has no division column."
+)
+ERA2010_POSITIONS: tuple[tuple[str, str], ...] = (
+    ("QB", "QB"),
+    ("RB", "RB"),
+    ("WR", "WR"),
+    ("TE", "TE"),
+    ("K", "K"),
+    ("DEF", "DEF"),
+)
+_ERA2010_POS = {code for code, _label in ERA2010_POSITIONS}
+
+# hub.js season hash aliases. The target is the pane that script already opened.
+ERA2010_HASH_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("scoring", "standings", "Scoring"),
+    ("scoring-env", "standings", "Scoring env"),
+    ("share", "standings", "Share"),
+    ("universes", "standings", "Universes"),
+    ("universe-ranks", "standings", "Universe ranks"),
+    ("universe-brackets", "standings", "Universe brackets"),
+    ("universe-replay", "standings", "Universe replay"),
+    ("luck", "standings", "Luck"),
+    ("allpro", "standings", "All-pro"),
+    ("allbench", "standings", "All-bench"),
+    ("power", "standings", "Power"),
+    ("heat", "standings", "Heat"),
+    ("race", "standings", "Race"),
+    ("desk", "standings", "Desk"),
+    ("median-tax", "standings", "Median tax"),
+    ("matchups", "weeks", "Matchups"),
+    ("trades", "moves", "Trades"),
+    ("wire", "moves", "Wire"),
+)
+
+_WEEK_RE = re.compile(r"^/seasons/(\d+)/week/(\d+)$")
+_GAME_RE = re.compile(r"^/seasons/(\d+)/week/(\d+)/([^/]+)$")
+_MEMBER_RE = re.compile(r"^/members/([^/]+)$")
+_COUNTING_TAIL = (
+    "PTS is fantasy points on posted weeks. "
+    "Counting columns sum player_week_counting_stats on those weeks; "
+    "a scored week with no counting row adds zero. Bold marks the points leader."
+)
+
+
+@dataclass(frozen=True)
+class EraAlias:
+    id: str
+    pane: str
+    label: str
+
+
+def _era2010_average(points: object, games: int) -> Decimal | None:
+    if points is None or games <= 0:
+        return None
+    return Decimal(str(points)) / Decimal(games)
+
+
+def _era2010_identity(
+    display: object,
+    team: object,
+    manager_id: object,
+    *,
+    with_avatar: bool = True,
+) -> dict[str, object]:
+    name = str(display or "").strip()
+    team_name = None if team is None else str(team)
+    franchise = flavor_team(name, team_name) or name or "Bye"
+    face = None
+    if with_avatar and manager_id is not None and str(manager_id).strip() != "":
+        face = avatar_url(str(manager_id))
+    return {
+        "franchise": franchise,
+        "owner": name if franchise != name else "",
+        "href": _path("/members", manager_id),
+        "avatar": face,
+    }
+
+
+def _era2010_pos(request: Request, key: str) -> str:
+    raw = request.query_params.get(key) or "QB"
+    return raw if raw in _ERA2010_POS else "QB"
+
+
+def _plain_href(path: str, pairs: Sequence[tuple[str, str]]) -> str:
+    items = [(key, value) for key, value in pairs if key != "theme" and value]
+    if not items:
+        return path
+    return path + "?" + urlencode(items)
+
+
+def _themed_href(path: str, pairs: Sequence[tuple[str, str]]) -> str:
+    items = [(key, value) for key, value in pairs if key != "theme" and value]
+    items.append(("theme", "era2010"))
+    return path + "?" + urlencode(items)
+
+
+def _board_cell(
+    text: str,
+    *,
+    numeric: bool = False,
+    href: str = "",
+    mark: str = "",
+) -> dict[str, object]:
+    return {"text": text, "numeric": numeric, "href": href, "mark": mark}
+
+
+def _int_text(value: object) -> str:
+    if value is None or value == "":
+        return "0"
+    return str(int(Decimal(str(value))))
+
+
+def _pair_text(left: object, right: object) -> str:
+    return f"{_int_text(left)}-{_int_text(right)}"
+
+
+def _td_sum(row: Mapping[str, object]) -> Decimal:
+    return Decimal(str(row.get("rush_td") or 0)) + Decimal(str(row.get("rec_td") or 0))
+
+
+def _player_label(name: object, position: object) -> str:
+    text = "" if name is None else str(name).strip()
+    if not text:
+        return "—"
+    if str(position or "") == "DEF":
+        return text
+    return _short_name(text)
+
+
+def _plain_board(
+    caption: str,
+    columns: Sequence[tuple[str, str, bool, str]],
+    rows: Sequence[Mapping[str, object]],
+    note: str,
+    more_href: str | None = None,
+) -> dict[str, object]:
+    body: list[dict[str, object]] = []
+    for row in rows:
+        hrefs = row.get("_href") or {}
+        marks = row.get("_mark") or {}
+        if not isinstance(hrefs, Mapping) or not isinstance(marks, Mapping):
+            raise ValueError("row links must be mappings")
+        cells = []
+        for key, _label, numeric, formatter in columns:
+            href = hrefs.get(key) or ""
+            mark = marks.get(key) or ""
+            cells.append(
+                _board_cell(
+                    FORMATTERS[formatter](row.get(key), "era2010"),
+                    numeric=numeric,
+                    href=str(href),
+                    mark=str(mark),
+                )
+            )
+        body.append({"cells": cells})
+    board: dict[str, object] = {
+        "caption": caption,
+        "columns": [
+            {"key": key, "label": label, "numeric": numeric}
+            for key, label, numeric, _formatter in columns
+        ],
+        "rows": body,
+        "note": note,
+    }
+    if more_href:
+        board["more_href"] = more_href
+    return board
+
+
+def _cap_rows(
+    rows: Sequence[Mapping[str, object]],
+    limit: int | None,
+) -> tuple[list[Mapping[str, object]], bool]:
+    if limit is None:
+        return list(rows), False
+    if len(rows) > limit:
+        return list(rows[:limit]), True
+    return list(rows), False
+
+
+def _counting_heads(position: str) -> list[tuple[str, bool]]:
+    if position == "QB":
+        return [("Player", False), ("YDS", True), ("TD-INT", True), ("PTS", True)]
+    if position == "RB":
+        return [("Player", False), ("RUSH", True), ("REC", True), ("TD", True), ("PTS", True)]
+    if position in ("WR", "TE"):
+        return [("Player", False), ("REC", True), ("YDS", True), ("TD", True), ("PTS", True)]
+    if position == "K":
+        return [("Player", False), ("FG", True), ("XP", True), ("PTS", True)]
+    return [("Team", False), ("YDS", True), ("PA", True), ("SCK", True), ("TO", True), ("PTS", True)]
+
+
+def _counting_note(position: str) -> str:
+    if position == "QB":
+        lead = "YDS is passing yards. TD-INT is passing touchdowns and interceptions. "
+    elif position == "RB":
+        lead = "RUSH is rushing yards. REC is receptions. TD is rushing plus receiving touchdowns. "
+    elif position in ("WR", "TE"):
+        lead = "REC is receptions. YDS is receiving yards. TD is receiving plus rushing touchdowns. "
+    elif position == "K":
+        lead = "FG and XP are makes-attempts. "
+    else:
+        lead = (
+            "YDS is yards allowed. PA is points allowed. SCK is sacks. "
+            "TO is interceptions plus fumble recoveries. "
+        )
+    return lead + _COUNTING_TAIL
+
+
+def _counting_values(row: Mapping[str, object], mark: str) -> list[dict[str, object]]:
+    position = str(row.get("position") or "")
+    player = _board_cell(
+        _player_label(row.get("player_name"), position),
+        href=_path("/players", row.get("player_id")),
+    )
+    points = _board_cell(
+        FORMATTERS["num2"](row.get("points"), "era2010"),
+        numeric=True,
+        mark=mark,
+    )
+    if position == "QB":
+        middle = [
+            _board_cell(_int_text(row.get("pass_yd")), numeric=True),
+            _board_cell(_pair_text(row.get("pass_td"), row.get("pass_int")), numeric=True),
+        ]
+    elif position == "RB":
+        middle = [
+            _board_cell(_int_text(row.get("rush_yd")), numeric=True),
+            _board_cell(_int_text(row.get("rec")), numeric=True),
+            _board_cell(_int_text(_td_sum(row)), numeric=True),
+        ]
+    elif position in ("WR", "TE"):
+        middle = [
+            _board_cell(_int_text(row.get("rec")), numeric=True),
+            _board_cell(_int_text(row.get("rec_yd")), numeric=True),
+            _board_cell(_int_text(_td_sum(row)), numeric=True),
+        ]
+    elif position == "K":
+        middle = [
+            _board_cell(_pair_text(row.get("fgm"), row.get("fga")), numeric=True),
+            _board_cell(_pair_text(row.get("xpm"), row.get("xpa")), numeric=True),
+        ]
+    else:
+        turnovers = Decimal(str(row.get("def_int") or 0)) + Decimal(str(row.get("fum_rec") or 0))
+        middle = [
+            _board_cell(_int_text(row.get("yds_allow")), numeric=True),
+            _board_cell(_int_text(row.get("pts_allow")), numeric=True),
+            _board_cell(_int_text(row.get("sack")), numeric=True),
+            _board_cell(_int_text(turnovers), numeric=True),
+        ]
+    return [player, *middle, points]
+
+
+def _stat_module(
+    *,
+    anchor: str,
+    title: str,
+    caption: str,
+    headers: Sequence[tuple[str, bool]],
+    rows: Sequence[Mapping[str, object]],
+    note: str,
+    more_href: str | None,
+    tabs: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    high = _max_number(row.get("points") for row in rows)
+    body = []
+    for row in rows:
+        mark = "is-leader" if _same(row.get("points"), high) else ""
+        body.append({"cells": _counting_values(row, mark) if anchor == "mod-counting" else _week_high_cells(row, mark)})
+    return {
+        "anchor": anchor,
+        "title": title,
+        "tabs": list(tabs),
+        "board": {
+            "caption": caption,
+            "columns": [
+                {"key": label, "label": label, "numeric": numeric} for label, numeric in headers
+            ],
+            "rows": body,
+            "note": "None posted. " + note if not rows else note,
+            "more_href": more_href,
+        },
+    }
+
+
+def _week_high_cells(row: Mapping[str, object], mark: str) -> list[dict[str, object]]:
+    position = str(row.get("position") or "")
+    week = row.get("week")
+    year = row.get("year")
+    week_href = ""
+    if year is not None and week is not None:
+        week_href = f"/seasons/{int(year)}/week/{int(week)}"
+    return [
+        _board_cell(
+            _player_label(row.get("player_name"), position),
+            href=_path("/players", row.get("player_id")),
+        ),
+        _board_cell(_int_text(week), numeric=True, href=week_href),
+        _board_cell(
+            FORMATTERS["num2"](row.get("points"), "era2010"),
+            numeric=True,
+            mark=mark,
+        ),
+    ]
+
+
+def _module_tabs(
+    path: str,
+    sticky: Sequence[tuple[str, str]],
+    active: str,
+    own_key: str,
+    other: Sequence[tuple[str, str]],
+) -> list[dict[str, object]]:
+    tabs = []
+    for code, label in ERA2010_POSITIONS:
+        pairs = list(sticky) + list(other) + [(own_key, code)]
+        tabs.append(
+            {
+                "label": label,
+                "href": _plain_href(path, pairs),
+                "active": code == active,
+            }
+        )
+    return tabs
+
+
+def era2010_modules(
+    request: Request,
+    year: int,
+    path: str,
+    sticky: Sequence[tuple[str, str]],
+) -> list[dict[str, object]]:
+    """Two CBS-style top-10 boards. Position tabs and View all are real links."""
+    cpos = _era2010_pos(request, "cpos")
+    wpos = _era2010_pos(request, "wpos")
+    counting_all = request.query_params.get("crows") == "all"
+    weeks_all = request.query_params.get("wrows") == "all"
+    other_week = [("wpos", wpos)] + ([("wrows", "all")] if weeks_all else [])
+    other_count = [("cpos", cpos)] + ([("crows", "all")] if counting_all else [])
+    counting_rows, counting_more = _cap_rows(
+        queries.era2010_counting_leaders(year, cpos, None if counting_all else ERA2010_TOP + 1),
+        None if counting_all else ERA2010_TOP,
+    )
+    high_rows, high_more = _cap_rows(
+        queries.era2010_week_highs(year, wpos, None if weeks_all else ERA2010_TOP + 1),
+        None if weeks_all else ERA2010_TOP,
+    )
+    high_rows = [dict(row, year=year) for row in high_rows]
+    count_label = dict(ERA2010_POSITIONS)[cpos]
+    week_label = dict(ERA2010_POSITIONS)[wpos]
+    counting_more_href = None
+    if counting_more:
+        counting_more_href = _themed_href(
+            path,
+            list(sticky) + [("cpos", cpos), ("crows", "all"), ("wpos", wpos)]
+            + ([("wrows", "all")] if weeks_all else []),
+        )
+    high_more_href = None
+    if high_more:
+        high_more_href = _themed_href(
+            path,
+            list(sticky) + [("wpos", wpos), ("wrows", "all"), ("cpos", cpos)]
+            + ([("crows", "all")] if counting_all else []),
+        )
+    return [
+        _stat_module(
+            anchor="mod-counting",
+            title=f"{year} stat line",
+            caption=f"{year} {count_label}",
+            headers=_counting_heads(cpos),
+            rows=counting_rows,
+            note=_counting_note(cpos),
+            more_href=counting_more_href,
+            tabs=_module_tabs(path, sticky, cpos, "cpos", other_week),
+        ),
+        _stat_module(
+            anchor="mod-weeks",
+            title=f"{year} week highs",
+            caption=f"{year} {week_label} weeks",
+            headers=[("Team" if wpos == "DEF" else "Player", False), ("Wk", True), ("PTS", True)],
+            rows=high_rows,
+            note=(
+                "PTS is fantasy points for that posted week. Bold marks the high. "
+                "Skill-player names are initial and surname. Defenses keep their stored name."
+            ),
+            more_href=high_more_href,
+            tabs=_module_tabs(path, sticky, wpos, "wpos", other_count),
+        ),
+    ]
+
+
+def _side_won(home_points: object, away_points: object, side: str) -> bool:
+    if home_points is None or away_points is None:
+        return False
+    home = float(home_points)  # type: ignore[arg-type]
+    away = float(away_points)  # type: ignore[arg-type]
+    if round(home, 4) == round(away, 4):
+        return False
+    if side == "home":
+        return home > away
+    return away > home
+
+
+def _player_cell(row: Mapping[str, object]) -> dict[str, object]:
+    position = str(row.get("position") or "")
+    slot = str(row.get("slot") or position or "")
+    club = row.get("nfl_team") or ""
+    return {
+        "slot": slot,
+        "name": _player_label(row.get("player_name"), position),
+        "position": position,
+        "club": "" if club is None else str(club),
+        "points": _points(row.get("points")),
+        "href": _path("/players", row.get("player_id")),
+    }
+
+
+def _roster_maps(
+    rows: Sequence[Mapping[str, object]],
+) -> tuple[dict[object, list[dict[str, object]]], dict[object, list[dict[str, object]]]]:
+    started: dict[object, list[Mapping[str, object]]] = {}
+    bench: dict[object, list[Mapping[str, object]]] = {}
+    for row in rows:
+        target = started if row.get("started") else bench
+        target.setdefault(row.get("manager_id"), []).append(row)
+    packed_started: dict[object, list[dict[str, object]]] = {}
+    packed_bench: dict[object, list[dict[str, object]]] = {}
+    for manager, items in started.items():
+        ordered = sorted(
+            items,
+            key=lambda item: (
+                queries.SLOT_ORDER.get(str(item.get("slot") or ""), 40),
+                str(item.get("slot") or ""),
+                -(float(item.get("points") or 0)),
+            ),
+        )
+        packed_started[manager] = [_player_cell(item) for item in ordered]
+    for manager, items in bench.items():
+        ordered = sorted(
+            items,
+            key=lambda item: (
+                -(float(item.get("points") or 0)),
+                str(item.get("player_name") or ""),
+            ),
+        )
+        packed_bench[manager] = [_player_cell(item) for item in ordered]
+    return packed_started, packed_bench
+
+
+def _era_side(
+    name: object,
+    team: object,
+    manager_id: object,
+    points: object,
+    won: bool,
+    cells: Sequence[dict[str, object]],
+    bench: Sequence[dict[str, object]],
+) -> dict[str, object]:
+    identity = _era2010_identity(name, team, manager_id)
+    identity["score"] = _points(points)
+    identity["won"] = won
+    identity["cells"] = list(cells)
+    identity["bench"] = list(bench)
+    return identity
+
+
+def _era_card(
+    row: Mapping[str, object],
+    year: int,
+    week: int,
+    started: Mapping[object, Sequence[dict[str, object]]],
+    bench: Mapping[object, Sequence[dict[str, object]]],
+) -> dict[str, object]:
+    home_id = row.get("home_manager_id")
+    away_id = row.get("away_manager_id")
+    href = ""
+    if row.get("id"):
+        href = f"/seasons/{year}/week/{week}/{quote(str(row['id']), safe='')}"
+    return {
+        "href": href,
+        "kind": str(row.get("kind") or "regular"),
+        "home": _era_side(
+            row.get("home_name"),
+            row.get("home_team_name"),
+            home_id,
+            row.get("home_points"),
+            _side_won(row.get("home_points"), row.get("away_points"), "home"),
+            started.get(home_id, ()),
+            bench.get(home_id, ()),
+        ),
+        "away": _era_side(
+            row.get("away_name"),
+            row.get("away_team_name"),
+            away_id,
+            row.get("away_points"),
+            _side_won(row.get("home_points"), row.get("away_points"), "away"),
+            started.get(away_id, ()),
+            bench.get(away_id, ()),
+        ),
+    }
+
+
+def _era_groups(cards: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+    order: list[str] = []
+    grouped: dict[str, list[Mapping[str, object]]] = {}
+    for card in cards:
+        kind = str(card.get("kind") or "regular")
+        if kind not in grouped:
+            order.append(kind)
+            grouped[kind] = []
+        grouped[kind].append(card)
+    multi = len(order) > 1
+    groups = []
+    for kind in order:
+        label = ""
+        if multi or kind != "regular":
+            label = str(queries.KIND_LABELS.get(kind, kind))
+        groups.append({"label": label, "cards": grouped[kind]})
+    return groups
+
+
+def era2010_week_cards(
+    year: int,
+    week: int,
+    *,
+    lineups: bool,
+    matchup_id: str | None = None,
+) -> dict[str, object] | None:
+    rows = queries.era2010_week_matchups(year, week)
+    if not rows:
+        return None
+    chosen = rows
+    if matchup_id is not None:
+        chosen = [row for row in rows if str(row["id"]) == matchup_id]
+        if not chosen:
+            return None
+    started: Mapping[object, Sequence[dict[str, object]]] = {}
+    bench: Mapping[object, Sequence[dict[str, object]]] = {}
+    if lineups:
+        started, bench = _roster_maps(queries.era2010_week_roster(year, week))
+        if matchup_id is None:
+            bench = {}
+    cards = [_era_card(row, year, week, started, bench) for row in chosen]
+    siblings = []
+    if matchup_id is not None:
+        for row in rows:
+            home = _era2010_identity(row.get("home_name"), row.get("home_team_name"), row.get("home_manager_id"))
+            away = _era2010_identity(row.get("away_name"), row.get("away_team_name"), row.get("away_manager_id"))
+            siblings.append(
+                {
+                    "href": f"/seasons/{year}/week/{week}/{quote(str(row['id']), safe='')}",
+                    "label": f"{home['franchise']} vs {away['franchise']}",
+                    "current": str(row["id"]) == matchup_id,
+                }
+            )
+    return {"groups": _era_groups(cards), "siblings": siblings, "card": cards[0]}
+
+
+def _era2010_document(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    year: int | None,
+    weeks: Sequence[int],
+    template: str,
+    lead: str,
+    aside: str,
+    context: Mapping[str, object],
+) -> HTMLResponse:
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    active = FragmentView("page", "Page", template)
+    week_nav = tuple(
+        WeekLink(
+            int(week),
+            f"/seasons/{year}/week/{int(week)}?" + urlencode((("theme", "era2010"),)),
+        )
+        for week in weeks
+    )
+    frame = Frame(
+        theme="era2010",
+        title=title,
+        nav=nav,
+        pager="",
+        fragments=(active,),
+        active=active,
+        slots=(("lead", lead), ("aside", aside)),
+        path=request.url.path,
+        nav_links=_nav_links("era2010", year),
+        theme_choices=tuple(ThemeChoice(theme_id, THEME_LABELS[theme_id]) for theme_id in THEMES),
+        week_nav=week_nav,
+        dead_labels=(),
+    )
+    payload: dict[str, object] = {**dict(context), "frame": frame, "title": title, "nav": nav}
+    return _templates.TemplateResponse(request, "shells/era2010.html", payload)
+
+
+def _era2010_home(request: Request) -> HTMLResponse:
+    year = queries.latest_scored_year()
+    current = queries.season_row(year) if year is not None else None
+    weeks = queries.scored_weeks(year) if year is not None else []
+    week = weeks[-1] if weeks else None
+    groups: list[dict[str, object]] = []
+    franchises: object = []
+    modules: object = []
+    board = None
+    avg_note = None
+    if year is not None and week is not None:
+        bundle = era2010_week_cards(year, week, lineups=False)
+        if bundle is not None:
+            groups = list(bundle["groups"])  # type: ignore[arg-type]
+    if year is not None:
+        board = _standings_board(year, "era2010")
+        franchises = board.pop("franchises", [])
+        modules = era2010_modules(request, year, "/", ())
+        avg_note = ERA2010_AVG_NOTE
+    return _era2010_document(
+        request,
+        title="Nu Choate League",
+        nav="home",
+        year=year,
+        weeks=weeks,
+        template="era2010/home.html",
+        lead="fragments/season_lead.html" if current is not None else "era2010/league_lead.html",
+        aside="fragments/season_aside.html" if year is not None else "era2010/league_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current or {},
+            "groups": groups,
+            "board": board,
+            "franchises": franchises,
+            "modules": modules,
+            "avg_note": avg_note,
+        },
+    )
+
+
+def _era2010_week(request: Request, year: int, week: int) -> HTMLResponse | None:
+    current = queries.season_row(year)
+    if current is None:
+        return None
+    bundle = era2010_week_cards(year, week, lineups=True)
+    if bundle is None:
+        return None
+    return _era2010_document(
+        request,
+        title=f"{year} week {week}",
+        nav="seasons",
+        year=year,
+        weeks=queries.scored_weeks(year),
+        template="era2010/week.html",
+        lead="era2010/week_lead.html",
+        aside="fragments/season_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current,
+            "groups": bundle["groups"],
+            "lineups": True,
+        },
+    )
+
+
+def _era2010_game(request: Request, year: int, week: int, matchup_id: str) -> HTMLResponse | None:
+    current = queries.season_row(year)
+    if current is None:
+        return None
+    bundle = era2010_week_cards(year, week, lineups=True, matchup_id=matchup_id)
+    if bundle is None:
+        return None
+    card = bundle["card"]
+    assert isinstance(card, Mapping)
+    home = card["home"]
+    away = card["away"]
+    assert isinstance(home, Mapping) and isinstance(away, Mapping)
+    return _era2010_document(
+        request,
+        title=f"{home['franchise']} vs {away['franchise']}",
+        nav="seasons",
+        year=year,
+        weeks=queries.scored_weeks(year),
+        template="era2010/gamecenter.html",
+        lead="era2010/game_lead.html",
+        aside="fragments/season_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current,
+            "card": card,
+            "siblings": bundle["siblings"],
+            "lineups": True,
+        },
+    )
+
+
+def _era2010_league(request: Request) -> HTMLResponse:
+    rows = queries.career()
+    names = queries.era2010_latest_franchises()
+    year = queries.latest_scored_year()
+    chips = []
+    body: list[dict[str, object]] = []
+    high_titles = _max_number(row.get("titles") for row in rows)
+    for row in rows:
+        display = str(row.get("display_name") or "")
+        identity = _era2010_identity(display, names.get(str(row["manager_id"])), row.get("manager_id"))
+        chips.append(identity)
+        wins = int(row.get("wins") or 0)
+        losses = int(row.get("losses") or 0)
+        ties = int(row.get("ties") or 0)
+        marks: dict[str, str] = {}
+        if high_titles and _same(row.get("titles"), high_titles):
+            marks["franchise"] = "is-leader"
+        body.append(
+            {
+                "franchise": identity["franchise"],
+                "record": f"{wins}-{losses}-{ties}",
+                "win_pct": row.get("win_pct"),
+                "points_for": row.get("points_for"),
+                "titles": int(row.get("titles") or 0),
+                "_href": {"franchise": identity["href"]},
+                "_mark": marks,
+            }
+        )
+    board = _plain_board(
+        "League",
+        (
+            ("franchise", "Franchise", False, "text"),
+            ("record", "W-L-T", True, "text"),
+            ("win_pct", "Pct", True, "num3"),
+            ("points_for", "PF", True, "num2"),
+            ("titles", "Titles", True, "int"),
+        ),
+        body,
+        "W-L-T is the career official record. Pct is that winning percentage. PF is career points for. Bold marks the most titles.",
+    )
+    return _era2010_document(
+        request,
+        title="League",
+        nav="members",
+        year=year,
+        weeks=[],
+        template="fragments/board.html",
+        lead="era2010/league_lead.html",
+        aside="era2010/league_aside.html",
+        context={
+            "year": year,
+            "current": queries.season_row(year) if year is not None else {},
+            "board": board,
+            "franchises": chips,
+        },
+    )
+
+
+def _era2010_member(request: Request, manager_id: str) -> HTMLResponse | None:
+    person = queries.career_one(manager_id)
+    if person is None:
+        return None
+    seasons = queries.finishes(manager_id)
+    display = str(person.get("display_name") or manager_id)
+    latest_team = seasons[-1].get("team_name") if seasons else None
+    identity = _era2010_identity(display, latest_team, manager_id)
+    streak_row = queries.era2010_member_streak(manager_id)
+    streak = ""
+    if streak_row and streak_row.get("result") in {"win", "loss", "tie"}:
+        letter = {"win": "W", "loss": "L", "tie": "T"}[str(streak_row["result"])]
+        streak = (
+            f"{letter}{int(streak_row['length'])} since "
+            f"{int(streak_row['start_year'])} W{int(streak_row['start_week'])}"
+        )
+    wins = int(person.get("wins") or 0)
+    losses = int(person.get("losses") or 0)
+    ties = int(person.get("ties") or 0)
+    season_rows: list[dict[str, object]] = []
+    for row in seasons:
+        season_wins = int(row.get("wins") or 0)
+        season_losses = int(row.get("losses") or 0)
+        season_ties = int(row.get("ties") or 0)
+        franchise = _era2010_identity(display, row.get("team_name"), manager_id)["franchise"]
+        marks = {"franchise": "is-leader"} if row.get("champion") else {}
+        season_rows.append(
+            {
+                "year": int(row["year"]),
+                "franchise": franchise,
+                "record": f"{season_wins}-{season_losses}-{season_ties}",
+                "win_pct": row.get("win_pct"),
+                "points_for": row.get("points_for"),
+                "_href": {"year": f"/seasons/{int(row['year'])}"},
+                "_mark": marks,
+            }
+        )
+    board = _plain_board(
+        "Seasons",
+        (
+            ("year", "Year", True, "int"),
+            ("franchise", "Franchise", False, "text"),
+            ("record", "W-L-T", True, "text"),
+            ("win_pct", "Pct", True, "num3"),
+            ("points_for", "PF", True, "num2"),
+        ),
+        season_rows,
+        "Franchise is the team name that season. Bold marks a league champion.",
+    )
+    return _era2010_document(
+        request,
+        title=str(identity["franchise"]),
+        nav="members",
+        year=queries.latest_scored_year(),
+        weeks=[],
+        template="era2010/my_team.html",
+        lead="era2010/my_team_lead.html",
+        aside="era2010/member_aside.html",
+        context={
+            "avatar": identity["avatar"],
+            "owner": display,
+            "franchise": identity["franchise"],
+            "record": f"{wins}-{losses}-{ties}",
+            "pct": FORMATTERS["num3"](person.get("win_pct"), "era2010"),
+            "pf": FORMATTERS["num2"](person.get("points_for"), "era2010"),
+            "titles": int(person.get("titles") or 0),
+            "streak": streak,
+            "board": board,
+            "my_team": {"href": f"/members/{quote(manager_id, safe='')}"},
+        },
+    )
+
+
+def _era2010_handle(request: Request, route: tuple[object, ...]) -> HTMLResponse | None:
+    kind = route[0]
+    if kind == "home":
+        return _era2010_home(request)
+    if kind == "league":
+        return _era2010_league(request)
+    if kind == "week":
+        return _era2010_week(request, int(route[1]), int(route[2]))
+    if kind == "game":
+        return _era2010_game(request, int(route[1]), int(route[2]), str(route[3]))
+    if kind == "member":
+        return _era2010_member(request, str(route[1]))
+    return None
+
+
+def era2010_dispatch(request: Request) -> HTMLResponse | None:
+    """Era2010 documents for home, week, gamecenter, League, and My Team.
+
+    Returns None when this request is not one of those pages, or when the
+    season or manager is missing so the legacy route can answer the 404.
+    """
+    path = request.url.path
+    if path.startswith("/static"):
+        return None
+    if path == "/":
+        route: tuple[object, ...] | None = ("home",)
+    elif path == "/members":
+        route = ("league",)
+    else:
+        game = _GAME_RE.match(path)
+        week = _WEEK_RE.match(path)
+        member = _MEMBER_RE.match(path)
+        if game:
+            route = ("game", int(game.group(1)), int(game.group(2)), game.group(3))
+        elif week:
+            route = ("week", int(week.group(1)), int(week.group(2)))
+        elif member:
+            route = ("member", member.group(1))
+        else:
+            route = None
+    if route is None:
+        return None
+    conn = queries.connect()
+    token = queries.bind_connection(conn)
+    try:
+        return _era2010_handle(request, route)
+    finally:
+        queries.unbind_connection(token)
+        conn.close()

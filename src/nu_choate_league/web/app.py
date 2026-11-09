@@ -519,3 +519,24 @@ def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTM
     if themes.resolve_theme(request) == "era90" and name in themes.ERA90_FAMILY:
         return themes.era90_family_document(request, name, nav=nav, title=title, context=context)
     return _legacy_page(request, name, nav=nav, title=title, **context)
+
+
+
+# --- C2a era2010 (#101). Home, week, gamecenter, League, and My Team.
+# Modern and era90 fall through. Season pages stay on the A2 dispatch.
+# person_link reads the avatar_url global. Replace it after install so the
+# boot fixture still sees the plain function, and live renders only resolve
+# a sleeper avatar when the request's theme is era2010.
+templates.env.globals["avatar_url"] = themes.era2010_avatar_url
+templates.env.globals["era2010_aliases"] = tuple(
+    themes.EraAlias(alias_id, pane, label) for alias_id, pane, label in themes.ERA2010_HASH_ALIASES
+)
+
+
+@app.middleware("http")
+async def era2010_pages(request: Request, call_next):
+    if request.method == "GET" and themes.resolve_theme(request) == "era2010":
+        response = themes.era2010_dispatch(request)
+        if response is not None:
+            return themes.persist_theme(request, response)
+    return await call_next(request)

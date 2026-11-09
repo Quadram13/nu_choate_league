@@ -10952,6 +10952,194 @@ def era90_ticker(year: int | None) -> list[dict[str, str]]:
     return items
 
 
+# --- C2a era2010 (#101). Read-only module queries. Landed columns only. ---
+
+_ERA2010_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+
+def era2010_season_streaks(year: int) -> dict[str, str]:
+    """Trailing official result run through the end of one season.
+
+    Regular games and played median games, in week order, median after the
+    head-to-head game in that week. Ties stay in the run. The letter is W, L,
+    or T plus the length. A manager with no counted game is absent.
+    """
+    rows = fetchall(
+        """
+        SELECT manager_id, result
+        FROM v_games
+        WHERE year = %(year)s
+          AND kind IN ('regular', 'vs_median')
+          AND result IN ('win', 'loss', 'tie')
+        ORDER BY manager_id, week,
+            CASE kind WHEN 'regular' THEN 0 ELSE 1 END,
+            matchup_id
+        """,
+        {"year": year},
+    )
+    letters = {"win": "W", "loss": "L", "tie": "T"}
+    streaks: dict[str, str] = {}
+    current: str | None = None
+    last: str | None = None
+    length = 0
+
+    def close() -> None:
+        if current is None or last is None:
+            return
+        streaks[current] = f"{letters[last]}{length}"
+
+    for row in rows:
+        manager = str(row["manager_id"])
+        result = str(row["result"])
+        if manager != current:
+            close()
+            current = manager
+            last = result
+            length = 1
+            continue
+        if result == last:
+            length += 1
+        else:
+            last = result
+            length = 1
+    close()
+    return streaks
+
+
+def era2010_latest_franchises() -> dict[str, str]:
+    """Latest non-blank team name per manager. The franchise string we store."""
+    rows = fetchall(
+        """
+        SELECT DISTINCT ON (manager_id) manager_id, team_name
+        FROM team_seasons
+        WHERE team_name IS NOT NULL AND btrim(team_name) <> ''
+        ORDER BY manager_id, year DESC
+        """
+    )
+    return {str(row["manager_id"]): str(row["team_name"]).strip() for row in rows}
+
+
+def era2010_member_streak(manager_id: str) -> dict[str, Any] | None:
+    """Career trailing streak from v_streaks. is_current means it reaches that manager's last counted game."""
+    return fetchone(
+        """
+        SELECT result, length, start_year, start_week
+        FROM v_streaks
+        WHERE manager_id = %(manager_id)s AND is_current
+        LIMIT 1
+        """,
+        {"manager_id": manager_id},
+    )
+
+
+def era2010_week_matchups(year: int, week: int) -> list[dict[str, Any]]:
+    return _week_games(year, week)
+
+
+def era2010_week_roster(year: int, week: int) -> list[dict[str, Any]]:
+    """Lineup rows for one week, with the catalog club abbreviation.
+
+    players.nfl_team is the club on the player catalog, not the club during
+    that week. Callers say so on the page.
+    """
+    return fetchall(
+        """
+        SELECT
+            s.manager_id,
+            s.player_id,
+            s.player_name,
+            s.position,
+            s.slot,
+            s.started,
+            s.points,
+            NULLIF(btrim(p.nfl_team), '') AS nfl_team
+        FROM v_player_weeks s
+        LEFT JOIN players p ON p.id = s.player_id
+        WHERE s.year = %(year)s AND s.week = %(week)s
+        """,
+        {"year": year, "week": week},
+    )
+
+
+def _era2010_position(position: str) -> str:
+    return position if position in _ERA2010_POSITIONS else "QB"
+
+
+def era2010_counting_leaders(
+    year: int,
+    position: str,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Season box score for one position, ordered by fantasy points.
+
+    Weeks are posted weeks that have a player_week_scores row. Counting
+    columns sum player_week_counting_stats on those weeks. A scored week with
+    no counting row contributes zero, via coalesce on the sum.
+    """
+    position = _era2010_position(position)
+    limit_sql = "LIMIT %(limit)s" if limit is not None else ""
+    return fetchall(
+        f"""
+        SELECT
+            s.player_id,
+            max(s.player_name) AS player_name,
+            max(s.position) AS position,
+            sum(s.points) AS points,
+            coalesce(sum(c.pass_yd), 0) AS pass_yd,
+            coalesce(sum(c.pass_td), 0) AS pass_td,
+            coalesce(sum(c.pass_int), 0) AS pass_int,
+            coalesce(sum(c.rush_yd), 0) AS rush_yd,
+            coalesce(sum(c.rush_td), 0) AS rush_td,
+            coalesce(sum(c.rec), 0) AS rec,
+            coalesce(sum(c.rec_yd), 0) AS rec_yd,
+            coalesce(sum(c.rec_td), 0) AS rec_td,
+            coalesce(sum(c.fgm), 0) AS fgm,
+            coalesce(sum(c.fga), 0) AS fga,
+            coalesce(sum(c.xpm), 0) AS xpm,
+            coalesce(sum(c.xpa), 0) AS xpa,
+            coalesce(sum(c.sack), 0) AS sack,
+            coalesce(sum(c.def_int), 0) AS def_int,
+            coalesce(sum(c.fum_rec), 0) AS fum_rec,
+            coalesce(sum(c.pts_allow), 0) AS pts_allow,
+            coalesce(sum(c.yds_allow), 0) AS yds_allow
+        FROM player_week_scores s
+        JOIN v_posted_weeks pw
+            ON pw.year = s.year AND pw.week = s.week
+        LEFT JOIN player_week_counting_stats c
+            ON c.year = s.year AND c.week = s.week AND c.player_id = s.player_id
+        WHERE s.year = %(year)s
+          AND s.position = %(position)s
+        GROUP BY s.player_id
+        ORDER BY sum(s.points) DESC NULLS LAST, max(s.player_name), s.player_id
+        {limit_sql}
+        """,
+        {"year": year, "position": position, "limit": limit},
+    )
+
+
+def era2010_week_highs(
+    year: int,
+    position: str,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Single posted weeks for one position, highest fantasy points first."""
+    position = _era2010_position(position)
+    limit_sql = "LIMIT %(limit)s" if limit is not None else ""
+    return fetchall(
+        f"""
+        SELECT s.player_id, s.player_name, s.position, s.week, s.points
+        FROM player_week_scores s
+        JOIN v_posted_weeks pw
+            ON pw.year = s.year AND pw.week = s.week
+        WHERE s.year = %(year)s
+          AND s.position = %(position)s
+        ORDER BY s.points DESC, s.week, s.player_name, s.player_id
+        {limit_sql}
+        """,
+        {"year": year, "position": position, "limit": limit},
+    )
+
+
 # --- D1 players split (#105). Append-only. players_index() above is unchanged. ---
 #
 # The summary shows a prefix of each board. 50 matches the fragment page size
