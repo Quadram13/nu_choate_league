@@ -628,7 +628,7 @@
 <section class="js-season-pane" id="playoffs" data-tab="playoffs">
 {% if path %}
 <h2>How they got there</h2>
-<p class="note">Regular-season path.</p>
+<p class="note">Regular-season path.{% if current.vs_median %} Record is H2H plus the median game. Median is wins vs the weekly median.{% else %} Record is head-to-head. This season did not play a median game.{% endif %}</p>
 <table class="js-sort">
     <thead>
         <tr>

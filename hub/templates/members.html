@@ -2,7 +2,7 @@
 {% from "plaque_macros.html" import plaque_free, person_link %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official records. H2H and median are always-H2H and always-median. Drought is seasons since last playoff. RS and PF+ count a regular season only after it is finished.</p>
+<p class="lede">Official record and win% count head-to-head plus a game vs the weekly median from 2025. H2H is head-to-head only. Median counts those median games; seasons without one (2022–24) are left out. PF/G is points per head-to-head game. Drought is seasons since last playoff. RS and PF+ count a regular season only after it is finished.</p>
 {% if luck_plaques %}
 <div class="plaque-grid recap-records">
     {% for row in luck_plaques %}
@@ -17,13 +17,13 @@
         <tr>
             <th>Manager</th>
             <th class="num">Yrs</th>
-            <th data-type="num">Record</th>
-            <th class="num">Win%</th>
-            <th data-type="num">H2H</th>
-            <th data-type="num">Median</th>
+            <th data-type="num" title="Platform line. Head-to-head, plus a game vs the weekly median from 2025.">Official</th>
+            <th class="num" title="Official win%, same games as Official.">Win%</th>
+            <th data-type="num" title="Head-to-head games only.">H2H</th>
+            <th data-type="num" title="Games vs the weekly median, 2025 on. 2022–24 had no median game and are left out.">Median</th>
             <th data-type="num">All-play</th>
             <th class="num">PF</th>
-            <th class="num">PF/G</th>
+            <th class="num" title="Points for per head-to-head game. Points are the head-to-head total.">PF/G</th>
             <th class="num">Titles</th>
             <th class="num">RU</th>
             <th class="num">RS</th>
