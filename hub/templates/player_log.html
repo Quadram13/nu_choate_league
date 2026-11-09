@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "player_macros.html" import week_table %}
+{% block body %}
+<p class="jump">
+    <a href="/players">Players</a>
+    <a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>
+    <a href="/players/{{ player.player_id }}/splits">Splits</a>
+</p>
+<h1>{{ player.player_name }} game log</h1>
+<p class="jump">
+    <a href="/players/{{ player.player_id }}/log"{% if selected_year is none %} class="on"{% endif %}>Career</a>
+    {% for year in log_years %}
+    <a href="/players/{{ player.player_id }}/log?year={{ year }}"{% if selected_year == year %} class="on"{% endif %}>{{ year }}</a>
+    {% endfor %}
+</p>
+{% if selected_year is not none and not shown_weeks %}
+<p class="note">No stored weeks in {{ selected_year }}.</p>
+{% elif shown_weeks %}
+{{ week_table(shown_weeks) }}
+{% else %}
+<p class="note">No stored weeks.</p>
+{% endif %}
+{% endblock %}

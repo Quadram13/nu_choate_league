@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "player_macros.html" import box, box_head %}
+{% macro split_label(row) -%}
+{%- if row.split_value is defined and row.split_value -%}
+{%- if row.split_value == 'regular' -%}Regular
+{%- elif row.split_value == 'playoff' -%}Playoff
+{%- elif row.split_value == 'first' -%}First half
+{%- elif row.split_value == 'second' -%}Second half
+{%- else -%}{{ row.split_value }}
+{%- endif -%}
+{%- elif row.site is defined -%}
+{%- if row.site == 'home' -%}Home{%- else -%}Away{%- endif -%}
+{%- else -%}{{ row.opponent }}
+{%- endif -%}
+{%- endmacro %}
+{% macro split_rows(rows, boxed) %}
+{% for row in rows %}
+<tr data-year="{{ row.year }}">
+    <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+    <td>{{ split_label(row) }}</td>
+    <td>{{ row.nfl_team if row.nfl_team else "—" }}</td>
+    <td class="num" data-value="{{ row.games }}">{{ row.games|int }}</td>
+    <td class="num" data-value="{{ row.points }}">{{ "%.2f"|format(row.points) }}</td>
+    <td class="num" data-value="{{ row.points_per_game }}">{{ "%.2f"|format(row.points_per_game) }}</td>
+    {% if boxed %}
+    {{ box(row) }}
+    {% else %}
+    <td colspan="50">—</td>
+    {% endif %}
+</tr>
+{% endfor %}
+{% endmacro %}
+{% block body %}
+<p class="jump">
+    <a href="/players">Players</a>
+    <a href="/players/{{ player.player_id }}">{{ player.player_name }}</a>
+    <a href="/players/{{ player.player_id }}/log">Game log</a>
+</p>
+<h1>{{ player.player_name }} splits</h1>
+<p class="jump">
+    <a href="/players/{{ player.player_id }}/splits"{% if selected_year is none %} class="on"{% endif %}>Career</a>
+    {% for year in log_years %}
+    <a href="/players/{{ player.player_id }}/splits?year={{ year }}"{% if selected_year == year %} class="on"{% endif %}>{{ year }}</a>
+    {% endfor %}
+</p>
+{% if splits and splits.rows %}
+<p class="note">Regular and playoff are posted weeks on a roster of that kind. Consolation weeks and weeks the player was not rostered stay out of this block. Regular plus playoff is every week here, and the two halves are those same weeks. A missing row is zero weeks. The first half is a week at or before the regular-season midpoint. The second half is every later week, playoffs included. The midpoint is half the regular-season length, rounded down, so the extra week of an odd season is in the second half.
+{% for bound in splits.bounds %}{{ bound.year }} week {{ bound.midpoint }} of {{ bound.regular_weeks }}{% if not loop.last %} · {% endif %}{% endfor %}.
+Only a posted week is counted, so the live week stays out. Wk is rostered weeks, bench included. PF sums those weeks. PF/G divides PF by Wk. The counting columns sum the counting-stat rows on those same weeks. G in that box is the counting-row count. A zero-point week is a rostered week and has no counting row, so G can be lower than Wk. A /G rate divides by G.</p>
+<p class="note">Home/Road and Opponent are 2022 and 2023 only. The opponent is the 2022–2023 schedule of {{ bio.nfl_team if bio and bio.nfl_team else "this player's current club" }}, from players.nfl_team{% if bio and bio.catalog_as_of %} on the {{ bio.catalog_as_of }} catalog{% endif %}. That is the current club. A player who changed teams is credited with the current club's opponents, so a traded player's rows are misattributed. 2024–2026 have no schedule rows. A bye is left out. Home and away use the same club and the same weeks. Defense-versus-position is a later metric. This table is the player's own games, points, and average.</p>
+{% if phase_rows or half_rows or site_rows or opponent_rows %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Split</th>
+            <th title="Current catalog club used to read the 2022-2023 schedule">Club</th>
+            <th class="num" title="Posted roster weeks in this split, bench included. A zero-point week counts.">Wk</th>
+            <th class="num" title="Points on those roster weeks, bench included.">PF</th>
+            <th class="num" title="PF divided by Wk.">PF/G</th>
+            {{ box_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        {% if phase_rows %}
+        <tr class="sheet-group"><td colspan="56">Phase</td></tr>
+        {{ split_rows(phase_rows, true) }}
+        {% endif %}
+        {% if half_rows %}
+        <tr class="sheet-group"><td colspan="56">Half</td></tr>
+        {{ split_rows(half_rows, true) }}
+        {% endif %}
+        {% if site_rows %}
+        <tr class="sheet-group"><td colspan="56">Home/Road</td></tr>
+        {{ split_rows(site_rows, false) }}
+        {% endif %}
+        {% if opponent_rows %}
+        <tr class="sheet-group"><td colspan="56">Opponent</td></tr>
+        {{ split_rows(opponent_rows, false) }}
+        {% endif %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">No splits{% if selected_year is not none %} in {{ selected_year }}{% endif %}.</p>
+{% endif %}
+{% else %}
+<p class="note">No splits.</p>
+{% endif %}
+{% endblock %}
