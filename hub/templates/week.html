@@ -18,7 +18,7 @@
     {% endif %}
     {% if gc.standings %}<a href="#standings">Standings</a>{% endif %}
     {% if gc.groups %}<a href="#matchups">Matchups</a>{% endif %}
-    {% if gc.card %}<a href="#card">{% if gc.card.marks %}Weekly Distinctions{% elif gc.card.first_chairs %}Varsity Letters{% elif gc.card.last_chairs %}Varsity Farmers{% else %}Beat the Freeze{% endif %}</a>{% endif %}
+    {% if gc.card %}<a href="#card">{% if gc.card.marks %}Weekly Distinctions{% elif gc.card.first_chairs %}Weekly Varsity Letters{% elif gc.card.last_chairs %}Weekly Varsity Farmers{% else %}Weekly Beat the Freeze{% endif %}</a>{% endif %}
     {% if gc.txns.days %}<a href="#transactions">Transactions</a>{% endif %}
 </p>
 <h1>{{ current.year }} week {{ gc.week }}</h1>

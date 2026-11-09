@@ -1130,7 +1130,7 @@ def _season_luck_flag(year: int, *, lucky: bool) -> dict[str, Any] | None:
     )
     if row is None:
         return None
-    row["flag"] = "H2H enjoyer" if lucky else "Median enjoyer"
+    row["flag"] = "bottom-half win" if lucky else "top-half loss"
     return row
 
 
@@ -2339,7 +2339,8 @@ def market_grade(overall: int, market_adp: float, *, hit: bool, teams: int) -> s
     """Slot versus ESPN average draft position, in rounds, plus the hit/bust.
 
     Negative distance means the pick came before the market. `hit` is the
-    same flag as `v_draft_grades.hit` (eight or more rest-of-season starts).
+    same flag as `v_draft_grades.hit`: eight or more rest-of-season starts
+    and rest-of-season VORP above that round's average.
     """
     league = teams if teams > 0 else 12
     delta = float(overall) - float(market_adp)
@@ -3909,7 +3910,7 @@ def luck_flagged_weeks() -> list[dict[str, Any]]:
         """
     )
     for row in rows:
-        row["flag"] = "H2H enjoyer" if row["lucky_win"] else "Median enjoyer"
+        row["flag"] = "bottom-half win" if row["lucky_win"] else "top-half loss"
     return rows
 
 
@@ -4684,13 +4685,13 @@ MARK_META = {
         "label": "H2H enjoyer",
         "unit": "PF",
         "polarity": "high",
-        "definition": "Won while scoring in the bottom half.",
+        "definition": "The bottom-half win with the worst points rank that week.",
     },
     "punched": {
-        "label": "Median enjoyer",
+        "label": "Scored and lost",
         "unit": "PF",
         "polarity": "low",
-        "definition": "Lost while scoring in the top half.",
+        "definition": "The top-half loss with the best points rank that week.",
     },
     "pine": {
         "label": "She's cheer captain and...",
@@ -4727,9 +4728,9 @@ MARK_META = {
 MARK_LABELS = {kind: spec["label"] for kind, spec in MARK_META.items()}
 
 CHAIR_KIND = {
-    "all_league": "Varsity Letters",
-    "busch": "Varsity Farmers",
-    "benched_all_star": "Beat the Freeze",
+    "all_league": "Weekly Varsity Letter",
+    "busch": "Weekly Varsity Farmer",
+    "benched_all_star": "Weekly Beat the Freeze",
 }
 
 
@@ -6553,7 +6554,7 @@ def _record_fa_adds(limit: int = 10) -> list[dict[str, Any]]:
         """
         SELECT year, manager_id, manager_name AS display_name, adds, waivers, free_agents
         FROM v_add_season
-        ORDER BY adds DESC, free_agents DESC, year, manager_name
+        ORDER BY free_agents DESC, adds DESC, year, manager_name
         LIMIT %(limit)s
         """,
         {"limit": limit},

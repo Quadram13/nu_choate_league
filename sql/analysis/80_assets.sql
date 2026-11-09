@@ -298,7 +298,8 @@ SELECT
     a.adp,
     a.times_drafted,
     v.overall - a.adp AS pick_vs_adp,
-    (v.ros_starts >= 8) AS hit
+    -- Eight or more starts, and rest-of-season VORP above that round's average.
+    ((v.ros_starts >= 8 AND v.ros_vorp > r.round_vorp) IS TRUE) AS hit
 FROM v_asset_value v
 JOIN v_draft_round_avg r ON r.year = v.year AND r.round = v.round
 LEFT JOIN (

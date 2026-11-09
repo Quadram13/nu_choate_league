@@ -34,8 +34,10 @@
     · {{ record(member.playoff.wins, member.playoff.losses, member.playoff.ties) }} playoff
     {% endif %}
     {% if chairs %}
-    · {{ (chairs.first_chair or 0)|int }} Varsity Letters
-    · {{ (chairs.last_chair or 0)|int }} Varsity Farmers
+    {% set letter_weeks = (chairs.first_chair or 0)|int %}
+    {% set farmer_weeks = (chairs.last_chair or 0)|int %}
+    · {{ letter_weeks }} Varsity Letter week{{ "s" if letter_weeks != 1 else "" }}
+    · {{ farmer_weeks }} Varsity Farmer week{{ "s" if farmer_weeks != 1 else "" }}
     {% endif %}
     {% if member.rival %}
     · {{ record(member.rival.wins, member.rival.losses, member.rival.ties) }} vs {{ person(member.rival.id, member.rival.name) }} <span class="team">rival</span>
@@ -70,10 +72,10 @@
     {{ plaque_free("Playoffs", figure=member.playoff_appearances|int) }}
     {% endif %}
     {% if chairs and chairs.first_chair %}
-    {{ plaque_free("Varsity Letters", figure=chairs.first_chair|int, polarity="high") }}
+    {{ plaque_free("Varsity Letter weeks", figure=chairs.first_chair|int, polarity="high") }}
     {% endif %}
     {% if chairs and chairs.last_chair %}
-    {{ plaque_free("Varsity Farmers", figure=chairs.last_chair|int, polarity="low") }}
+    {{ plaque_free("Varsity Farmer weeks", figure=chairs.last_chair|int, polarity="low") }}
     {% endif %}
 </div>
 {% if marks and marks.total %}
@@ -144,6 +146,7 @@
 <h2 id="draft">Draft</h2>
 <p class="note">
     Starter VORP vs that round’s average.
+    A hit is 8 or more starts and above that round’s VORP.
     {% if draft.totals.picks %}{{ draft.totals.hits|int }} hit{{ "s" if draft.totals.hits != 1 else "" }} in {{ draft.totals.picks|int }} pick{{ "s" if draft.totals.picks != 1 else "" }}{% if draft.totals.vs_vorp is not none %} · {{ "%+.1f"|format(draft.totals.vs_vorp) }} vsRnd{% endif %}{% endif %}.
 </p>
 {% if draft.hits or draft.misses %}
@@ -201,8 +204,9 @@
 {% if wire.adds or wire.misses or wire.totals.adds %}
 <h2 id="wire">Wire</h2>
 <p class="note">
-    Starter VORP after the add.
+    Adds are starter VORP on that roster after the add.
     {% if wire.totals.adds %}{{ wire.totals.adds|int }} add{{ "s" if wire.totals.adds != 1 else "" }}{% if wire.totals.ros_vorp is not none %} · {{ "%+.1f"|format(wire.totals.ros_vorp) }} VORP{% endif %}{% endif %}.
+    A miss gap is league VORP from the claim week, bench weeks included.
 </p>
 {% if wire.adds or wire.misses %}
 <div class="notable-grid wire-grid">
@@ -241,7 +245,7 @@
                     <th>When</th>
                     <th>Missed</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
                 </tr>
             </thead>
             <tbody>
@@ -360,10 +364,11 @@
 <h2 id="luck">Luck</h2>
 <p class="note">
     Regular-season H2H.
-    {{ (luck.lucky_wins or 0)|int }} H2H enjoyer{{ "s" if luck.lucky_wins != 1 else "" }}
-    · {{ (luck.unlucky_losses or 0)|int }} Median enjoyer{{ "s" if luck.unlucky_losses != 1 else "" }}
+    {{ (luck.lucky_wins or 0)|int }} bottom-half win{{ "s" if luck.lucky_wins != 1 else "" }}
+    · {{ (luck.unlucky_losses or 0)|int }} top-half loss{{ "es" if luck.unlucky_losses != 1 else "" }}
     · net {{ "%+d"|format((luck.net_luck or 0)|int) }}
     {% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vs expected{% endif %}.
+    Every such game. The H2H enjoyer and Scored and lost chips count the weekly mark, the most extreme one that week.
 </p>
 {% endif %}
 
