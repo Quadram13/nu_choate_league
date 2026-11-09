@@ -4444,6 +4444,9 @@ def players_index() -> dict[str, Any]:
             i.started_vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added,
             i.times_traded,
             coalesce(r.rings, 0) AS rings,
+            coalesce(r.title_starts, 0) AS title_starts,
+            coalesce(r.champ_roster_weeks, 0) AS champ_roster_weeks,
+            coalesce(jm.managers, 0) AS managers,
             p.birth_date,
             p.height_in,
             p.weight_lb,
@@ -4454,24 +4457,22 @@ def players_index() -> dict[str, Any]:
             END AS age_years
         FROM v_player_index i
         LEFT JOIN players p ON p.id = i.player_id
-        LEFT JOIN (
-            SELECT pw.player_id, count(DISTINCT pw.year) AS rings
-            FROM v_player_weeks pw
-            JOIN season_outcomes o ON o.year = pw.year AND o.champion = pw.manager_id
-            WHERE pw.started
-            GROUP BY pw.player_id
-        ) r ON r.player_id = i.player_id
+        LEFT JOIN v_player_rings r ON r.player_id = i.player_id
+        LEFT JOIN v_player_managers jm ON jm.player_id = i.player_id
         ORDER BY i.starter_points DESC, i.started_vorp DESC, i.player_name
         """
     )
     seasons = fetchall(
         """
         SELECT
-            year, player_id, player_name, position, rostered_weeks, starts,
-            fa_weeks, points, started_points, vorp, started_vorp, own_pct, manager_id,
-            owner_name, owned_weeks, lineup_weeks
-        FROM v_player_season
-        ORDER BY year DESC, started_points DESC, started_vorp DESC, player_name
+            s.year, s.player_id, s.player_name, s.position, s.rostered_weeks, s.starts,
+            s.fa_weeks, s.points, s.started_points, s.vorp, s.started_vorp, s.own_pct,
+            s.manager_id, s.owner_name, s.owned_weeks, s.lineup_weeks,
+            coalesce(jm.managers, 0) AS managers
+        FROM v_player_season s
+        LEFT JOIN v_player_managers_season jm
+            ON jm.year = s.year AND jm.player_id = s.player_id
+        ORDER BY s.year DESC, s.started_points DESC, s.started_vorp DESC, s.player_name
         """
     )
     for row in career:
@@ -4793,12 +4794,13 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     _attach_sleeper_context(weeks, player_id)
     rings = _player_title_seasons(player_id)
     title_weeks = _player_title_weeks(player_id)
+    ring_row = _player_ring_row(player_id)
     volatility = _player_volatility_bundle(player_id, seasons, weeks)
     return {
         "player": identity,
         "seasons": seasons,
         "weeks": weeks,
-        "stints": _ownership_stints(scored_weeks),
+        "stints": _player_ownership_stints(player_id, scored_weeks),
         "draft": draft,
         "owners": owners,
         "bio": bio,
@@ -4806,6 +4808,9 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "rings": rings,
         "title_weeks": title_weeks,
         "ring_points": sum(float(row["points"] or 0) for row in title_weeks),
+        "champ_roster_weeks": int(ring_row["champ_roster_weeks"] or 0),
+        "title_starts": int(ring_row["title_starts"] or 0),
+        "title_points": float(ring_row["title_points"] or 0),
         "lines": lines,
         "counting": _player_counting(player_id),
         "volatility": volatility,
@@ -6619,6 +6624,7 @@ def records_page() -> dict[str, Any]:
         "awards": _record_awards(),
         "journeymen": _record_journeymen(),
         "most_traded": _record_most_traded(),
+        "rings": _record_rings(),
         "counting_leaders": _record_counting_leaders(),
         "counting_summaries": _record_counting_summaries(),
         "positional_finish_leaders": _record_positional_finishes(),
@@ -6971,17 +6977,10 @@ def _record_awards() -> list[dict[str, Any]]:
 def _record_journeymen() -> list[dict[str, Any]]:
     return fetchall(
         """
-        SELECT
-            o.player_id,
-            coalesce(p.display_name, o.player_id) AS player_name,
-            p.position,
-            count(DISTINCT o.manager_id) AS managers
-        FROM v_ownership_season o
-        LEFT JOIN players p ON p.id = o.player_id
-        WHERE o.manager_id IS NOT NULL
-        GROUP BY o.player_id, p.display_name, p.position
-        HAVING count(DISTINCT o.manager_id) >= 3
-        ORDER BY count(DISTINCT o.manager_id) DESC, player_name, o.player_id
+        SELECT player_id, player_name, position, managers
+        FROM v_player_managers
+        WHERE managers >= 3
+        ORDER BY managers DESC, player_name, player_id
         """
     )
 
@@ -7002,7 +7001,27 @@ def _record_most_traded(limit: int = 10) -> dict[str, Any]:
         {"limit": limit},
     )
     total = fetchone("SELECT count(*) AS moves FROM v_trades")
-    return {"rows": rows, "moves": int((total or {}).get("moves") or 0)}
+    parties = fetchone(
+        """
+        SELECT
+            count(*) AS trades,
+            count(*) FILTER (WHERE managers = 2) AS two_manager
+        FROM (
+            SELECT t.id, count(DISTINCT mv.manager_id) AS managers
+            FROM transactions t
+            JOIN transaction_moves mv ON mv.transaction_id = t.id
+            WHERE t.type = 'trade'
+                AND t.status = 'complete'
+            GROUP BY t.id
+        ) s
+        """
+    )
+    return {
+        "rows": rows,
+        "moves": int((total or {}).get("moves") or 0),
+        "trades": int((parties or {}).get("trades") or 0),
+        "two_manager": int((parties or {}).get("two_manager") or 0),
+    }
 
 
 def _wire_eras() -> list[dict[str, Any]]:
@@ -7502,3 +7521,146 @@ def _manager_volatility_bundle(manager_id: str) -> dict[str, Any] | None:
     if career is None and not seasons:
         return None
     return {"career": career, "seasons": seasons}
+
+
+# Ownership journey (sql/analysis/61_ownership_journey.sql, issue #35).
+# Stints partition rostered weeks. A missing week starts a new run.
+# Acquisition is the draft or the latest complete add on or before the run.
+
+
+_ACQUISITION_LABELS = {
+    "draft": "Draft",
+    "waiver": "Waiver",
+    "free_agent": "Free agent",
+    "trade": "Trade",
+}
+
+
+def _player_ring_row(player_id: str) -> dict[str, Any]:
+    row = fetchone(
+        """
+        SELECT rings, champ_roster_weeks, title_starts, title_points
+        FROM v_player_rings
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    if row is None:
+        return {
+            "rings": 0,
+            "champ_roster_weeks": 0,
+            "title_starts": 0,
+            "title_points": 0,
+        }
+    return row
+
+
+def _player_ownership_stints(player_id: str, weeks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rostered runs from v_ownership_stints, plus FA runs from stored unowned weeks."""
+    rostered = fetchall(
+        """
+        SELECT
+            manager_id, manager_name, from_year, from_week, to_year, to_week,
+            weeks, tenure_starts, tenure_points, acquisition_type, transaction_id
+        FROM v_ownership_stints
+        WHERE player_id = %(player_id)s
+        ORDER BY from_year, from_week, manager_id
+        """,
+        {"player_id": player_id},
+    )
+    rows: list[dict[str, Any]] = []
+    for row in rostered:
+        start = int(row["from_week"])
+        end = int(row["to_week"])
+        year = int(row["from_year"])
+        to_year = int(row["to_year"])
+        kind = row["acquisition_type"]
+        rows.append(
+            {
+                "year": year,
+                "to_year": to_year,
+                "start_week": start,
+                "end_week": end,
+                "span": _stint_span(year, start, to_year, end),
+                "manager_id": row["manager_id"],
+                "manager_name": row["manager_name"],
+                "weeks": int(row["weeks"]),
+                "starts": int(row["tenure_starts"] or 0),
+                "points": float(row["tenure_points"] or 0),
+                "acquisition": kind,
+                "acquisition_label": _ACQUISITION_LABELS.get(kind or "", ""),
+                "href": _acquisition_href(year, kind, row["transaction_id"]),
+            }
+        )
+    for stint in _ownership_stints(weeks):
+        if stint.get("manager_id"):
+            continue
+        stint["to_year"] = stint["year"]
+        stint["acquisition"] = None
+        stint["acquisition_label"] = ""
+        stint["href"] = None
+        rows.append(stint)
+    rows.sort(
+        key=lambda item: (
+            int(item["year"]),
+            int(item["start_week"]),
+            item.get("manager_id") or "",
+        )
+    )
+    return rows
+
+
+def _stint_span(year: int, start: int, to_year: int, end: int) -> str:
+    if year == to_year:
+        if start == end:
+            return f"W{start}"
+        return f"W{start}\u2013W{end}"
+    return f"{year} W{start}\u2013{to_year} W{end}"
+
+
+def _acquisition_href(year: int, kind: str | None, transaction_id: str | None) -> str | None:
+    if kind == "draft":
+        return f"/seasons/{year}/draft"
+    if kind in {"waiver", "free_agent", "trade"} and transaction_id:
+        return _move_href(year, kind, transaction_id)
+    return None
+
+
+def _record_rings() -> dict[str, Any]:
+    rows = fetchall(
+        """
+        SELECT
+            player_id, player_name, position, rings,
+            champ_roster_weeks, title_starts, title_points
+        FROM v_player_rings
+        WHERE champ_roster_weeks > 0
+            OR title_starts > 0
+            OR rings > 0
+        ORDER BY champ_roster_weeks DESC, title_starts DESC, title_points DESC, player_name, player_id
+        """
+    )
+    for row in rows:
+        row["title_points"] = float(row["title_points"] or 0)
+    totals = fetchone(
+        """
+        SELECT
+            count(*) FILTER (WHERE title_starts > 0) AS title_players,
+            coalesce(sum(title_starts), 0) AS title_starts,
+            coalesce(sum(title_points), 0) AS title_points,
+            count(*) FILTER (WHERE champ_roster_weeks > 0) AS champ_players,
+            coalesce(sum(champ_roster_weeks), 0) AS champ_weeks,
+            count(*) FILTER (WHERE rings > 0) AS ring_players,
+            coalesce(sum(rings), 0) AS ring_seasons
+        FROM v_player_rings
+        """
+    ) or {}
+    return {
+        "rows": rows,
+        "title_players": int(totals.get("title_players") or 0),
+        "title_starts": int(totals.get("title_starts") or 0),
+        "title_points": float(totals.get("title_points") or 0),
+        "champ_players": int(totals.get("champ_players") or 0),
+        "champ_weeks": int(totals.get("champ_weeks") or 0),
+        "ring_players": int(totals.get("ring_players") or 0),
+        "ring_seasons": int(totals.get("ring_seasons") or 0),
+    }

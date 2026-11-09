@@ -14,7 +14,7 @@
 {% endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. VORP beside it counts starts only. Unowned weeks stay in <a href="#wire">Left on the wire</a>. Trades are times moved. Rings are championship seasons: at least one start for the manager who won it all. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
+<p class="lede">Career starter PF. VORP beside it counts starts only. Unowned weeks stay in <a href="#wire">Left on the wire</a>. Trades are times moved. Mgrs is distinct managers on rostered weeks. Rings are championship seasons: at least one start for the manager who won it all. Title is title-week starts for that champion. CWk is weeks rostered by a champion, bench included. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
 {% if career | selectattr("vol_partial") | list %}
 <p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
 {% endif %}
@@ -45,7 +45,10 @@
             <th class="num">Draft</th>
             <th class="num">Adds</th>
             <th class="num">Trades</th>
+            <th class="num" title="Distinct managers on rostered weeks">Mgrs</th>
             <th class="num">Rings</th>
+            <th class="num" title="Starts for the champion in a playoff week on or after playoff_start_week">Title</th>
+            <th class="num" title="Weeks rostered by a season champion, bench included">CWk</th>
             <th class="num" title="Scored weeks in the volatility sample">Wk</th>
             <th class="num" title="Mean of scored weeks">Mean</th>
             <th class="num" title="Sample standard deviation">SD</th>
@@ -71,7 +74,10 @@
             <td class="num">{{ (row.times_drafted or 0)|int }}</td>
             <td class="num">{{ (row.times_added or 0)|int }}</td>
             <td class="num">{{ (row.times_traded or 0)|int }}</td>
+            <td class="num">{{ (row.managers or 0)|int }}</td>
             <td class="num">{{ (row.rings or 0)|int }}</td>
+            <td class="num">{{ (row.title_starts or 0)|int }}</td>
+            <td class="num">{{ (row.champ_roster_weeks or 0)|int }}</td>
             <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% if row.vol_partial %}*{% endif %}{% endif %}</td>
             <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
             <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
@@ -95,6 +101,7 @@
             <th>Player</th>
             <th>Pos</th>
             <th title="Manager who rostered the player most, and that manager's weeks out of every rostered week">Most weeks</th>
+            <th class="num" title="Distinct managers who rostered the player this season">Mgrs</th>
             <th class="num" title="Rostered weeks, any manager">Rstr</th>
             <th class="num">Starts</th>
             <th class="num" title="Points on starts">PF</th>
@@ -116,6 +123,7 @@
             <td>{{ player(row.player_id, row.player_name) }}</td>
             <td>{{ row.position or "—" }}</td>
             <td>{% if row.owner_name %}{{ person(row.manager_id, row.owner_name) }} · {{ (row.owned_weeks or 0)|int }} of {{ (row.rostered_weeks or 0)|int }}{% else %}—{% endif %}</td>
+            <td class="num">{{ (row.managers or 0)|int }}</td>
             <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
             <td class="num">{{ (row.starts or 0)|int }}</td>
             <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
