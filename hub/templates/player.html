@@ -21,7 +21,13 @@
     {{ player.position or "—" }}
     {% if bio and bio.nfl_team %} · {{ bio.nfl_team }}{% endif %}
     {% if bio and bio.jersey_number %} #{{ bio.jersey_number }}{% endif %}
+    {% if bio and bio.height %} · {{ bio.height }}{% endif %}
+    {% if bio and bio.weight_lb is not none %} · {{ bio.weight_lb }} lb{% endif %}
+    {% if bio and bio.age_years is not none %} · age {{ bio.age_years }}{% endif %}
+    {% if bio and bio.birth_date %} · born {{ bio.birth_date }}{% endif %}
     {% if bio and bio.college %} · {{ bio.college }}{% endif %}
+    {% if bio and bio.high_school %} · {{ bio.high_school }}{% endif %}
+    {% if bio and bio.rookie_year is not none %} · rookie {{ bio.rookie_year }}{% endif %}
     {% if bio and bio.years_exp is not none %} · {{ bio.years_exp }} yr NFL{% endif %}
     · {{ (player.starts or 0)|int }} start{{ "s" if player.starts != 1 else "" }}
     {% if (player.rostered_weeks or 0)|int > 0 or (player.starts or 0)|int > 0 %}
@@ -33,6 +39,18 @@
     {% if player.own_pct is not none %} · <span title="{{ (player.rostered_weeks or 0)|int }} of {{ (player.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(player.own_pct) }} owned</span>{% endif %}
     {% if player.first_year %} · {{ player.first_year }}–{{ player.last_year }}{% endif %}
 </p>
+{% if bio and bio.catalog_as_of and (bio.nfl_status or bio.injury_status or bio.injury_body_part or bio.injury_notes or bio.depth_chart_position or bio.depth_chart_order is not none) %}
+<p class="note">
+    Sleeper catalog snapshot as of {{ bio.catalog_as_of }}. This is the catalog refresh, not a week of this league.
+    {% if bio.nfl_status %}Status {{ bio.nfl_status }}.{% endif %}
+    {% if bio.injury_status or bio.injury_body_part or bio.injury_notes %}
+    Injury{% if bio.injury_status %} {{ bio.injury_status }}{% endif %}{% if bio.injury_body_part %} ({{ bio.injury_body_part }}){% endif %}{% if bio.injury_notes %}: {{ bio.injury_notes }}{% endif %}.
+    {% endif %}
+    {% if bio.depth_chart_position or bio.depth_chart_order is not none %}
+    Depth chart{% if bio.depth_chart_position %} {{ bio.depth_chart_position }}{% endif %}{% if bio.depth_chart_order is not none %} #{{ bio.depth_chart_order }}{% endif %}.
+    {% endif %}
+</p>
+{% endif %}
 {% if chairs %}
 <p class="note">
     {% set letter_weeks = (chairs.first_chair or 0)|int %}

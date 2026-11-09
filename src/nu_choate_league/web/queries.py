@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 
 from ..db import database_url
 from ..ingest.score import COUNTING_STAT_FIELDS
+from ..players import format_height
 from . import brackets
 from .names import flavor_team, manager_hue
 
@@ -4442,8 +4443,17 @@ def players_index() -> dict[str, Any]:
             i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
             i.started_vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added,
             i.times_traded,
-            coalesce(r.rings, 0) AS rings
+            coalesce(r.rings, 0) AS rings,
+            p.birth_date,
+            p.height_in,
+            p.weight_lb,
+            p.rookie_year,
+            CASE
+                WHEN p.birth_date IS NULL THEN NULL
+                ELSE EXTRACT(YEAR FROM age(p.birth_date))::integer
+            END AS age_years
         FROM v_player_index i
+        LEFT JOIN players p ON p.id = i.player_id
         LEFT JOIN (
             SELECT pw.player_id, count(DISTINCT pw.year) AS rings
             FROM v_player_weeks pw
@@ -4466,6 +4476,7 @@ def players_index() -> dict[str, Any]:
     )
     for row in career:
         row["avg"] = _per_start(row.get("starter_points"), row.get("starts"))
+        row["height"] = format_height(row.get("height_in"))
     for row in seasons:
         row["avg"] = _per_start(row.get("started_points"), row.get("starts"))
     _attach_index_volatility(career, seasons)
@@ -6164,14 +6175,39 @@ def _member_platform_split(manager_id: str) -> list[dict[str, Any]]:
 
 
 def _player_bio(player_id: str) -> dict[str, Any] | None:
-    return fetchone(
+    row = fetchone(
         """
-        SELECT nfl_team, college, years_exp, jersey_number, position, display_name
+        SELECT
+            nfl_team,
+            college,
+            years_exp,
+            jersey_number,
+            position,
+            display_name,
+            birth_date,
+            height_in,
+            weight_lb,
+            high_school,
+            rookie_year,
+            catalog_as_of,
+            nfl_status,
+            injury_status,
+            injury_body_part,
+            injury_notes,
+            depth_chart_position,
+            depth_chart_order,
+            CASE
+                WHEN birth_date IS NULL THEN NULL
+                ELSE EXTRACT(YEAR FROM age(birth_date))::integer
+            END AS age_years
         FROM players
         WHERE id = %(player_id)s
         """,
         {"player_id": player_id},
     )
+    if row is not None:
+        row["height"] = format_height(row.get("height_in"))
+    return row
 
 
 def _player_chairs(player_id: str) -> dict[str, Any]:
