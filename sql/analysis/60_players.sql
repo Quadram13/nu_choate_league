@@ -369,6 +369,9 @@ WHERE p.rostered
 GROUP BY p.year, p.player_id, p.manager_id, m.display_name;
 
 -- Rostered players in a season, with the manager who held them longest.
+-- `points` and `vorp` stay every stored week. Rankings that sit beside
+-- starter PF read `started_points` and `started_vorp`. `fa_vorp` stays the
+-- unowned posted weeks. `started_vorp` is last so a replace can append it.
 CREATE VIEW v_player_season AS
 SELECT
     v.year,
@@ -392,7 +395,8 @@ SELECT
     o.manager_name AS owner_name,
     o.weeks AS owned_weeks,
     v.lineup_weeks,
-    v.fa_vorp
+    v.fa_vorp,
+    v.started_vorp
 FROM v_vorp_season v
 LEFT JOIN LATERAL (
     SELECT manager_id, manager_name, weeks
@@ -427,7 +431,8 @@ SELECT
         WHEN coalesce(lineups.lineup_weeks, 0) = 0 THEN NULL
         ELSE v.rostered_weeks::double precision / lineups.lineup_weeks
     END AS own_pct,
-    lineups.lineup_weeks
+    lineups.lineup_weeks,
+    v.started_vorp
 FROM v_player_career c
 LEFT JOIN (
     SELECT
@@ -435,7 +440,8 @@ LEFT JOIN (
         sum(weeks) AS weeks,
         sum(rostered_weeks) AS rostered_weeks,
         sum(fa_weeks) AS fa_weeks,
-        sum(vorp) AS vorp
+        sum(vorp) AS vorp,
+        sum(started_vorp) AS started_vorp
     FROM v_vorp_season
     GROUP BY player_id
 ) v ON v.player_id = c.player_id

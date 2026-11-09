@@ -14,7 +14,7 @@
 {% endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. Trades are times moved. Rings are championship seasons: at least one start for the manager who won it all. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
+<p class="lede">Career starter PF. VORP beside it counts starts only. Unowned weeks stay in <a href="#wire">Left on the wire</a>. Trades are times moved. Rings are championship seasons: at least one start for the manager who won it all. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP from posted weeks the player was unowned, and a missing score counts as zero. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
 {% if career | selectattr("vol_partial") | list %}
 <p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
 {% endif %}
@@ -40,7 +40,7 @@
             <th class="num">Starts</th>
             <th class="num">PF</th>
             <th class="num">Avg</th>
-            <th class="num">VORP</th>
+            <th class="num" title="VORP on starts. Unowned weeks stay in Left on the wire.">VORP</th>
             <th class="num" title="Rostered weeks divided by posted lineup weeks in seasons with a stored week">Own</th>
             <th class="num">Draft</th>
             <th class="num">Adds</th>
@@ -62,7 +62,7 @@
             <td class="num">{{ (row.starts or 0)|int }}</td>
             <td class="num" data-value="{{ row.starter_points }}">{% if row.starter_points is not none %}{{ "%.1f"|format(row.starter_points) }}{% endif %}</td>
             <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
-            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
             <td class="num">{{ (row.times_drafted or 0)|int }}</td>
             <td class="num">{{ (row.times_added or 0)|int }}</td>
@@ -89,9 +89,9 @@
             <th title="Manager who rostered the player most, and that manager's weeks out of every rostered week">Most weeks</th>
             <th class="num" title="Rostered weeks, any manager">Rstr</th>
             <th class="num">Starts</th>
-            <th class="num">PF</th>
+            <th class="num" title="Points on starts">PF</th>
             <th class="num">Avg</th>
-            <th class="num">VORP</th>
+            <th class="num" title="VORP on starts. Unowned weeks stay in Left on the wire.">VORP</th>
             <th class="num" title="Rostered weeks divided by posted lineup weeks">Own</th>
             <th class="num" title="Scored weeks in the volatility sample">Wk</th>
             <th class="num" title="Mean of scored weeks">Mean</th>
@@ -112,7 +112,7 @@
             <td class="num">{{ (row.starts or 0)|int }}</td>
             <td class="num" data-value="{{ row.started_points }}">{% if row.started_points is not none %}{{ "%.1f"|format(row.started_points) }}{% endif %}</td>
             <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
-            <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
             <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% endif %}</td>
             <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
