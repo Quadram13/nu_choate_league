@@ -1,0 +1,241 @@
+{% macro week_links(year, rows) -%}
+{%- for row in rows -%}
+{%- if not loop.first -%}{%- if loop.last %} and {% else %}, {% endif -%}{%- endif -%}
+<a href="/seasons/{{ year }}/week/{{ row.week }}">{{ row.week }}</a>
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro distribution(season) %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th class="num">Mgr-weeks</th>
+            <th class="num">Teams</th>
+            <th class="num">Avg</th>
+            <th class="num">Median</th>
+            <th class="num">Std dev</th>
+            <th class="num">Min</th>
+            <th class="num">Max</th>
+            <th class="num">League PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">{{ season.manager_weeks }}</td>
+            <td class="num">{{ season.managers }}</td>
+            <td class="num">{{ "%.2f"|format(season.avg) }}</td>
+            <td class="num">{{ "%.2f"|format(season.median) }}</td>
+            <td class="num">{% if season.stddev is not none %}{{ "%.2f"|format(season.stddev) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(season.min) }}</td>
+            <td class="num">{{ "%.2f"|format(season.max) }}</td>
+            <td class="num">{{ "%.2f"|format(season.total_pf) }}</td>
+        </tr>
+    </tbody>
+</table>
+</div>
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            {% for decile in season.deciles %}
+            <th class="num">{{ decile.label }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            {% for decile in season.deciles %}
+            <td class="num">{% if decile.value is not none %}{{ "%.2f"|format(decile.value) }}{% else %}—{% endif %}</td>
+            {% endfor %}
+        </tr>
+    </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro named_prose(year, env) %}
+<p class="note">
+    {% if env.flat_spread and env.tightest %}
+    Every scored week had the same spread ({{ "%.2f"|format(env.tightest[0].spread) }}).
+    {% elif env.tightest %}
+    Tightest {{ "weeks" if env.tightest|length > 1 else "week" }}
+    {{ week_links(year, env.tightest) }}
+    (spread {{ "%.2f"|format(env.tightest[0].spread) }},
+    {{ "%.2f"|format(env.tightest[0].low) }}–{{ "%.2f"|format(env.tightest[0].high) }}).
+    {% endif %}
+    {% if env.flat_total and env.boom %}
+    Every scored week had the same league total ({{ "%.2f"|format(env.boom[0].total) }}).
+    {% elif env.boom %}
+    Boom {{ "weeks" if env.boom|length > 1 else "week" }}
+    {{ week_links(year, env.boom) }}
+    (league total {{ "%.2f"|format(env.boom[0].total) }},
+    mean {{ "%.2f"|format(env.boom[0].mean) }}).
+    {% if not env.boom_matches_mean and env.boom_mean %}
+    Highest mean is {{ week_links(year, env.boom_mean) }}
+    ({{ "%.2f"|format(env.boom_mean[0].mean) }}).
+    {% endif %}
+    {% endif %}
+</p>
+{% endmacro %}
+
+{% macro environment_table(seasons, current_year=None) %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num">Teams</th>
+            <th class="num">Weeks</th>
+            <th class="num">Mgr-weeks</th>
+            <th class="num">Avg</th>
+            <th class="num">Median</th>
+            <th class="num">Std dev</th>
+            <th class="num">League PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr{% if current_year is not none and row.year == current_year %} class="this"{% endif %} data-year="{{ row.year }}">
+            <td class="num" data-value="{{ row.year }}"><a href="/seasons/{{ row.year }}#scoring-env">{{ row.year }}</a>{% if row.partial %} <span class="team">partial</span>{% endif %}</td>
+            <td class="num">{{ row.managers }}</td>
+            <td class="num">{{ row.weeks }}</td>
+            <td class="num">{{ row.manager_weeks }}</td>
+            <td class="num">{{ "%.2f"|format(row.avg) }}</td>
+            <td class="num">{{ "%.2f"|format(row.median) }}</td>
+            <td class="num">{% if row.stddev is not none %}{{ "%.2f"|format(row.stddev) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(row.total_pf) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro marks_table(seasons, current_year=None) %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Tightest</th>
+            <th class="num">Spread</th>
+            <th class="num">Span</th>
+            <th>Boom</th>
+            <th class="num">Total</th>
+            <th class="num">Mean</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr{% if current_year is not none and row.year == current_year %} class="this"{% endif %} data-year="{{ row.year }}">
+            <td class="num" data-value="{{ row.year }}"><a href="/seasons/{{ row.year }}/scoring#distribution">{{ row.year }}</a>{% if row.partial %} <span class="team">partial</span>{% endif %}</td>
+            <td>
+                {% if row.flat_spread %}Every week
+                {% elif row.tightest %}{{ week_links(row.year, row.tightest) }}
+                {% else %}—{% endif %}
+            </td>
+            <td class="num">{% if row.tight_spread is not none %}{{ "%.2f"|format(row.tight_spread) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.tight_span is not none %}{{ "%.2f"|format(row.tight_span) }}{% else %}—{% endif %}</td>
+            <td>
+                {% if row.flat_total %}Every week
+                {% elif row.boom %}{{ week_links(row.year, row.boom) }}
+                {% else %}—{% endif %}
+                {% if not row.boom_matches_mean and row.boom_mean %}
+                <span class="team">highest mean {{ week_links(row.year, row.boom_mean) }} ({{ "%.2f"|format(row.boom_mean[0].mean) }})</span>
+                {% endif %}
+            </td>
+            <td class="num">{% if row.boom_total is not none %}{{ "%.2f"|format(row.boom_total) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.boom_mean_value is not none %}{{ "%.2f"|format(row.boom_mean_value) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro share_table(seasons, positions, show_other, current_year=None) %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            {% for pos in positions %}
+            <th class="num">{{ pos }}</th>
+            {% endfor %}
+            {% if show_other %}<th class="num">Other</th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in seasons %}
+        <tr{% if current_year is not none and row.year == current_year %} class="this"{% endif %} data-year="{{ row.year }}">
+            <td class="num" data-value="{{ row.year }}"><a href="/seasons/{{ row.year }}/scoring#share">{{ row.year }}</a>{% if row.partial %} <span class="team">partial</span>{% endif %}</td>
+            {% for pos in positions %}
+            {% set cell = row.shares.get(pos) %}
+            <td class="num"{% if cell and cell.points is not none %} title="{{ '%.2f'|format(cell.points) }} points, {{ cell.starts }} starts"{% endif %}>{% if cell and cell.share is not none %}{{ "%.1f"|format(cell.share * 100) }}%{% else %}—{% endif %}</td>
+            {% endfor %}
+            {% if show_other %}
+            <td class="num"{% if row.other and row.other.points is not none %} title="{{ '%.2f'|format(row.other.points) }} points, {{ row.other.starts }} starts"{% endif %}>{% if row.other and row.other.share is not none %}{{ "%.1f"|format(row.other.share * 100) }}%{% else %}—{% endif %}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% set ns = namespace(gap=false) %}
+{% for row in seasons %}
+{% if row.pf_gap is not none and row.pf_gap|abs > 0.05 %}
+{% set ns.gap = true %}
+{% endif %}
+{% endfor %}
+<p class="note">
+    {% if ns.gap %}
+    {% for row in seasons %}{% if row.pf_gap is not none and row.pf_gap|abs > 0.05 %}{{ row.year }} starter lines total {{ "%.2f"|format(row.started_points) }} against league PF {{ "%.2f"|format(row.total_pf) }}. {% endif %}{% endfor %}Every other season on this table matches.
+    {% else %}
+    Starter lines total league PF in every season on this table.
+    {% endif %}
+</p>
+{% endmacro %}
+
+{% macro league_week_board(rows) %}
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>When</th>
+            <th class="num">Teams</th>
+            <th class="num">Total</th>
+            <th class="num">Mean</th>
+            <th class="num">Low</th>
+            <th class="num">High</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ row.managers }}</td>
+            <td class="num">{{ "%.2f"|format(row.total) }}</td>
+            <td class="num">{{ "%.2f"|format(row.mean) }}</td>
+            <td class="num">{{ "%.2f"|format(row.low) }}</td>
+            <td class="num">{{ "%.2f"|format(row.high) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{% macro environment_block(env, year) %}
+{{ distribution(env.season) }}
+{{ named_prose(year, env) }}
+<h3>Season over season</h3>
+<p class="note">Average, median, and std dev are manager-weeks. League PF is their sum. 2023 and 2024 had 10 teams. 2022, 2025, and 2026 had 12. A partial year is the posted weeks only.</p>
+{{ environment_table(env.seasons, year) }}
+<h3>Tightest and boom weeks</h3>
+<p class="note">Tightest is the smallest sample standard deviation. Span is that week's high minus its low, and a different week can have the narrower span. Boom is the highest league total. Inside a season that week is also the highest mean.</p>
+{{ marks_table(env.seasons, year) }}
+<h3 id="share">Position share</h3>
+<p class="note">Share of started points in player_week_scores, by the player's position, on these same weeks. A flex start stays with RB, WR, or TE. Bench points are left out. A slot share would park flex in its own column.</p>
+{{ share_table(env.seasons, env.positions, env.show_other, year) }}
+{% endmacro %}
