@@ -7,9 +7,9 @@ Conventions for AI agents doing ticketed work here. Established 2026-11-07; the 
 | Role | Model |
 | --- | --- |
 | Chief-of-staff (coordinates, files tickets, merges) | Kimi K3 max |
-| Implementers, explorers, reviewers (Task sub-agents) | `grok-4.7-high-fast` |
+| Implementers, explorers, reviewers (Task sub-agents) | `grok-4.7-xhigh-fast` |
 
-Do not probe DeepSeek. Do not use Claude slugs. Per-role overrides live in `~/.cursor/rules/pstack-models.mdc`.
+Do not probe DeepSeek. Do not use Claude slugs. Per-role overrides live in `~/.cursor/rules/pstack-models.mdc` (pstack config: [Quadram13/cursor-config](https://github.com/Quadram13/cursor-config) @ `5085536`). Retargeted 2026-11-09: all Task roles moved `grok-4.7-high-fast` → `grok-4.7-xhigh-fast`; the CoS parent stays Kimi K3 max.
 
 ## Working agreements
 
