@@ -925,6 +925,7 @@ def season_page(year: int) -> dict[str, Any] | None:
         "draft": draft,
         "lineups": lineups,
         "scoring": _season_scoring(year),
+        "scoring_env": _scoring_environment_year(year),
         "power": _power_board(year),
         "heat": _week_rank_heat(year),
         "race": _points_race_chart(year),
@@ -6421,124 +6422,6 @@ def _record_counting_leaders(limit: int = 10) -> list[dict[str, Any]]:
     return boards
 
 
-def _position_key(position: str) -> tuple[int, str]:
-    return (SLOT_ORDER.get(position, 100), position)
-
-
-def _replacement_landscape(year: int) -> dict[str, Any] | None:
-    averages = fetchall(
-        """
-        SELECT
-            position,
-            avg(replacement) AS replacement,
-            count(*) AS weeks,
-            avg(n_starters) AS starters
-        FROM v_replacement_weeks
-        GROUP BY position
-        """
-    )
-    if not averages:
-        return None
-    current_rows = fetchall(
-        """
-        SELECT DISTINCT ON (r.position)
-            r.position,
-            r.week,
-            r.replacement,
-            r.replacement_player_id AS player_id,
-            coalesce(p.display_name, r.replacement_player_id) AS player_name
-        FROM v_replacement_weeks r
-        LEFT JOIN players p ON p.id = r.replacement_player_id
-        WHERE r.year = %(year)s
-        ORDER BY r.position, r.week DESC
-        """,
-        {"year": year},
-    )
-    current = {row["position"]: row for row in current_rows}
-    rows = []
-    for row in sorted(averages, key=lambda item: _position_key(str(item["position"]))):
-        latest = current.get(row["position"]) or {}
-        rows.append(
-            {
-                "position": row["position"],
-                "replacement": float(row["replacement"]),
-                "weeks": int(row["weeks"]),
-                "starters": float(row["starters"]),
-                "week": int(latest["week"]) if latest.get("week") is not None else None,
-                "points": float(latest["replacement"]) if latest.get("replacement") is not None else None,
-                "player_id": latest.get("player_id"),
-                "player_name": latest.get("player_name"),
-            }
-        )
-    week_counts = {row["weeks"] for row in rows}
-    return {
-        "rows": rows,
-        "weeks": week_counts.pop() if len(week_counts) == 1 else None,
-    }
-
-
-def _week_spread(year: int) -> dict[str, Any] | None:
-    rows = fetchall(
-        """
-        SELECT
-            w.week,
-            min(w.points) AS low,
-            max(w.points) AS high,
-            avg(w.points) AS avg,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) AS median,
-            stddev_samp(w.points) AS spread
-        FROM week_scores w
-        JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
-        WHERE w.year = %(year)s
-            AND w.paired
-            AND EXISTS (
-                SELECT 1
-                FROM matchups m
-                WHERE m.year = w.year
-                    AND m.week = w.week
-                    AND m.kind = 'regular'
-                    AND (m.home_points <> 0 OR m.away_points <> 0)
-            )
-        GROUP BY w.week
-        ORDER BY w.week
-        """,
-        {"year": year},
-    )
-    weeks = []
-    for row in rows:
-        spread = row["spread"]
-        weeks.append(
-            {
-                "week": int(row["week"]),
-                "low": float(row["low"]),
-                "high": float(row["high"]),
-                "avg": float(row["avg"]),
-                "median": float(row["median"]),
-                "spread": float(spread) if spread is not None else None,
-            }
-        )
-    if not weeks:
-        return None
-    measured = [row["spread"] for row in weeks if row["spread"] is not None]
-    tight_value = min(measured) if measured else None
-    wild_value = max(measured) if measured else None
-    flat = tight_value is not None and tight_value == wild_value
-    for row in weeks:
-        row["mark"] = None
-        if flat or row["spread"] is None:
-            continue
-        if row["spread"] == tight_value:
-            row["mark"] = "tightest"
-        elif row["spread"] == wild_value:
-            row["mark"] = "wildest"
-    return {
-        "weeks": weeks,
-        "flat": flat,
-        "tightest": [] if flat else [row for row in weeks if row["mark"] == "tightest"],
-        "wildest": [] if flat else [row for row in weeks if row["mark"] == "wildest"],
-    }
-
-
 def scoring_sheet(year: int) -> dict[str, Any] | None:
     current = season_row(year)
     if current is None:
@@ -6573,13 +6456,15 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
         for row in spent:
             row["remaining"] = budget - int(row["spent"] or 0)
             row["budget"] = budget
+    environment = _scoring_environment_year(year)
     return {
         "current": current,
         "seasons": list_seasons(),
         "rows": rows,
         "faab": spent,
-        "replacement": _replacement_landscape(year),
-        "spread": _week_spread(year),
+        "environment": environment,
+        "replacement": _replacement_board(year),
+        "spread": _spread_section(environment),
     }
 
 
@@ -6628,6 +6513,8 @@ def records_page() -> dict[str, Any]:
         "counting_leaders": _record_counting_leaders(),
         "counting_summaries": _record_counting_summaries(),
         "positional_finish_leaders": _record_positional_finishes(),
+        "league_week_records": _record_league_weeks(),
+        "scoring_seasons": _scoring_environment_table(),
     }
 
 
@@ -7663,4 +7550,361 @@ def _record_rings() -> dict[str, Any]:
         "champ_weeks": int(totals.get("champ_weeks") or 0),
         "ring_players": int(totals.get("ring_players") or 0),
         "ring_seasons": int(totals.get("ring_seasons") or 0),
+    }
+
+
+# League scoring environment (sql/analysis/98_scoring_environment.sql).
+# Appended so sibling tickets can keep editing the queries above.
+# Manager-weeks are posted regular-season totals. Replacement weeks keep
+# every posted week, playoffs included, and name the Nth player.
+
+
+SCORING_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+_DECILE_FIELDS = (
+    ("p10", "10th"),
+    ("p20", "20th"),
+    ("p30", "30th"),
+    ("p40", "40th"),
+    ("median_points", "50th"),
+    ("p60", "60th"),
+    ("p70", "70th"),
+    ("p80", "80th"),
+    ("p90", "90th"),
+)
+
+_LEAGUE_WEEK_SQL = """
+SELECT
+    year,
+    week,
+    managers,
+    league_total,
+    mean_points,
+    median_points,
+    low_points,
+    high_points,
+    spread,
+    point_span
+FROM v_scoring_league_weeks
+"""
+
+
+def _f(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def _pack_league_week(row: dict[str, Any]) -> dict[str, Any]:
+    mean = _f(row["mean_points"])
+    return {
+        "year": int(row["year"]),
+        "week": int(row["week"]),
+        "managers": int(row["managers"]),
+        "total": _f(row["league_total"]),
+        "mean": mean,
+        "avg": mean,
+        "median": _f(row["median_points"]),
+        "low": _f(row["low_points"]),
+        "high": _f(row["high_points"]),
+        "spread": _f(row["spread"]),
+        "span": _f(row["point_span"]),
+        "marks": [],
+    }
+
+
+def _extreme(
+    weeks: list[dict[str, Any]],
+    key: str,
+    *,
+    high: bool,
+) -> tuple[list[dict[str, Any]], bool]:
+    values = [row[key] for row in weeks if row[key] is not None]
+    if not values:
+        return [], False
+    target = max(values) if high else min(values)
+    rows = [row for row in weeks if row[key] == target]
+    flat = len(rows) == len(weeks) and len(weeks) > 1
+    return rows, flat
+
+
+def _same_number(rows: list[dict[str, Any]], key: str) -> float | None:
+    values = [row[key] for row in rows if row[key] is not None]
+    if not values or any(value != values[0] for value in values):
+        return None
+    return values[0]
+
+
+def _annotate_league_weeks(weeks: list[dict[str, Any]]) -> dict[str, Any]:
+    for row in weeks:
+        row["marks"] = []
+    tight_rows, flat_spread = _extreme(weeks, "spread", high=False)
+    wild_rows, _wild_flat = _extreme(weeks, "spread", high=True)
+    boom_rows, flat_total = _extreme(weeks, "total", high=True)
+    mean_rows, flat_mean = _extreme(weeks, "mean", high=True)
+    same_ends = {row["week"] for row in tight_rows} == {row["week"] for row in wild_rows}
+    matches = {row["week"] for row in boom_rows} == {row["week"] for row in mean_rows}
+    if not flat_spread:
+        for row in tight_rows:
+            row["marks"].append("tightest")
+        if not same_ends:
+            for row in wild_rows:
+                row["marks"].append("wildest")
+    if not flat_total:
+        for row in boom_rows:
+            row["marks"].append("boom")
+    if not flat_mean and not matches:
+        for row in mean_rows:
+            row["marks"].append("mean")
+    return {
+        "tightest": tight_rows,
+        "wildest": [] if flat_spread or same_ends else wild_rows,
+        "boom": boom_rows,
+        "boom_mean": mean_rows,
+        "boom_matches_mean": matches,
+        "flat_spread": flat_spread,
+        "flat_total": flat_total,
+        "flat_mean": flat_mean,
+        "tight_spread": _same_number(tight_rows, "spread"),
+        "tight_span": _same_number(tight_rows, "span"),
+        "boom_total": _same_number(boom_rows, "total"),
+        "boom_mean_value": _same_number(boom_rows, "mean"),
+    }
+
+
+def _load_league_weeks() -> list[dict[str, Any]]:
+    rows = fetchall(_LEAGUE_WEEK_SQL + " ORDER BY year, week")
+    return [_pack_league_week(row) for row in rows]
+
+
+def _pack_season(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "year": int(row["year"]),
+        "weeks": int(row["weeks"]),
+        "manager_weeks": int(row["manager_weeks"]),
+        "managers": int(row["managers"]),
+        "avg": _f(row["avg_points"]),
+        "median": _f(row["median_points"]),
+        "stddev": _f(row["stddev_points"]),
+        "min": _f(row["min_points"]),
+        "max": _f(row["max_points"]),
+        "total_pf": _f(row["total_pf"]),
+        "partial": bool(row["partial_season"]),
+        "deciles": [
+            {"label": label, "value": _f(row[column])}
+            for column, label in _DECILE_FIELDS
+        ],
+        "shares": {},
+        "other": None,
+    }
+
+
+def _scoring_bundle() -> tuple[list[dict[str, Any]], bool, dict[int, list[dict[str, Any]]]]:
+    seasons = [
+        _pack_season(row)
+        for row in fetchall(
+            """
+            SELECT
+                year, weeks, manager_weeks, managers,
+                avg_points, median_points, stddev_points,
+                min_points, max_points, total_pf,
+                p10, p20, p30, p40, p60, p70, p80, p90,
+                partial_season
+            FROM v_scoring_season
+            ORDER BY year
+            """
+        )
+    ]
+    by_year = {season["year"]: season for season in seasons}
+    show_other = False
+    for row in fetchall(
+        """
+        SELECT year, position, points, starts, share
+        FROM v_scoring_position_share
+        """
+    ):
+        season = by_year.get(int(row["year"]))
+        if season is None:
+            continue
+        cell = {
+            "points": _f(row["points"]),
+            "starts": int(row["starts"]),
+            "share": _f(row["share"]),
+        }
+        position = str(row["position"])
+        if position in SCORING_POSITIONS:
+            season["shares"][position] = cell
+            continue
+        show_other = True
+        other = season["other"]
+        if other is None:
+            season["other"] = dict(cell)
+            continue
+        other["points"] = (other["points"] or 0) + (cell["points"] or 0)
+        other["share"] = (other["share"] or 0) + (cell["share"] or 0)
+        other["starts"] = int(other["starts"]) + int(cell["starts"])
+    for season in seasons:
+        started = sum((cell["points"] or 0) for cell in season["shares"].values())
+        if season["other"] is not None:
+            started += season["other"]["points"] or 0
+        season["started_points"] = started
+        season["pf_gap"] = (season["total_pf"] or 0) - started
+    weeks_by_year: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for week in _load_league_weeks():
+        weeks_by_year[week["year"]].append(week)
+    for season in seasons:
+        season.update(_annotate_league_weeks(weeks_by_year.get(season["year"], [])))
+    return seasons, show_other, weeks_by_year
+
+
+def _scoring_environment_table() -> dict[str, Any]:
+    seasons, show_other, _weeks = _scoring_bundle()
+    return {
+        "seasons": seasons,
+        "show_other": show_other,
+        "positions": list(SCORING_POSITIONS),
+    }
+
+
+def _scoring_environment_year(year: int) -> dict[str, Any] | None:
+    seasons, show_other, weeks_by_year = _scoring_bundle()
+    current = next((season for season in seasons if season["year"] == year), None)
+    if current is None:
+        return None
+    return {
+        "season": current,
+        "seasons": seasons,
+        "show_other": show_other,
+        "positions": list(SCORING_POSITIONS),
+        "weeks": weeks_by_year.get(year, []),
+        "tightest": current["tightest"],
+        "wildest": current["wildest"],
+        "boom": current["boom"],
+        "boom_mean": current["boom_mean"],
+        "boom_matches_mean": current["boom_matches_mean"],
+        "flat_spread": current["flat_spread"],
+        "flat_total": current["flat_total"],
+        "flat_mean": current["flat_mean"],
+    }
+
+
+def _spread_section(environment: dict[str, Any] | None) -> dict[str, Any] | None:
+    if environment is None or not environment["weeks"]:
+        return None
+    flat = environment["flat_spread"]
+    return {
+        "weeks": environment["weeks"],
+        "flat": flat,
+        "tightest": [] if flat else environment["tightest"],
+        "wildest": [] if flat else environment["wildest"],
+        "boom": [] if environment["flat_total"] else environment["boom"],
+        "boom_matches_mean": environment["boom_matches_mean"],
+    }
+
+
+def _record_league_weeks(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    boards = {
+        "high_total": "total_high_rank, year, week",
+        "low_total": "total_low_rank, year, week",
+        "high_mean": "mean_high_rank, year, week",
+        "low_mean": "mean_low_rank, year, week",
+    }
+    packed: dict[str, list[dict[str, Any]]] = {}
+    for key, order in boards.items():
+        rows = fetchall(
+            f"""
+            SELECT
+                year, week, managers, league_total, mean_points,
+                median_points, low_points, high_points, spread, point_span
+            FROM v_scoring_league_week_ranks
+            ORDER BY {order}
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+        packed[key] = [_pack_league_week(row) for row in rows]
+    return packed
+
+
+def _replacement_board(year: int) -> dict[str, Any] | None:
+    baseline_rows = fetchall(
+        """
+        SELECT position, replacement, weeks, starters
+        FROM v_replacement_baseline
+        """
+    )
+    if not baseline_rows:
+        return None
+    season_rows = fetchall(
+        """
+        SELECT position, replacement, weeks, starters
+        FROM v_replacement_season
+        WHERE year = %(year)s
+        """,
+        {"year": year},
+    )
+    week_rows = fetchall(
+        """
+        SELECT
+            n.week,
+            n.position,
+            n.n_starters,
+            n.replacement,
+            n.replacement_player_id,
+            n.replacement_player_name,
+            (g.week IS NOT NULL) AS regular_week
+        FROM v_replacement_named n
+        LEFT JOIN v_scoring_league_weeks g
+            ON g.year = n.year
+            AND g.week = n.week
+        WHERE n.year = %(year)s
+        ORDER BY n.week, n.position
+        """,
+        {"year": year},
+    )
+    baseline = {row["position"]: row for row in baseline_rows}
+    season = {row["position"]: row for row in season_rows}
+    positions = [pos for pos in SCORING_POSITIONS if pos in baseline or pos in season]
+    positions.extend(sorted((set(baseline) | set(season)) - set(positions)))
+    rows = []
+    for position in positions:
+        season_row = season.get(position) or {}
+        base_row = baseline.get(position) or {}
+        rows.append(
+            {
+                "position": position,
+                "replacement": _f(season_row.get("replacement")),
+                "weeks": int(season_row["weeks"]) if season_row.get("weeks") is not None else None,
+                "starters": _f(season_row.get("starters")),
+                "baseline": _f(base_row.get("replacement")),
+                "baseline_weeks": int(base_row["weeks"]) if base_row.get("weeks") is not None else None,
+            }
+        )
+    by_week: dict[int, dict[str, Any]] = {}
+    for row in week_rows:
+        week = int(row["week"])
+        bucket = by_week.get(week)
+        if bucket is None:
+            bucket = {
+                "week": week,
+                "regular": bool(row["regular_week"]),
+                "cells": {},
+            }
+            by_week[week] = bucket
+        bucket["cells"][row["position"]] = {
+            "points": _f(row["replacement"]),
+            "starters": int(row["n_starters"]),
+            "player_id": row["replacement_player_id"],
+            "player": row["replacement_player_name"],
+        }
+    weeks = [by_week[week] for week in sorted(by_week)]
+    posted = {row["weeks"] for row in rows if row["weeks"] is not None}
+    baseline_weeks = {row["baseline_weeks"] for row in rows if row["baseline_weeks"] is not None}
+    return {
+        "rows": rows,
+        "positions": positions,
+        "weeks": weeks,
+        "posted_weeks": posted.pop() if len(posted) == 1 else None,
+        "playoff_weeks": sum(1 for week in weeks if not week["regular"]),
+        "baseline_weeks": baseline_weeks.pop() if len(baseline_weeks) == 1 else None,
     }

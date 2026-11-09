@@ -1598,6 +1598,10 @@ tr.this td {
     margin: 0 0 8px;
 }
 
+.repl-grid td {
+    white-space: nowrap;
+}
+
 .score-chart svg {
     width: 100%;
     height: auto;

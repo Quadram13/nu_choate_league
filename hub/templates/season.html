@@ -3,6 +3,7 @@
 {% from "draft_macros.html" import pick_link %}
 {% from "wire_macros.html" import value_strip, cost_cell %}
 {% from "plaque_macros.html" import plaque_free, person_link, highlight_chip %}
+{% from "scoring_macros.html" import environment_block %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -276,6 +277,14 @@
             <text class="tick" x="{{ tick.x }}" y="{{ scoring.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
             {% endfor %}
         </svg>
+    </div>
+    {% endif %}
+    {% if scoring_env and scoring_env.season %}
+    <div id="scoring-env">
+        <h3>Scoring environment</h3>
+        <p class="note">Paired regular-season manager-weeks on posted weeks. A live week stays out until the median team total reaches 40. Std dev is the sample standard deviation. Deciles are percentile_cont. {% if scoring_env.season.partial %}{{ current.year }} is the posted weeks only.{% endif %} Each season is described on its own scoring.</p>
+        {{ environment_block(scoring_env, current.year) }}
+        <p class="note"><a href="/seasons/{{ current.year }}/scoring#scarcity">Replacement by week</a> names the player on the scoring sheet.</p>
     </div>
     {% endif %}
     {% else %}

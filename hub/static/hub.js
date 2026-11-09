@@ -56,6 +56,8 @@ function enableSeasonTabs() {
     }
     const aliases = {
         scoring: "standings",
+        "scoring-env": "standings",
+        share: "standings",
         universes: "standings",
         "universe-ranks": "standings",
         "universe-brackets": "standings",

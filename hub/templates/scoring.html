@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "plaque_macros.html" import person_link %}
+{% from "scoring_macros.html" import distribution, named_prose, environment_table, marks_table, share_table %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -19,46 +20,24 @@
     <span class="lede">Scoring sheet · {{ current.platform }}</span>
 </p>
 <p class="jump">
-    {% if replacement %}<a href="#scarcity">Scarcity</a>{% endif %}
+    {% if environment %}<a href="#distribution">Distribution</a>{% endif %}
     {% if spread %}<a href="#spread">Spread</a>{% endif %}
+    {% if environment %}<a href="#environment">Seasons</a>{% endif %}
+    {% if environment %}<a href="#share">Positions</a>{% endif %}
+    {% if replacement %}<a href="#scarcity">Scarcity</a>{% endif %}
     <a href="#sheet">Sheet</a>
 </p>
 
-{% if replacement %}
-<h2 id="scarcity">Position scarcity</h2>
-<p class="note">Replacement is the Nth starter at the position. Flex starts count at RB, WR, and TE.{% if replacement.weeks %} Average is every scored week in the warehouse ({{ replacement.weeks }}).{% else %} Average is every scored week in the warehouse.{% endif %} The player is that line in this season's latest week.</p>
-<table class="js-sort">
-    <thead>
-        <tr>
-            <th>Position</th>
-            <th class="num" title="Average replacement points">Avg</th>
-            <th class="num" title="Weeks with a replacement line">Weeks</th>
-            <th class="num" title="Average number of starters. That count is the replacement rank.">Starters</th>
-            <th>Latest replacement</th>
-            <th class="num">Wk</th>
-            <th class="num">Pts</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in replacement.rows %}
-        <tr>
-            <td>{{ row.position }}</td>
-            <td class="num">{{ "%.1f"|format(row.replacement) }}</td>
-            <td class="num">{{ row.weeks }}</td>
-            <td class="num">{{ "%.1f"|format(row.starters) }}</td>
-            <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}—{% endif %}</td>
-            <td class="num">{% if row.week %}<a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a>{% else %}—{% endif %}</td>
-            <td class="num">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% else %}—{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+{% if environment and environment.season %}
+<h2 id="distribution">Week-score distribution</h2>
+<p class="note">Paired regular-season manager-weeks on posted weeks. A live week stays out until the median team total reaches 40. Std dev is the sample standard deviation. Deciles are percentile_cont. {% if environment.season.partial %}{{ current.year }} is the posted weeks only.{% endif %} Each season is described on its own scoring.</p>
+{{ distribution(environment.season) }}
+{{ named_prose(current.year, environment) }}
 
 {% if spread %}
 <h2 id="spread">Team-week spread</h2>
 <p class="note">
-    Sample standard deviation of paired team scores, regular season.
+    One row per posted regular week. Std dev is the sample standard deviation of the team totals. Span is high minus low.
     {% if spread.flat %}
     Every scored week landed on the same spread.
     {% else %}
@@ -73,7 +52,13 @@
     ({{ "%.2f"|format(spread.wildest[0].spread) }}).
     {% endif %}
     {% endif %}
+    {% if spread.boom %}
+    Boom {{ "weeks" if spread.boom|length > 1 else "week" }}
+    {% for row in spread.boom %}{% if not loop.first %}{% if loop.last %} and {% else %}, {% endif %}{% endif %}<a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a>{% endfor %}
+    (league total {{ "%.2f"|format(spread.boom[0].total) }}, mean {{ "%.2f"|format(spread.boom[0].mean) }}).
+    {% endif %}
 </p>
+<div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
@@ -83,23 +68,97 @@
             <th class="num">Median</th>
             <th class="num">High</th>
             <th class="num">Std dev</th>
+            <th class="num">Span</th>
+            <th class="num">Total</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
         {% for row in spread.weeks %}
-        <tr{% if row.mark %} class="this"{% endif %}>
+        <tr{% if row.marks %} class="this"{% endif %}>
             <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a></td>
-            <td class="num">{{ "%.1f"|format(row.low) }}</td>
-            <td class="num">{{ "%.1f"|format(row.avg) }}</td>
-            <td class="num">{{ "%.1f"|format(row.median) }}</td>
-            <td class="num">{{ "%.1f"|format(row.high) }}</td>
+            <td class="num">{{ "%.2f"|format(row.low) }}</td>
+            <td class="num">{{ "%.2f"|format(row.avg) }}</td>
+            <td class="num">{{ "%.2f"|format(row.median) }}</td>
+            <td class="num">{{ "%.2f"|format(row.high) }}</td>
             <td class="num">{% if row.spread is not none %}{{ "%.2f"|format(row.spread) }}{% else %}—{% endif %}</td>
-            <td>{% if row.mark == "tightest" %}Tightest{% elif row.mark == "wildest" %}Wildest{% endif %}</td>
+            <td class="num">{% if row.span is not none %}{{ "%.2f"|format(row.span) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(row.total) }}</td>
+            <td>{% for mark in row.marks %}{% if mark == "tightest" %}Tightest{% elif mark == "wildest" %}Wildest{% elif mark == "boom" %}Boom{% elif mark == "mean" %}Highest mean{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
+{% endif %}
+
+<h2 id="environment">Season over season</h2>
+<p class="note">Average, median, and std dev are manager-weeks. League PF is their sum. 2023 and 2024 had 10 teams. 2022, 2025, and 2026 had 12. A partial year is the posted weeks only.</p>
+{{ environment_table(environment.seasons, current.year) }}
+<h3>Tightest and boom weeks</h3>
+<p class="note">Tightest is the smallest sample standard deviation. Span is that week's high minus its low, and a different week can have the narrower span. Boom is the highest league total. Inside a season that week is also the highest mean.</p>
+{{ marks_table(environment.seasons, current.year) }}
+
+<h2 id="share">Position share</h2>
+<p class="note">Share of started points in player_week_scores, by the player's position, on these same weeks. A flex start stays with RB, WR, or TE. Bench points are left out. A slot share would park flex in its own column.</p>
+{{ share_table(environment.seasons, environment.positions, environment.show_other, current.year) }}
+{% endif %}
+
+{% if replacement %}
+<h2 id="scarcity">Position scarcity</h2>
+<p class="note">Replacement is the Nth score at the position. N is how many players started there, and a flex start counts at RB, WR, and TE. The player is that Nth scorer. This table is every posted week in v_replacement_weeks, playoffs included{% if replacement.posted_weeks %} ({{ replacement.posted_weeks }} weeks{% if replacement.playoff_weeks %}, {{ replacement.playoff_weeks }} playoff{% endif %}){% endif %}. The distribution above is regular season only. Warehouse is the mean of every posted week{% if replacement.baseline_weeks %} ({{ replacement.baseline_weeks }}){% endif %}. An audit rounded that line to QB ~18.5, WR ~11.5, TE ~10.7, RB ~9.8, K ~9.4, DEF ~5.5. The Warehouse column is the recomputed mean.</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Position</th>
+            <th class="num" title="Mean replacement points this season">Season</th>
+            <th class="num">Weeks</th>
+            <th class="num" title="Average starters. That count is the replacement rank.">Starters</th>
+            <th class="num" title="Mean replacement points across every posted week">Warehouse</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in replacement.rows %}
+        <tr>
+            <td>{{ row.position }}</td>
+            <td class="num">{% if row.replacement is not none %}{{ "%.2f"|format(row.replacement) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.weeks is not none %}{{ row.weeks }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.starters is not none %}{{ "%.1f"|format(row.starters) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.baseline is not none %}{{ "%.2f"|format(row.baseline) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if replacement.weeks %}
+<div class="standings-wrap">
+<table class="repl-grid">
+    <thead>
+        <tr>
+            <th class="num">Week</th>
+            {% for pos in replacement.positions %}
+            <th>{{ pos }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in replacement.weeks %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a>{% if not row.regular %} <span class="team">playoff</span>{% endif %}</td>
+            {% for pos in replacement.positions %}
+            {% set cell = row.cells.get(pos) %}
+            <td{% if cell %} title="{{ cell.starters }} starters"{% endif %}>
+                {% if cell %}
+                {% if cell.player_id %}<a href="/players/{{ cell.player_id }}">{{ cell.player }}</a>{% else %}{{ cell.player }}{% endif %}
+                <span class="team">{{ "%.2f"|format(cell.points) }}</span>
+                {% else %}—{% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
 {% endif %}
 
 <h2 id="sheet">Scoring sheet</h2>

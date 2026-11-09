@@ -2,6 +2,7 @@
 {% from "trade_macros.html" import trade_card %}
 {% from "draft_macros.html" import pick_link %}
 {% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -32,6 +33,8 @@
     <a href="#playoff">Playoff</a>
     <a href="#high">Highest weeks</a>
     <a href="#low">Lowest weeks</a>
+    <a href="#league-high">League weeks</a>
+    <a href="#environment">Scoring environment</a>
     <a href="#blowouts">Blowouts</a>
     <a href="#closest">Nail-biters</a>
     <a href="#median">Median tax</a>
@@ -522,6 +525,43 @@
         {% endfor %}
     </tbody>
 </table>
+
+{% if league_week_records %}
+<h2 id="league-high">League weeks</h2>
+<p class="note">Sum of paired regular-season manager totals on a posted week, and the mean of those totals. 2023 and 2024 had 10 teams. 2022, 2025, and 2026 had 12. The total board and the mean board can crown different weeks. 2026's posted weeks are included. Playoff weeks stay off, the same cut as the manager-week boards above.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Highest totals</h3>
+        {{ league_week_board(league_week_records.high_total) }}
+    </section>
+    <section>
+        <h3 id="league-low">Lowest totals</h3>
+        {{ league_week_board(league_week_records.low_total) }}
+    </section>
+</div>
+<div class="notable-grid">
+    <section>
+        <h3 id="league-mean">Highest means</h3>
+        {{ league_week_board(league_week_records.high_mean) }}
+    </section>
+    <section>
+        <h3>Lowest means</h3>
+        {{ league_week_board(league_week_records.low_mean) }}
+    </section>
+</div>
+{% endif %}
+
+{% if scoring_seasons and scoring_seasons.seasons %}
+<h2 id="environment">Scoring environment</h2>
+<p class="note">Average, median, and std dev are manager-weeks on posted regular weeks. League PF is their sum. A partial year is the posted weeks only. Team count differs by season, so the average compares across seasons and the total carries the field size with it.</p>
+{{ environment_table(scoring_seasons.seasons) }}
+<h3>Tightest and boom weeks</h3>
+<p class="note">Tightest is the smallest sample standard deviation. Span is that week's high minus its low. Boom is the highest league total. Inside a season that week is also the highest mean.</p>
+{{ marks_table(scoring_seasons.seasons) }}
+<h3>Position share</h3>
+<p class="note">Share of started points in player_week_scores, by the player's position, on these same weeks. A flex start stays with RB, WR, or TE. Bench points are left out.</p>
+{{ share_table(scoring_seasons.seasons, scoring_seasons.positions, scoring_seasons.show_other) }}
+{% endif %}
 
 <h2 id="blowouts">Biggest blowouts</h2>
 <table>
