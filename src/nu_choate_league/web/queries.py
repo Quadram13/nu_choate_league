@@ -332,6 +332,31 @@ AND EXISTS (
 )
 """
 
+# Finished regular season (v_finished_seasons). All-time season boards and
+# earned RS / most-points / cellar hardware use this. An in-progress year
+# stays on its own season page. The median-tax playoff cell uses
+# playoff_field_set instead, which stays false until season_playoff_managers
+# has a row.
+_COMPLETE_SEASON = (
+    "SELECT year FROM v_finished_seasons WHERE regular_season_complete"
+)
+
+# v_career still counts the in-progress leader. Callers that mean earned
+# hardware join this and read earned.* instead. Alias the career row as c.
+_EARNED_HARDWARE_JOIN = """
+LEFT JOIN (
+    SELECT
+        r.manager_id,
+        count(*) FILTER (WHERE o.regular_season_champion = r.manager_id) AS regular_season_titles,
+        count(*) FILTER (WHERE o.most_points = r.manager_id) AS most_points_titles
+    FROM official_records r
+    JOIN v_finished_seasons fin
+        ON fin.year = r.year AND fin.regular_season_complete
+    LEFT JOIN season_outcomes o ON o.year = r.year
+    GROUP BY r.manager_id
+) earned ON earned.manager_id = c.manager_id
+"""
+
 
 def connect() -> psycopg.Connection:
     try:
@@ -390,12 +415,17 @@ def list_seasons() -> list[dict[str, Any]]:
             oc.display_name AS champion,
             oc_ts.team_name AS champion_team,
             ru.display_name AS runner_up,
-            rs.display_name AS regular_season_champion,
-            mp.display_name AS most_points,
-            lc.id AS last_chair_id,
-            lc.display_name AS last_chair,
-            lc_ts.team_name AS last_chair_team
+            CASE WHEN fin.regular_season_complete THEN rs.display_name END
+                AS regular_season_champion,
+            CASE WHEN fin.regular_season_complete THEN mp.display_name END
+                AS most_points,
+            CASE WHEN fin.regular_season_complete THEN lc.id END AS last_chair_id,
+            CASE WHEN fin.regular_season_complete THEN lc.display_name END
+                AS last_chair,
+            CASE WHEN fin.regular_season_complete THEN lc_ts.team_name END
+                AS last_chair_team
         FROM seasons s
+        JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN managers oc ON oc.id = o.champion
         LEFT JOIN team_seasons oc_ts
@@ -448,15 +478,22 @@ def season_row(year: int) -> dict[str, Any] | None:
             oc.display_name AS champion,
             ru.id AS runner_up_id,
             ru.display_name AS runner_up,
-            rs.id AS regular_season_champion_id,
-            rs.display_name AS regular_season_champion,
-            mp.id AS most_points_id,
-            mp.display_name AS most_points,
-            lc.id AS last_chair_id,
-            lc.display_name AS last_chair,
+            CASE WHEN fin.regular_season_complete THEN rs.id END
+                AS regular_season_champion_id,
+            CASE WHEN fin.regular_season_complete THEN rs.display_name END
+                AS regular_season_champion,
+            CASE WHEN fin.regular_season_complete THEN mp.id END AS most_points_id,
+            CASE WHEN fin.regular_season_complete THEN mp.display_name END
+                AS most_points,
+            CASE WHEN fin.regular_season_complete THEN lc.id END AS last_chair_id,
+            CASE WHEN fin.regular_season_complete THEN lc.display_name END
+                AS last_chair,
+            fin.regular_season_complete,
+            fin.playoff_field_set,
             s.scoring_settings,
             s.faab_budget
         FROM seasons s
+        JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN managers oc ON oc.id = o.champion
         LEFT JOIN managers ru ON ru.id = o.runner_up
@@ -511,9 +548,13 @@ def standings(year: int) -> list[dict[str, Any]]:
             ch.last_chair,
             (so.champion = o.manager_id) AS champion,
             (so.runner_up = o.manager_id) AS runner_up,
-            (so.regular_season_champion = o.manager_id) AS rs_champ,
+            (
+                fin.regular_season_complete
+                AND so.regular_season_champion = o.manager_id
+            ) AS rs_champ,
             (po.manager_id IS NOT NULL) AS playoff
         FROM v_standings_official o
+        JOIN v_finished_seasons fin ON fin.year = o.year
         LEFT JOIN season_outcomes so ON so.year = o.year
         LEFT JOIN season_playoff_managers po
             ON po.year = o.year AND po.manager_id = o.manager_id
@@ -3126,11 +3167,13 @@ def scored_weeks(year: int) -> list[int]:
 
 def career() -> list[dict[str, Any]]:
     rows = fetchall(
-        """
+        f"""
         SELECT
             c.manager_id, c.display_name, c.seasons, c.wins, c.losses, c.ties,
             c.points_for, c.win_pct, c.titles, c.runner_up,
-            c.regular_season_titles, c.most_points_titles, c.playoff_appearances,
+            coalesce(earned.regular_season_titles, 0) AS regular_season_titles,
+            coalesce(earned.most_points_titles, 0) AS most_points_titles,
+            c.playoff_appearances,
             s.result AS streak_result, s.length AS streak_length,
             ap.wins AS all_play_wins, ap.losses AS all_play_losses, ap.ties AS all_play_ties,
             ap.win_pct AS all_play_win_pct,
@@ -3145,6 +3188,7 @@ def career() -> list[dict[str, Any]]:
             lk.net_luck, lk.wins_vs_expected, lk.lucky_wins, lk.unlucky_losses,
             (SELECT max(year) FROM seasons) AS latest_year
         FROM v_career c
+        {_EARNED_HARDWARE_JOIN}
         LEFT JOIN LATERAL (
             SELECT result, length
             FROM v_streaks
@@ -3192,12 +3236,16 @@ def career() -> list[dict[str, Any]]:
 
 def career_one(manager_id: str) -> dict[str, Any] | None:
     return fetchone(
-        """
-        SELECT manager_id, display_name, seasons, wins, losses, ties, points_for,
-               win_pct, titles, runner_up, regular_season_titles,
-               most_points_titles, playoff_appearances
-        FROM v_career
-        WHERE manager_id = %(manager_id)s
+        f"""
+        SELECT
+            c.manager_id, c.display_name, c.seasons, c.wins, c.losses, c.ties,
+            c.points_for, c.win_pct, c.titles, c.runner_up,
+            coalesce(earned.regular_season_titles, 0) AS regular_season_titles,
+            coalesce(earned.most_points_titles, 0) AS most_points_titles,
+            c.playoff_appearances
+        FROM v_career c
+        {_EARNED_HARDWARE_JOIN}
+        WHERE c.manager_id = %(manager_id)s
         """,
         {"manager_id": manager_id},
     )
@@ -3294,12 +3342,19 @@ def _member_finishes(manager_id: str) -> list[dict[str, Any]]:
             s.points_for, s.win_pct,
             (o.champion = s.manager_id) AS champion,
             (o.runner_up = s.manager_id) AS runner_up,
-            (o.regular_season_champion = s.manager_id) AS rs_champ,
-            (o.most_points = s.manager_id) AS most_points,
+            (
+                fin.regular_season_complete
+                AND o.regular_season_champion = s.manager_id
+            ) AS rs_champ,
+            (
+                fin.regular_season_complete
+                AND o.most_points = s.manager_id
+            ) AS most_points,
             (p.manager_id IS NOT NULL) AS playoff,
             lk.net_luck, lk.wins_vs_expected,
             ch.first_chair, ch.last_chair
         FROM v_standings_official s
+        JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN season_playoff_managers p
             ON p.year = s.year AND p.manager_id = s.manager_id
@@ -3851,11 +3906,12 @@ def _record_bench_weeks(limit: int = 10) -> list[dict[str, Any]]:
 
 def _record_bench_seasons(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT
             year, manager_id, manager_name, weeks,
             actual_points, optimal_points, left_on_bench, management_pct
         FROM v_management_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY left_on_bench DESC NULLS LAST, year, manager_name
         LIMIT %(limit)s
         """,
@@ -4057,15 +4113,19 @@ def universe_titles(year: int | None = None) -> list[dict[str, Any]]:
             o.year,
             o.universe,
             o.matches_official,
-            o.regular_season_champion AS rs_id,
-            rs.display_name AS rs_name,
+            CASE WHEN fin.regular_season_complete THEN o.regular_season_champion END
+                AS rs_id,
+            CASE WHEN fin.regular_season_complete THEN rs.display_name END AS rs_name,
             o.champion AS champ_id,
             ch.display_name AS champ_name,
             oc.champion AS official_champ_id,
             och.display_name AS official_champ,
-            oc.regular_season_champion AS official_rs_id,
-            ors.display_name AS official_rs
+            CASE WHEN fin.regular_season_complete THEN oc.regular_season_champion END
+                AS official_rs_id,
+            CASE WHEN fin.regular_season_complete THEN ors.display_name END
+                AS official_rs
         FROM v_universe_outcomes o
+        LEFT JOIN v_finished_seasons fin ON fin.year = o.year
         LEFT JOIN managers rs ON rs.id = o.regular_season_champion
         LEFT JOIN managers ch ON ch.id = o.champion
         LEFT JOIN season_outcomes oc ON oc.year = o.year
@@ -5815,14 +5875,22 @@ def median_tax(year: int | None = None) -> list[dict[str, Any]]:
     return fetchall(
         """
         SELECT
-            year, manager_id, display_name,
-            h2h_wins, h2h_losses, h2h_ties,
-            official_wins, official_losses, official_ties,
-            median_wins, median_losses, median_ties,
-            extra_wins, official_playoff, h2h_playoff, playoff_flip, champion
-        FROM v_median_tax
-        WHERE (%(year)s::integer IS NULL OR year = %(year)s)
-        ORDER BY year DESC, extra_wins DESC, display_name
+            t.year,
+            t.manager_id,
+            t.display_name,
+            t.h2h_wins, t.h2h_losses, t.h2h_ties,
+            t.official_wins, t.official_losses, t.official_ties,
+            t.median_wins, t.median_losses, t.median_ties,
+            t.extra_wins,
+            CASE WHEN fin.playoff_field_set THEN t.official_playoff END
+                AS official_playoff,
+            CASE WHEN fin.playoff_field_set THEN t.h2h_playoff END AS h2h_playoff,
+            CASE WHEN fin.playoff_field_set THEN t.playoff_flip END AS playoff_flip,
+            CASE WHEN fin.playoff_field_set THEN t.champion END AS champion
+        FROM v_median_tax t
+        JOIN v_finished_seasons fin ON fin.year = t.year
+        WHERE (%(year)s::integer IS NULL OR t.year = %(year)s)
+        ORDER BY t.year DESC, t.extra_wins DESC, t.display_name
         """,
         {"year": year},
     )
@@ -6314,19 +6382,21 @@ def records_page() -> dict[str, Any]:
 
 def _record_season_pf(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     high = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, points_for, win_pct, wins, losses, ties
         FROM v_standings_official
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY points_for DESC, year, manager_id
         LIMIT %(limit)s
         """,
         {"limit": limit},
     )
     low = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, points_for, win_pct, wins, losses, ties
         FROM v_standings_official
         WHERE wins + losses + ties > 0
+            AND year IN ({_COMPLETE_SEASON})
         ORDER BY points_for ASC, year, manager_id
         LIMIT %(limit)s
         """,
@@ -6337,18 +6407,20 @@ def _record_season_pf(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
 
 def _record_season_all_play(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     high = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, wins, losses, ties, win_pct
         FROM v_all_play_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY win_pct DESC NULLS LAST, wins DESC, year
         LIMIT %(limit)s
         """,
         {"limit": limit},
     )
     low = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, wins, losses, ties, win_pct
         FROM v_all_play_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY win_pct ASC NULLS LAST, wins ASC, year
         LIMIT %(limit)s
         """,
@@ -6359,18 +6431,20 @@ def _record_season_all_play(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
 
 def _record_season_luck(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     lucky = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, net_luck, wins_vs_expected
         FROM v_luck_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY net_luck DESC, wins_vs_expected DESC NULLS LAST
         LIMIT %(limit)s
         """,
         {"limit": limit},
     )
     unlucky = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, net_luck, wins_vs_expected
         FROM v_luck_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY net_luck ASC, wins_vs_expected ASC NULLS LAST
         LIMIT %(limit)s
         """,
@@ -6494,20 +6568,22 @@ def _title_droughts() -> list[dict[str, Any]]:
 
 def _record_season_pct(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     high = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, win_pct, wins, losses, ties
         FROM v_standings_official
         WHERE wins + losses + ties > 0
+            AND year IN ({_COMPLETE_SEASON})
         ORDER BY win_pct DESC NULLS LAST, wins DESC, year
         LIMIT %(limit)s
         """,
         {"limit": limit},
     )
     low = fetchall(
-        """
+        f"""
         SELECT year, manager_id, display_name, win_pct, wins, losses, ties
         FROM v_standings_official
         WHERE wins + losses + ties > 0
+            AND year IN ({_COMPLETE_SEASON})
         ORDER BY win_pct ASC NULLS LAST, wins ASC, year
         LIMIT %(limit)s
         """,
@@ -6551,9 +6627,10 @@ def _record_title_games(limit: int = 10) -> list[dict[str, Any]]:
 
 def _record_fa_adds(limit: int = 10) -> list[dict[str, Any]]:
     return fetchall(
-        """
+        f"""
         SELECT year, manager_id, manager_name AS display_name, adds, waivers, free_agents
         FROM v_add_season
+        WHERE year IN ({_COMPLETE_SEASON})
         ORDER BY free_agents DESC, adds DESC, year, manager_name
         LIMIT %(limit)s
         """,
@@ -6590,11 +6667,16 @@ def _record_awards() -> list[dict[str, Any]]:
             ch.display_name AS champion,
             o.runner_up AS runner_up_id,
             ru.display_name AS runner_up,
-            o.regular_season_champion AS regular_season_champion_id,
-            rs.display_name AS regular_season_champion,
-            o.most_points AS most_points_id,
-            mp.display_name AS most_points
+            CASE WHEN fin.regular_season_complete THEN o.regular_season_champion END
+                AS regular_season_champion_id,
+            CASE WHEN fin.regular_season_complete THEN rs.display_name END
+                AS regular_season_champion,
+            CASE WHEN fin.regular_season_complete THEN o.most_points END
+                AS most_points_id,
+            CASE WHEN fin.regular_season_complete THEN mp.display_name END
+                AS most_points
         FROM seasons s
+        JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN managers ch ON ch.id = o.champion
         LEFT JOIN managers ru ON ru.id = o.runner_up
@@ -6979,7 +7061,7 @@ def _record_positional_finishes(limit: int = 12) -> list[dict[str, Any]]:
 def _record_counting_summaries(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     """Season and career counting leaders. Does not rebuild the weekly board."""
     season_rows = fetchall(
-        """
+        f"""
         SELECT
             year, player_id, player_name, position, games,
             rush_yd, rec_yd, pass_yd, rec, rec_tgt,
@@ -6987,6 +7069,7 @@ def _record_counting_summaries(limit: int = 10) -> dict[str, list[dict[str, Any]
             g_rush_100, g_rec_100, g_pass_300, g_td_2,
             fgm, sack, def_int, pts_allow_pg, yds_allow_pg
         FROM v_player_counting_season
+        WHERE year IN ({_COMPLETE_SEASON})
         """
     )
     career_rows = fetchall(

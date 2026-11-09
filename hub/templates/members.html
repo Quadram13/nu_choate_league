@@ -2,7 +2,7 @@
 {% from "plaque_macros.html" import plaque_free, person_link %}
 {% block body %}
 <h1>All-time standings</h1>
-<p class="lede">Official records. H2H and median are always-H2H and always-median. Drought is seasons since last playoff.</p>
+<p class="lede">Official records. H2H and median are always-H2H and always-median. Drought is seasons since last playoff. RS and PF+ count a regular season only after it is finished.</p>
 {% if luck_plaques %}
 <div class="plaque-grid recap-records">
     {% for row in luck_plaques %}
