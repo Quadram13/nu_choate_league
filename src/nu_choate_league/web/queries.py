@@ -6702,6 +6702,19 @@ _COUNTING_INDEX_COLUMNS = """
 """
 
 
+# Issue #53. Sleeper stats.json stores an NFL-team total under player_id
+# TEAM_<abbr> (position stays null). Those rows stay in
+# player_week_counting_stats and in the counting views. Player ranking
+# boards skip them. The weekly board never sees them: it joins rostered
+# player_week_scores, and a team total is never rostered.
+def _exclude_nfl_team_totals(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if not str(row.get("player_id") or "").startswith("TEAM_")
+    ]
+
+
 def _player_counting(player_id: str) -> dict[str, Any]:
     seasons = fetchall(
         """
@@ -6738,7 +6751,10 @@ def _players_counting_index() -> dict[str, list[dict[str, Any]]]:
         ORDER BY year DESC, (rush_yd + rec_yd + pass_yd) DESC, player_name, player_id
         """
     )
-    return {"career": career, "seasons": seasons}
+    return {
+        "career": _exclude_nfl_team_totals(career),
+        "seasons": _exclude_nfl_team_totals(seasons),
+    }
 
 
 def _counting_summary_keeps(
@@ -6764,6 +6780,9 @@ def _rank_counting_boards(
     season: bool,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
+    # _record_counting_summaries is the only caller. Filter here so every
+    # season and career board drops NFL-team totals before the top-N cut.
+    rows = _exclude_nfl_team_totals(rows)
     boards: list[dict[str, Any]] = []
     for slug, column, label, unit, descending, min_games, gate in _COUNTING_SUMMARY_BOARDS:
         if not column.isidentifier():
