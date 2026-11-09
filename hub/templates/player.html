@@ -62,14 +62,18 @@
     {% if chairs.journeyman %} · journeyman ({{ chairs.owners|int }} managers){% endif %}
 </p>
 {% endif %}
-{% if rings %}
+{% if rings or title_weeks or champ_roster_weeks %}
 <p class="note">
-    {{ rings|length }} ring{{ "s" if rings|length != 1 else "" }}
+    {{ (champ_roster_weeks or 0)|int }} championship-roster week{{ "s" if (champ_roster_weeks or 0)|int != 1 else "" }}
+    · {{ (title_starts or 0)|int }} title-week start{{ "s" if (title_starts or 0)|int != 1 else "" }}
+    · {{ "%.1f"|format(title_points or 0) }} title-game points
+    {% if rings %}
+    · {{ rings|length }} ring{{ "s" if rings|length != 1 else "" }}
     {% for row in rings %}
     · <a href="/seasons/{{ row.year }}">{{ row.year }}</a> for {{ person(row.manager_id, row.manager_name) }}
     {% endfor %}
+    {% endif %}
     {% if title_weeks %}
-    · {{ "%.1f"|format(ring_points) }} title-week points
     {% for row in title_weeks %}
     · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %}
     {% endfor %}
@@ -114,13 +118,14 @@
     · {{ (player.times_traded or 0)|int }} trade{{ "s" if player.times_traded != 1 else "" }}.
 </p>
 {% endif %}
-<p class="note">Each run is consecutive stored weeks for one manager. A missing week starts a new run. Pts sums those stored weeks, bench included. An FA run is points while unowned.</p>
+<p class="note">{{ (chairs.owners or 0)|int }} managers. Each run is consecutive rostered weeks for one manager. A missing week starts a new run. Acq is the draft, or the latest complete waiver, free-agent add, or trade for that manager on or before the run. A blank acq has no such event. Pts sums the run, bench included. An FA run is points while unowned.</p>
 <table>
     <thead>
         <tr>
             <th class="num">Year</th>
             <th>Weeks</th>
             <th>Manager</th>
+            <th>Acq</th>
             <th class="num">Held</th>
             <th class="num">Starts</th>
             <th class="num" title="Points on every stored week in the run, bench included. An FA run is points while unowned.">Pts</th>
@@ -132,6 +137,7 @@
             <td class="num">{{ row.year }}</td>
             <td>{{ row.span }}</td>
             <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}FA{% endif %}</td>
+            <td>{% if row.acquisition_label %}{% if row.href %}<a href="{{ row.href }}">{{ row.acquisition_label }}</a>{% else %}{{ row.acquisition_label }}{% endif %}{% else %}—{% endif %}</td>
             <td class="num">{{ row.weeks|int }}</td>
             <td class="num">{{ row.starts|int }}</td>
             <td class="num">{{ "%.1f"|format(row.points) }}</td>
