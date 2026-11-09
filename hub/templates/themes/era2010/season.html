@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+{% set panes = season_panes(current.year) %}
+{% set active = active_pane(panes) %}
+<h1>{{ current.year }}</h1>
+<ul class="league-tabs">
+{% for pane in panes %}
+<li{% if pane.id == active %} class="on"{% endif %}><a href="{{ pane.href }}">{{ pane.label }}</a></li>
+{% endfor %}
+</ul>
+<div class="module">
+{% include "panes/" ~ active ~ ".html" %}
+</div>
+{% endblock %}

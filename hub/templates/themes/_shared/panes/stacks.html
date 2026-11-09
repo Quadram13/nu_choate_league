@@ -1,0 +1,6 @@
+<h2>Stacks</h2>
+{% if stacks %}
+<p>{{ stacks.stack_weeks or 0 }} regular-season stacks across {{ stacks.managers_with_stack or 0 }} managers.</p>
+{% else %}
+<p>No stacks stored for this season.</p>
+{% endif %}

@@ -1,0 +1,16 @@
+{% set board = present("scoring_distribution", [season]) %}
+<table border="2" cellpadding="5">
+<tr>
+{% for col in board.columns %}
+<td><b>{{ col.header }}</b></td>
+{% endfor %}
+</tr>
+{% for row in board.rows %}
+<tr>
+{% for cell in row %}
+<td data-cell="{{ cell.key }}" data-raw="{{ cell.raw }}">{{ cell.text }}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</table>
+{% if board.glossary %}<br><font size="3">{{ board.glossary }}</font>{% endif %}

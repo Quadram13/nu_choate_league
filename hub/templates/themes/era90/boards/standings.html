@@ -1,0 +1,16 @@
+{% set board = present("standings", standings) %}
+<table border="2" cellpadding="5">
+<tr>
+{% for col in board.columns %}
+<td{% if col.key == "team" %} width="220"{% endif %}><b>{{ col.header }}</b></td>
+{% endfor %}
+</tr>
+{% for row in board.rows %}
+<tr>
+{% for cell in row %}
+<td data-cell="{{ cell.key }}" data-raw="{{ cell.raw }}">{% if cell.href %}<a href="{{ cell.href }}">{% endif %}{% if cell.emphasis == "leader" %}<b>{% endif %}{{ cell.text }}{% if cell.emphasis == "leader" %}</b>{% endif %}{% if cell.href %}</a>{% endif %}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</table>
+{% if board.glossary %}<br><font size="3">{{ board.glossary }}</font>{% endif %}

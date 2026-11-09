@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ title }}</title>
+<link rel="stylesheet" href="/static/era2010.css">
+</head>
+<body>
+<div id="shell">
+<div id="topbar">
+{% include "theme_switch.html" %}
+</div>
+<div class="sportbar">
+{% for task in league_tasks() %}
+<a href="{{ task.href }}">{{ task.label }}</a>
+{% endfor %}
+</div>
+<div id="canvas">
+{% block body %}{% endblock %}
+</div>
+</div>
+</body>
+</html>

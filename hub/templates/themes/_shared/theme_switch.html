@@ -1,0 +1,1 @@
+<p class="theme-switch">{% for item in theme_choices() %}{% if not loop.first %} · {% endif %}{% if item.id == theme_name() %}<b>{{ item.label }}</b>{% else %}<a href="{{ item.href }}">{{ item.label }}</a>{% endif %}{% endfor %}</p>

@@ -1,0 +1,13 @@
+{% set board = present("matchups", games) %}
+<div class="matchups">
+{% for row in board.rows %}
+<div class="matchup">
+<div class="side" data-cell="home" data-raw="{{ row['home'].raw }}">{% if row['home'].href %}<a href="{{ row['home'].href }}">{% endif %}{{ row['home'].text }}{% if row['home'].href %}</a>{% endif %}</div>
+<div class="pts{% if row['home_pts'].emphasis == 'leader' %} win{% endif %}" data-cell="home_pts" data-raw="{{ row['home_pts'].raw }}">{% if row['home_pts'].emphasis == 'leader' %}<b>{{ row['home_pts'].text }}</b>{% else %}{{ row['home_pts'].text }}{% endif %}</div>
+<div class="side" data-cell="away" data-raw="{{ row['away'].raw }}">{% if row['away'].href %}<a href="{{ row['away'].href }}">{% endif %}{{ row['away'].text }}{% if row['away'].href %}</a>{% endif %}</div>
+<div class="pts{% if row['away_pts'].emphasis == 'leader' %} win{% endif %}" data-cell="away_pts" data-raw="{{ row['away_pts'].raw }}">{% if row['away_pts'].emphasis == 'leader' %}<b>{{ row['away_pts'].text }}</b>{% else %}{{ row['away_pts'].text }}{% endif %}</div>
+<div class="matchup-more" data-cell="lineups" data-raw="{{ row['lineups'].raw }}">{% if row['lineups'].href %}<a href="{{ row['lineups'].href }}">{% endif %}{{ row['lineups'].text }}{% if row['lineups'].href %}</a>{% endif %}</div>
+</div>
+{% endfor %}
+</div>
+{% if board.glossary %}<p class="glossary">{{ board.glossary }}</p>{% endif %}

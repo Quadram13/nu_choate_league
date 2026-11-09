@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+{% set panes = season_panes(current.year) %}
+{% set active = active_pane(panes) %}
+<font color="#000066" size="+1"><b>{{ current.year }} season</b></font>
+<br><br>
+{% for pane in panes %}
+{% if pane.id == active %}<b>{{ pane.label }}</b>{% else %}<a href="{{ pane.href }}">{{ pane.label }}</a>{% endif %}<br>
+{% endfor %}
+<hr>
+{% include "panes/" ~ active ~ ".html" %}
+{% endblock %}

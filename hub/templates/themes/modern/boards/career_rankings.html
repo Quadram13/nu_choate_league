@@ -1,0 +1,20 @@
+{% set board = present("career_rankings", career) %}
+<table class="js-sort">
+    <thead>
+        <tr>
+            {% for col in board.columns %}
+            <th{% if col.key != "player" and col.key != "pos" %} class="num"{% endif %}>{{ col.header }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in board.rows %}
+        <tr>
+            {% for cell in row %}
+            <td{% if cell.key != "player" and cell.key != "pos" %} class="num"{% endif %} data-cell="{{ cell.key }}" data-raw="{{ cell.raw }}">{% if cell.href %}<a href="{{ cell.href }}">{% endif %}{% if cell.emphasis == "leader" %}<b>{% endif %}{{ cell.text }}{% if cell.emphasis == "leader" %}</b>{% endif %}{% if cell.href %}</a>{% endif %}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if board.glossary %}<p class="note">{{ board.glossary }}</p>{% endif %}

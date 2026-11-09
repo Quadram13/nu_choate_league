@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "scoring_macros.html" import distribution %}
+{% block body %}
+<p class="crumb"><a href="{{ qhref('/seasons/' ~ current.year) }}">{{ current.year }} season</a></p>
+{% if environment and environment.season %}
+{{ distribution(environment.season) }}
+{% else %}
+<p>No week-score distribution for this season.</p>
+{% endif %}
+{% endblock %}

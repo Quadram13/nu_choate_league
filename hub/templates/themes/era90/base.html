@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{{ title }}</title>
+</head>
+<body bgcolor="#EEEEEE" text="#000000" link="#0000FF" vlink="#990099" alink="#0000FF">
+<table width="100%" border="0" cellpadding="6" cellspacing="0" bgcolor="#660000">
+<tr>
+<td><font color="#FFFFFF" size="+1"><b>Nu Choate League</b></font></td>
+<td align="right"><a href="{{ qhref('/members') }}"><font color="#FFFFFF"><b>Email the COMMISSIONER</b></font></a></td>
+</tr>
+</table>
+{% include "theme_switch.html" %}
+<table border="0" width="100%" cellpadding="8" cellspacing="8">
+<tr valign="top">
+<td width="178" bgcolor="#FFFFFF">
+<font color="#000066"><b>LEAGUE</b></font><br><br>
+{% for task in league_tasks() %}
+<a href="{{ task.href }}">{{ task.label }}</a><br>
+{% endfor %}
+</td>
+<td bgcolor="#FFFFFF">
+{% block body %}{% endblock %}
+</td>
+<td width="180" bgcolor="#FFFFFF">
+<font color="#660000" size="+1"><b>FANTASY LINKS</b></font><br><br>
+{% for link in fantasy_links() %}
+{% if link.href %}<a href="{{ link.href }}">{{ link.label }}</a>{% else %}{{ link.label }}{% endif %}<br>
+{% endfor %}
+</td>
+</tr>
+</table>
+</body>
+</html>

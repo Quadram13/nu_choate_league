@@ -1,0 +1,10 @@
+{% set shown = week_slice(schedule, now_week, current.year) %}
+<h2>Week {{ shown.selected }}</h2>
+{% set week_label = "Week" %}
+{% include "week_nav.html" %}
+{% set games = shown.games %}
+{% if games %}
+{% include "boards/matchups.html" %}
+{% else %}
+<p>No scored games for this week.</p>
+{% endif %}

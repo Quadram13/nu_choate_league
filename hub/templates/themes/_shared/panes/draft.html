@@ -1,0 +1,3 @@
+<h2>Draft</h2>
+<p>{% if draft and draft.managers %}{{ draft.managers|length }} managers on the board.{% else %}No draft stored for this season.{% endif %}
+<a href="{{ qhref('/seasons/' ~ current.year ~ '/draft') }}">Draft board</a>.</p>

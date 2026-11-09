@@ -229,6 +229,16 @@ a {
     text-decoration: none;
 }
 
+.theme-switch {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.theme-switch a {
+    color: var(--muted);
+}
+
 a:hover {
     text-decoration: underline;
 }

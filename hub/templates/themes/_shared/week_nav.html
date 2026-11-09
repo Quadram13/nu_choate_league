@@ -1,0 +1,5 @@
+<p class="week-nav">{{ week_label }}
+{% for week in shown.weeks %}
+{% if not loop.first %} {% endif %}{% if week == shown.selected %}<b>{{ week }}</b>{% else %}<a href="{{ qhref('/seasons/' ~ current.year, pane='weeks', week=week) }}">{{ week }}</a>{% endif %}
+{% endfor %}
+</p>

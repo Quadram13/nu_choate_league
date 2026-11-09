@@ -14,6 +14,7 @@ from ..paths import project_root
 from . import queries
 from .names import flavor_team, manager_hue
 from .photos import avatar_url, headshot_url
+from .themes import install, render_page
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -21,6 +22,7 @@ templates.env.filters["flavor_team"] = lambda team, member=None: flavor_team(mem
 templates.env.globals["headshot_url"] = headshot_url
 templates.env.globals["avatar_url"] = avatar_url
 templates.env.globals["manager_hue"] = manager_hue
+install(templates)
 
 
 def _with_db(endpoint):
@@ -51,7 +53,8 @@ app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="stati
 
 
 def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTMLResponse:
-    return templates.TemplateResponse(
+    return render_page(
+        templates,
         request,
         name,
         {"nav": nav, "title": title, **context},
@@ -63,7 +66,8 @@ def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTM
 async def http_error(request: Request, exc: StarletteHTTPException) -> HTMLResponse:
     status = exc.status_code
     heading = "Not found" if status == 404 else "Hub unavailable"
-    return templates.TemplateResponse(
+    return render_page(
+        templates,
         request,
         "error.html",
         {"nav": "", "title": heading, "status": status, "detail": exc.detail},

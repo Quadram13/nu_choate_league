@@ -1,0 +1,204 @@
+/* Prototype glossy shell. 960px is not a measured ESPN or CBS width;
+   no reached 2010 fantasy page yielded a pixel width or a header hex.
+   The stat surface stays white with dark text. */
+
+body {
+    margin: 0;
+    background: #c3d2e4;
+    color: #1a1a1a;
+    font: 13px/1.4 Arial, Helvetica, sans-serif;
+}
+
+#shell {
+    width: 960px;
+    margin: 16px auto;
+    background: #fff;
+    border: 1px solid #8aa0b8;
+    box-shadow: 0 2px 8px rgba(12, 40, 70, 0.25);
+}
+
+#topbar {
+    background: linear-gradient(#2a6cb5, #123a6b);
+    color: #fff;
+    padding: 6px 14px;
+}
+
+#topbar .theme-switch {
+    margin: 0;
+    color: #fff;
+    text-align: right;
+}
+
+#topbar .theme-switch a,
+#topbar .theme-switch b {
+    color: #fff;
+}
+
+.sportbar {
+    background: linear-gradient(#f7fbff, #d5e3f2);
+    padding: 8px 14px;
+    border-bottom: 1px solid #c5d4e6;
+}
+
+.sportbar a {
+    margin-right: 14px;
+    color: #143a66;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+#canvas {
+    padding: 14px 16px 24px;
+    background: #fff;
+    color: #1a1a1a;
+}
+
+#canvas a {
+    color: #1a4f9c;
+}
+
+h1 {
+    margin: 0 0 10px;
+    font-size: 22px;
+    color: #143a66;
+}
+
+.league-tabs {
+    list-style: none;
+    display: flex;
+    gap: 0;
+    margin: 0 0 12px;
+    padding: 0;
+    border-bottom: 1px solid #b7c6d8;
+}
+
+.league-tabs li a {
+    display: block;
+    padding: 8px 12px;
+    background: linear-gradient(#f7fbff, #d9e4f0);
+    border: 1px solid #b7c6d8;
+    border-bottom: none;
+    margin-right: 4px;
+    border-radius: 6px 6px 0 0;
+    color: #143a66;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.league-tabs li.on a {
+    background: #fff;
+    color: #111;
+}
+
+.module {
+    border: 1px solid #c5d3e2;
+    background: #fff;
+    margin: 0 0 14px;
+    color: #1a1a1a;
+}
+
+.module-head,
+.module h2 {
+    margin: 0;
+    padding: 6px 10px;
+    background: linear-gradient(#eef5fc, #d5e4f4);
+    color: #143a66;
+    font-size: 14px;
+    font-weight: bold;
+    border-bottom: 1px solid #c5d3e2;
+}
+
+.module p,
+.module .week-nav {
+    margin: 8px 10px;
+}
+
+table.stats {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    color: #111;
+}
+
+table.stats th,
+table.stats td {
+    border: 1px solid #d5dee8;
+    padding: 5px 8px;
+    text-align: left;
+    background: #fff;
+    color: #111;
+}
+
+table.stats th {
+    background: #f7f9fb;
+    font-size: 12px;
+}
+
+table.stats td.num,
+table.stats th.num {
+    text-align: right;
+}
+
+.week-nav a,
+.week-nav b {
+    display: inline-block;
+    min-width: 1.4em;
+    margin: 0 2px;
+    padding: 2px 5px;
+    text-align: center;
+    border: 1px solid #c5d3e2;
+    border-radius: 3px;
+    background: #fff;
+}
+
+.week-nav b {
+    background: #143a66;
+    color: #fff;
+    border-color: #143a66;
+}
+
+.matchups {
+    padding: 8px;
+}
+
+.matchup {
+    display: inline-block;
+    vertical-align: top;
+    width: 280px;
+    margin: 6px;
+    border: 1px solid #b7c6d8;
+    border-radius: 8px;
+    background: linear-gradient(#ffffff, #f4f8fb);
+    box-shadow: 0 1px 2px rgba(20, 40, 70, 0.15);
+    color: #111;
+}
+
+.matchup .side,
+.matchup .pts {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+}
+
+.matchup .pts {
+    font-size: 16px;
+}
+
+.matchup .win {
+    font-weight: 700;
+}
+
+.matchup .matchup-more {
+    padding: 4px 10px 8px;
+    font-size: 12px;
+}
+
+.view-all,
+.glossary {
+    margin: 8px 10px;
+    color: #333;
+}
+
+.crumb {
+    margin: 0 0 8px;
+}

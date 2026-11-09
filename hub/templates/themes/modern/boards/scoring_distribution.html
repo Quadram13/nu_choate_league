@@ -1,0 +1,41 @@
+{% set board = present("scoring_distribution", [season]) %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            {% for col in board.columns %}
+            <th class="num">{{ col.header }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in board.rows %}
+        <tr>
+            {% for cell in row %}
+            <td class="num" data-cell="{{ cell.key }}" data-raw="{{ cell.raw }}">{{ cell.text }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if season.deciles %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            {% for decile in season.deciles %}
+            <th class="num">{{ decile.label }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            {% for decile in season.deciles %}
+            <td class="num">{% if decile.value is not none %}{{ "%.2f"|format(decile.value) }}{% else %}—{% endif %}</td>
+            {% endfor %}
+        </tr>
+    </tbody>
+</table>
+</div>
+{% endif %}

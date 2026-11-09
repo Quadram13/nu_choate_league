@@ -1,0 +1,3 @@
+<h2>Moves</h2>
+<p>{{ trades|length }} trades. <a href="{{ qhref('/seasons/' ~ current.year ~ '/moves') }}">Moves log</a>.</p>
+{% if wire and wire.adds %}<p>{{ wire.adds|length }} highlighted adds.</p>{% endif %}

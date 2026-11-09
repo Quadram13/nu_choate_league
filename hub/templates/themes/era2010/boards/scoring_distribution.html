@@ -1,0 +1,23 @@
+{% set board = present("scoring_distribution", [season]) %}
+<div class="module">
+<div class="module-head">Week-score distribution</div>
+<table class="stats">
+<thead>
+<tr>
+{% for col in board.columns %}
+<th class="num">{{ col.header }}</th>
+{% endfor %}
+</tr>
+</thead>
+<tbody>
+{% for row in board.rows %}
+<tr>
+{% for cell in row %}
+<td class="num" data-cell="{{ cell.key }}" data-raw="{{ cell.raw }}">{{ cell.text }}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% if board.glossary %}<p class="glossary">{{ board.glossary }}</p>{% endif %}
+</div>
