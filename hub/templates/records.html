@@ -259,7 +259,7 @@
     <section>
         <h3>Most playoff wins</h3>
         <table>
-            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num">TG</th></tr></thead>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num" title="Seasons as champion or runner-up. A two-week final counts as one season.">Title seasons</th></tr></thead>
             <tbody>
                 {% for row in playoff_wins %}
                 <tr>
@@ -1018,7 +1018,7 @@
 </table>
 {% if title_droughts %}
 <h2 id="drought">Title droughts</h2>
-<p class="note">Years since last title or playoff.</p>
+<p class="note">Completed seasons played after the last title, and after the last winners-bracket appearance. The cell reads never when that has not happened. Only a season whose champion is stored is counted.</p>
 <table class="js-sort">
     <thead>
         <tr>
@@ -1036,9 +1036,9 @@
             <td>{{ person(row.manager_id, row.display_name) }}</td>
             <td class="num">{{ (row.titles or 0)|int }}</td>
             <td class="num">{{ row.last_title or "—" }}</td>
-            <td class="num">{{ row.title_drought if row.title_drought is not none else "—" }}</td>
+            <td class="num" data-value="{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}-1{% endif %}">{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}never{% endif %}</td>
             <td class="num">{{ row.last_playoff or "—" }}</td>
-            <td class="num">{{ row.playoff_drought if row.playoff_drought is not none else "—" }}</td>
+            <td class="num" data-value="{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}-1{% endif %}">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}never{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>

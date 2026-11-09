@@ -3233,16 +3233,15 @@ def career() -> list[dict[str, Any]]:
             s.result AS streak_result, s.length AS streak_length,
             ap.wins AS all_play_wins, ap.losses AS all_play_losses, ap.ties AS all_play_ties,
             ap.win_pct AS all_play_win_pct,
-            po.wins AS playoff_wins, po.losses AS playoff_losses, po.ties AS playoff_ties,
+            wb.wins AS playoff_wins, wb.losses AS playoff_losses, wb.ties AS playoff_ties,
             po.title_games,
             ch.first_chair, ch.last_chair, ch.benched_first_chair,
-            po_last.last_playoff,
+            dr.playoff_drought,
             hh.wins AS h2h_wins, hh.losses AS h2h_losses, hh.ties AS h2h_ties,
             hh.win_pct AS h2h_win_pct,
             md.wins AS median_wins, md.losses AS median_losses, md.ties AS median_ties,
             md.win_pct AS median_win_pct,
-            lk.net_luck, lk.wins_vs_expected, lk.lucky_wins, lk.unlucky_losses,
-            (SELECT max(year) FROM seasons) AS latest_year
+            lk.net_luck, lk.wins_vs_expected, lk.lucky_wins, lk.unlucky_losses
         FROM v_career c
         {_EARNED_HARDWARE_JOIN}
         LEFT JOIN LATERAL (
@@ -3253,12 +3252,9 @@ def career() -> list[dict[str, Any]]:
         ) s ON true
         LEFT JOIN v_all_play_career ap ON ap.manager_id = c.manager_id
         LEFT JOIN v_playoff_career po ON po.manager_id = c.manager_id
+        LEFT JOIN v_winners_bracket_career wb ON wb.manager_id = c.manager_id
+        LEFT JOIN v_career_drought dr ON dr.manager_id = c.manager_id
         LEFT JOIN v_chair_career ch ON ch.manager_id = c.manager_id
-        LEFT JOIN (
-            SELECT manager_id, max(year) AS last_playoff
-            FROM season_playoff_managers
-            GROUP BY manager_id
-        ) po_last ON po_last.manager_id = c.manager_id
         LEFT JOIN v_career_h2h hh ON hh.manager_id = c.manager_id
         LEFT JOIN (
             SELECT
@@ -3299,14 +3295,6 @@ def career() -> list[dict[str, Any]]:
             row.get("median_wins"), row.get("median_losses"), row.get("median_ties")
         )
         row["hue"] = manager_hue(row["manager_id"])
-        latest = row.get("latest_year")
-        last_po = row.get("last_playoff")
-        if latest is None:
-            row["playoff_drought"] = None
-        elif last_po is None:
-            row["playoff_drought"] = int(row["seasons"] or 0)
-        else:
-            row["playoff_drought"] = int(latest) - int(last_po)
     return rows
 
 
@@ -6767,34 +6755,29 @@ def _platform_split_table() -> list[dict[str, Any]]:
 
 
 def _title_droughts() -> list[dict[str, Any]]:
-    latest = fetchone("SELECT max(year) AS year FROM seasons")
-    now = int(latest["year"]) if latest and latest["year"] is not None else None
     rows = fetchall(
         """
         SELECT
             c.manager_id,
             c.display_name,
             c.titles,
-            (
-                SELECT max(o.year)
-                FROM season_outcomes o
-                WHERE o.champion = c.manager_id
-            ) AS last_title,
-            (
-                SELECT max(p.year)
-                FROM season_playoff_managers p
-                WHERE p.manager_id = c.manager_id
-            ) AS last_playoff
+            d.last_title,
+            d.last_playoff,
+            d.title_drought,
+            d.playoff_drought
         FROM v_career c
+        LEFT JOIN v_career_drought d ON d.manager_id = c.manager_id
         ORDER BY c.display_name
         """
     )
-    for row in rows:
-        last = row.get("last_title")
-        last_po = row.get("last_playoff")
-        row["title_drought"] = (now - int(last)) if now is not None and last is not None else now
-        row["playoff_drought"] = (now - int(last_po)) if now is not None and last_po is not None else now
-    rows.sort(key=lambda row: (-(row["title_drought"] or 0), row["display_name"]))
+    # A missing achievement sorts after every measured drought.
+    rows.sort(
+        key=lambda row: (
+            row["title_drought"] is None,
+            -(row["title_drought"] or 0),
+            row["display_name"],
+        )
+    )
     return rows
 
 
