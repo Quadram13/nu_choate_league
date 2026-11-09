@@ -1,0 +1,81 @@
+{% macro player(id, name) -%}
+{%- if id and name %}<a href="/players/{{ id }}">{{ name }}</a>{%- else %}{{ name or "—" }}{% endif -%}
+{%- endmacro %}
+
+{% macro year_link(year) -%}
+<a href="/seasons/{{ year }}">{{ year }}</a>
+{%- endmacro %}
+
+{% macro pct(value) -%}
+{%- if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif -%}
+{%- endmacro %}
+
+{% macro avg(value) -%}
+{%- if value is not none %}{{ "%.1f"|format(value) }}{% endif -%}
+{%- endmacro %}
+
+{% macro rk_head() -%}
+<th class="num" title="Count of the rows from the top. Sorting a column recomputes it.">Rk</th>
+{%- endmacro %}
+
+{% macro view_all(shown, total, href, detail) -%}
+<p class="note">First {{ shown|length }} of {{ total }}{{ detail }}. <a href="{{ href }}">View all {{ total }}</a>.</p>
+{%- endmacro %}
+
+{% macro count_rate(value) -%}
+<td class="num" data-value="{{ value if value is not none else '' }}">{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}</td>
+{%- endmacro %}
+
+{% macro count_num(value) -%}
+<td class="num">{{ (value or 0)|int }}</td>
+{%- endmacro %}
+
+{% macro count_cells(row) -%}
+{{ count_num(row.games) }}
+{{ count_num(row.rush_yd) }}
+{{ count_rate(row.rush_yd_pg) }}
+{{ count_num(row.rec_yd) }}
+{{ count_rate(row.rec_yd_pg) }}
+{{ count_num(row.pass_yd) }}
+{{ count_rate(row.pass_yd_pg) }}
+{{ count_num(row.rush_td) }}
+{{ count_num(row.rec_td) }}
+{{ count_num(row.pass_td) }}
+{{ count_num(row.total_td) }}
+{{ count_num(row.rec) }}
+{{ count_num(row.rec_tgt) }}
+{{ count_num(row.fgm) }}
+{{ count_num(row.sack) }}
+{{ count_num(row.def_int) }}
+{{ count_rate(row.pts_allow_pg) }}
+{{ count_rate(row.yds_allow_pg) }}
+{{ count_num(row.g_rush_100) }}
+{{ count_num(row.g_rec_100) }}
+{{ count_num(row.g_pass_300) }}
+{{ count_num(row.g_td_2) }}
+{%- endmacro %}
+
+{% macro count_head() -%}
+<th class="num" title="Counting-stat rows, not starts">G</th>
+<th class="num" title="Rush yards">RuYd</th>
+<th class="num" title="Rush yards per counting game">Ru/G</th>
+<th class="num" title="Receiving yards">RecYd</th>
+<th class="num" title="Receiving yards per counting game">Rec/G</th>
+<th class="num" title="Pass yards">PYd</th>
+<th class="num" title="Pass yards per counting game">P/G</th>
+<th class="num" title="Rush touchdowns">RuTD</th>
+<th class="num" title="Receiving touchdowns">RecTD</th>
+<th class="num" title="Pass touchdowns">PTD</th>
+<th class="num" title="Rush + rec + pass touchdowns">TD</th>
+<th class="num">Rec</th>
+<th class="num">Tgt</th>
+<th class="num" title="Field goals made">FG</th>
+<th class="num">Sack</th>
+<th class="num" title="Defensive interceptions">DInt</th>
+<th class="num" title="Points allowed per counting game">PA/G</th>
+<th class="num" title="Yards allowed per counting game">YA/G</th>
+<th class="num" title="Games with 100 or more rush yards">100Ru</th>
+<th class="num" title="Games with 100 or more receiving yards">100Rec</th>
+<th class="num" title="Games with 300 or more pass yards">300P</th>
+<th class="num" title="Games with 2 or more total touchdowns">2TD</th>
+{%- endmacro %}

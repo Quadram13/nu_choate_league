@@ -357,19 +357,14 @@ def luck() -> RedirectResponse:
 
 @app.get("/players", response_class=HTMLResponse)
 def players(request: Request) -> HTMLResponse:
-    data = queries.players_index()
+    # D1 (#105): summary prefix only. Full tables are A3 boards (see the block
+    # at the end of this module). players_index() itself is unchanged.
     return page(
         request,
         "players.html",
         nav="players",
         title="Players",
-        career=data["career"],
-        seasons=data["seasons"],
-        wire_leaders=data["wire_leaders"],
-        wire_career=data["wire_career"],
-        wire_unowned=data["wire_unowned"],
-        wire_gap=data["wire_gap"],
-        counting=data["counting"],
+        **queries.players_summary(),
     )
 
 
@@ -498,3 +493,17 @@ def player_splits(request: Request, player_id: str) -> HTMLResponse:
     person = data["player"]
     title = person["player_name"] + " splits"
     return page(request, "player_splits.html", nav="players", title=title, **data)
+
+
+# --- D1 players split (#105) ---
+# /players above renders the summary. Each full table is one A3 board, so the
+# document and the bare fragment are the same template:
+#   /boards/<name>      the page
+#   /fragments/<name>   the bare section, for the inline upgrade
+# Names, in index order: players-career-rankings, players-season-rankings,
+# players-wire-season, players-wire-career, players-wire-unowned,
+# players-counting-career, players-counting-season.
+# Registered at the end of fragments._register_boards. The A3 paginated
+# career log stays at /boards/players-career and is linked from the full
+# career page. No second route table: a parallel /players/<board> path would
+# fork the envelope era themes inherit.

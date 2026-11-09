@@ -1,0 +1,3 @@
+{% if wire_gap %}
+<p class="note">The rankings omit every season with zero rostered weeks: {{ wire_gap.excluded_seasons|int }} season rows ({{ wire_gap.excluded_seasons_scored|int }} with points) and {{ wire_gap.excluded_players|int }} players who were never rostered ({{ wire_gap.excluded_players_scored|int }} with points). Adding them would take the career table from {{ wire_gap.index_rows|int }} to {{ wire_gap.index_with|int }} and the season table from {{ wire_gap.season_rows|int }} to {{ wire_gap.season_with|int }}.</p>
+{% endif %}

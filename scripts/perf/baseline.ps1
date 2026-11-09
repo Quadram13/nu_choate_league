@@ -7,6 +7,13 @@ param(
     [string[]]$Pages = @(
         "/",
         "/players",
+        "/boards/players-career-rankings",
+        "/boards/players-season-rankings",
+        "/boards/players-wire-season",
+        "/boards/players-wire-career",
+        "/boards/players-wire-unowned",
+        "/boards/players-counting-career",
+        "/boards/players-counting-season",
         "/players/4046",
         "/players/6945",
         "/members",

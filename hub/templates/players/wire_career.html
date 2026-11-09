@@ -1,0 +1,44 @@
+{% from "players/_macros.html" import player, rk_head, view_all %}
+<section class="board" id="{{ board_name }}" data-fragment="{{ fragment_href }}" data-board="{{ board_href }}">
+{% if not teaser %}
+{% include "players/_nav.html" %}
+<h2 id="wire">Left on the wire</h2>
+<h3>Career</h3>
+{% include "players/_wire_note.html" %}
+{% include "players/_gap_note.html" %}
+<p class="note">{{ total }} rows, the published career board. Rank follows a sort.</p>
+{% else %}
+<h3>Career</h3>
+{{ view_all(rows, total, board_href, " by FA VORP") }}
+{% endif %}
+<table class="js-sort js-rk">
+    <thead>
+        <tr>
+            {{ rk_head() }}
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Yrs</th>
+            <th class="num" title="Posted lineup weeks not rostered, including weeks with no stored score">FA</th>
+            <th class="num">Pts</th>
+            <th class="num" title="Best stored unowned week">Best</th>
+            <th class="num" title="Sum of season FA VORP. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+            <th class="num" title="Rostered weeks across every season, including a season with no unowned week">Rstr</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td class="num rk">{{ loop.index }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ (row.seasons or 0)|int }}</td>
+            <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.fa_points }}">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}" data-value="{{ row.fa_vorp }}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+            <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</section>
