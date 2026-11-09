@@ -1,0 +1,23 @@
+{% macro stat_table(board) %}
+<table class="stat">
+<caption class="stat-caption">{{ board.caption }}</caption>
+<thead>
+<tr>
+{% for column in board.columns -%}
+<th class="stat-h{% if column.numeric %} stat-n{% endif %}">{{ column.label }}</th>
+{%- endfor %}
+</tr>
+</thead>
+<tbody>
+{% for row in board.rows %}
+<tr class="stat-row">
+{% for cell in row.cells -%}
+<td class="stat-c{% if cell.numeric %} stat-n{% endif %}{% if cell.mark %} {{ cell.mark }}{% endif %}">{% if cell.href %}<a href="{{ cell.href }}">{{ cell.text }}</a>{% else %}{{ cell.text }}{% endif %}</td>
+{%- endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% if board.note %}<p class="stat-note">{{ board.note }}</p>{% endif %}
+{% if board.more_href %}<p class="stat-more"><a href="{{ board.more_href }}">View all</a></p>{% endif %}
+{% endmacro %}

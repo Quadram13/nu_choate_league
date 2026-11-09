@@ -1,0 +1,219 @@
+/* 1998 scaffold. Tokens from reached pages: navy #000066, link #0000ff,
+   visited #990099, commissioner band #660000, page #c8bfb6, card #fff.
+   The layout is the portal table. This sheet does not use flexible boxes
+   or a grid layout. Stat cells stay on white, with no header fill and no zebra. */
+
+body {
+    margin: 0;
+    background: #c8bfb6;
+    color: #000;
+    font-family: Times, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+h1 {
+    margin: 0 0 8px;
+    color: #000066;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+a {
+    color: #0000ff;
+}
+
+a:visited {
+    color: #990099;
+}
+
+table.portal {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.band {
+    background: #660000;
+    color: #fff;
+}
+
+.commissioner {
+    margin: 0 0 4px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.theme-switch {
+    margin: 0;
+}
+
+.band a,
+.band a:visited {
+    color: #fff;
+}
+
+.theme-switch a {
+    margin-right: 10px;
+}
+
+.theme-switch a.is-on,
+.theme-switch a.is-on:visited {
+    font-weight: bold;
+}
+
+.rail-left {
+    width: 178px;
+}
+
+.rail-right {
+    width: 196px;
+}
+
+.rail-left p,
+.dead-label {
+    margin: 0 0 8px;
+    color: #000;
+}
+
+.rail-left a.is-on,
+.rail-left a.is-on:visited {
+    color: #660000;
+    font-weight: bold;
+}
+
+.lede {
+    margin: 0 0 8px;
+    color: #000;
+}
+
+.numeral-row,
+.numeral-key {
+    margin: 0 0 8px;
+}
+
+.numeral-label {
+    margin-right: 6px;
+    font-weight: bold;
+}
+
+.numeral-row a {
+    margin-right: 4px;
+}
+
+.numeral-row a.is-on,
+.numeral-row a.is-on:visited {
+    color: #660000;
+    font-weight: bold;
+}
+
+.link-box {
+    border: 1px solid #660000;
+    background: #fff;
+    padding: 8px;
+}
+
+.rail-label {
+    margin: 0 0 8px;
+    color: #660000;
+    font-weight: bold;
+}
+
+.link-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.link-list li {
+    margin: 0 0 6px;
+}
+
+table.stat {
+    width: auto;
+    margin-top: 8px;
+    border: 2px solid #000;
+    border-collapse: collapse;
+    background: #fff;
+    color: #000;
+}
+
+table.stat th,
+table.stat td {
+    border: 1px solid #000;
+    padding: 5px;
+    background: transparent;
+    color: #000;
+    font-weight: normal;
+    text-align: left;
+}
+
+table.stat th {
+    font-weight: bold;
+}
+
+table.stat .stat-n {
+    text-align: right;
+}
+
+table.stat caption {
+    caption-side: top;
+    padding: 0 0 4px;
+    color: #000066;
+    font-weight: bold;
+    text-align: left;
+}
+
+.stat-note,
+.stat-more {
+    margin: 8px 0 0;
+    color: #000;
+    font-size: 16px;
+}
+
+.is-leader,
+.is-leader a {
+    font-weight: bold;
+}
+
+.is-record,
+.is-record a,
+.pts.is-record {
+    color: #6b4f00;
+    font-weight: bold;
+}
+
+.is-active-leader,
+.is-active-leader a {
+    font-style: italic;
+}
+
+.week-groups,
+.matchups {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.week-group {
+    margin: 0 0 12px;
+}
+
+.group-label {
+    margin: 10px 0 4px;
+    color: #000066;
+    font-size: 1.05rem;
+}
+
+.matchup {
+    padding: 2px 0;
+    border-bottom: 1px solid #000;
+    background: transparent;
+}
+
+.pts {
+    margin: 0 6px;
+}
+
+.kind {
+    margin-left: 6px;
+}
