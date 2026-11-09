@@ -1,0 +1,92 @@
+{% macro signed_cell(value, places=2) -%}
+<td class="num{% if value and value > 0 %} plus{% elif value and value < 0 %} minus{% endif %}" data-value="{{ '' if value is none else value }}">{% if value is none %}—{% else %}{{ ("%+." ~ places ~ "f")|format(value) }}{% endif %}</td>
+{%- endmacro %}
+
+{% macro pct_cell(share, points=none) -%}
+<td class="num" data-value="{{ '' if share is none else share }}"{% if points is not none %} title="{{ '%.1f'|format(points) }} pts"{% endif %}>{% if share is none %}—{% else %}{{ "%.1f"|format(share * 100) }}%{% endif %}</td>
+{%- endmacro %}
+
+{% macro roster_head(show_other) -%}
+<th class="num" title="Regular-season starter points">PF</th>
+<th class="num" title="Share of starter points">QB</th>
+<th class="num" title="Share of starter points">RB</th>
+<th class="num" title="Share of starter points">WR</th>
+<th class="num" title="Share of starter points">TE</th>
+<th class="num" title="Share of starter points from the FLEX slot. The next columns split this one.">FLEX</th>
+<th class="num" title="Share of starter points from a running back in the FLEX slot">FLEX RB</th>
+<th class="num" title="Share of starter points from a wide receiver in the FLEX slot">FLEX WR</th>
+<th class="num" title="Share of starter points from a tight end in the FLEX slot">FLEX TE</th>
+<th class="num" title="FLEX start catalogued outside RB, WR, and TE">Other</th>
+<th class="num" title="Share of starter points">K</th>
+<th class="num" title="Share of starter points">DEF</th>
+{% if show_other %}
+<th class="num" title="Regular-season start in a slot outside QB, RB, WR, TE, FLEX, K, and DEF">Slot</th>
+{% endif %}
+<th class="num" title="IR slots stored. Points on IR stay out of PF.">IR</th>
+{%- endmacro %}
+
+{% macro roster_cells(row, show_other) -%}
+<td class="num" data-value="{{ row.starter_points }}">{{ "%.1f"|format(row.starter_points or 0) }}</td>
+{{ pct_cell(row.qb_share, row.qb_points) }}
+{{ pct_cell(row.rb_share, row.rb_points) }}
+{{ pct_cell(row.wr_share, row.wr_points) }}
+{{ pct_cell(row.te_share, row.te_points) }}
+{{ pct_cell(row.flex_share, row.flex_points) }}
+{{ pct_cell(row.flex_rb_share, row.flex_rb_points) }}
+{{ pct_cell(row.flex_wr_share, row.flex_wr_points) }}
+{{ pct_cell(row.flex_te_share, row.flex_te_points) }}
+{{ pct_cell(row.flex_other_share, row.flex_other_points) }}
+{{ pct_cell(row.k_share, row.k_points) }}
+{{ pct_cell(row.def_share, row.def_points) }}
+{% if show_other %}
+{{ pct_cell(row.other_share, row.other_points) }}
+{% endif %}
+<td class="num" data-value="{{ row.ir_slots or 0 }}" title="{{ '%.1f'|format(row.ir_points or 0) }} pts stored on IR, outside PF">{{ (row.ir_slots or 0)|int }}</td>
+{%- endmacro %}
+
+{% macro roster_note(league_ir) -%}
+<p class="note">
+    Share of regular-season starter points by lineup slot.
+    QB, RB, WR, TE, FLEX, K, and DEF together are the PF column.
+    FLEX RB, FLEX WR, FLEX TE, and other split the FLEX column by the player’s catalog position.
+    Other is a FLEX start catalogued outside RB, WR, and TE.
+    Playoff and consolation weeks stay out of the shares. Shares are rounded to 0.1%. In a finished season the PF column matches official points.
+    {{ league_ir }} IR slots are stored league-wide. The IR column counts those slots. Points stored on them are on the cell, outside PF.
+</p>
+{%- endmacro %}
+
+{% macro waiver_coverage(rows) -%}
+<p class="note">
+    Priority ROI is rest-of-season VORP on a completed waiver add, divided by that add’s claim priority.
+    The dump stores priority 0 on a manager’s first claim in the run. The unit is priority + 1, so the first claim costs 1 and the fifth costs 5.
+    A manager’s ratio is the sum of VORP divided by the sum of those units.
+    Seq is the order the league processed the run. It is listed on each add and is left out of the divisor.
+    The ratio uses 2024 and 2025 completed adds that stored a priority.
+    Failed claims have no production row, so they stay out of the ratio.
+    Completed waiver adds with no stored priority stay out of both sides.
+</p>
+{% for row in rows %}
+{% if row.platform == 'espn' %}
+<p class="note">
+    {{ row.year }} is ESPN.
+    {% if row.bid_rows and row.zero_bids == row.bid_rows %}All {{ row.bid_rows }} stored bids are 0.{% else %}{{ row.zero_bids }} of {{ row.bid_rows }} stored bids are 0.{% endif %}
+    Priority is empty ({{ row.priority_rows }} of {{ row.waiver_rows }} waiver transactions).
+    The ROI table leaves {{ row.year }} off.
+</p>
+{% elif row.faab_budget %}
+<p class="note">
+    {{ row.year }} is FAAB with a ${{ row.faab_budget|int }} budget.
+    {{ row.nonzero_waiver_bids }} of {{ row.waiver_rows }} waiver rows have a nonzero bid, and the highest bid is ${{ row.max_waiver_bid|int }}.
+    {{ row.waiver_bids_of_one }} waiver bids are $1.
+    Those dollars stay off this table.
+    Priority is stored on {{ row.priority_rows }} of {{ row.waiver_rows }} waiver rows ({{ row.priority_complete }} completed), so the priority ratio leaves {{ row.year }} off too.
+</p>
+{% elif row.year == 2024 or row.year == 2025 %}
+<p class="note">
+    {{ row.year }}: priority on {{ row.priority_rows }} of {{ row.waiver_rows }} waiver transactions ({{ row.priority_complete }} completed, {{ row.priority_failed }} failed).
+    The ratio uses the {{ row.priority_complete }} completed adds.
+    {{ row.complete_without_priority }} completed waiver adds have no priority and stay out of both sides.
+</p>
+{% endif %}
+{% endfor %}
+{%- endmacro %}

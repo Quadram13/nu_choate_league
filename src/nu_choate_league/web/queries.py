@@ -3840,8 +3840,12 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "finishes": _member_finishes(manager_id),
         "h2h": h2h,
         "draft": _member_draft(manager_id),
+        "draft_board": _member_draft_board(manager_id),
         "wire": _member_wire(manager_id),
         "trades": _member_trades(manager_id),
+        "trade_partners": _member_trade_partners(manager_id),
+        "waiver_roi": _member_waiver_roi(manager_id),
+        "roster_shape": _member_roster_shape(manager_id),
         "lineups": _member_lineups(manager_id),
         "luck": fetchone(
             """
@@ -4138,6 +4142,129 @@ def _member_draft(manager_id: str) -> dict[str, Any]:
     rest = ranked[5:]
     misses = list(reversed(rest[-5:])) if rest else []
     return {"totals": totals, "hits": hits, "misses": misses}
+
+
+def _member_draft_board(manager_id: str) -> dict[str, Any]:
+    """Per-season v_draft_manager rows plus the career sum in v_draft_career."""
+    seasons = fetchall(
+        """
+        SELECT
+            year,
+            picks,
+            hits,
+            hits::double precision / nullif(picks, 0)::double precision AS hit_rate,
+            ros_vorp,
+            vs_round,
+            vs_vorp
+        FROM v_draft_manager
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT seasons, picks, hits, hit_rate, ros_vorp, vs_round, vs_vorp
+        FROM v_draft_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    return {"seasons": seasons, "career": career}
+
+
+def _member_trade_partners(manager_id: str) -> list[dict[str, Any]]:
+    """Series rows oriented so this manager's net VORP is positive when they won."""
+    return fetchall(
+        """
+        SELECT
+            CASE WHEN left_id = %(manager_id)s THEN right_id ELSE left_id END AS opponent_id,
+            CASE WHEN left_id = %(manager_id)s THEN right_name ELSE left_name END AS opponent_name,
+            deals,
+            CASE WHEN left_id = %(manager_id)s THEN left_wins ELSE right_wins END AS wins,
+            CASE WHEN left_id = %(manager_id)s THEN right_wins ELSE left_wins END AS losses,
+            pushes,
+            CASE WHEN left_id = %(manager_id)s THEN net_left_vorp ELSE net_right_vorp END AS net_vorp,
+            series_winner_id,
+            series_winner_name
+        FROM v_trade_pairs
+        WHERE left_id = %(manager_id)s OR right_id = %(manager_id)s
+        ORDER BY deals DESC, opponent_name
+        """,
+        {"manager_id": manager_id},
+    )
+
+
+def _member_waiver_roi(manager_id: str) -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT
+            year, claims, priority_units, ros_vorp, ros_starter,
+            vorp_per_priority, avg_seq
+        FROM v_waiver_priority_season
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT claims, priority_units, ros_vorp, ros_starter, vorp_per_priority, seasons
+        FROM v_waiver_priority_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    claims = fetchall(
+        """
+        SELECT
+            year, week, transaction_id, player_id, player_name, position,
+            priority, priority_units, seq, ros_vorp, vorp_per_priority
+        FROM v_waiver_priority_adds
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year, week, priority, player_name
+        """,
+        {"manager_id": manager_id},
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "claims": claims,
+        "coverage": _waiver_cost_coverage(),
+    }
+
+
+def _member_roster_shape(manager_id: str) -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_season
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT *
+        FROM v_roster_shape_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    league = fetchone(
+        "SELECT coalesce(sum(ir_slots), 0) AS ir_slots FROM v_roster_shape_career"
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "league_ir_slots": int((league or {}).get("ir_slots") or 0),
+        "show_other": _shape_has_other(seasons),
+    }
+
+
+def _shape_has_other(rows: list[dict[str, Any]]) -> bool:
+    return any(float(row.get("other_points") or 0) for row in rows)
 
 
 def _member_wire(manager_id: str) -> dict[str, Any]:
@@ -7011,6 +7138,9 @@ def records_page() -> dict[str, Any]:
         "wire_eras": _wire_eras(),
         "coaches": management_career(),
         "draft_capital": _record_draft_capital(),
+        "trade_partners": _record_trade_partners(),
+        "waiver_roi": _record_waiver_roi(),
+        "roster_shape": _record_roster_shape(),
         "awards": _record_awards(),
         "journeymen": _record_journeymen(),
         "most_traded": _record_most_traded(),
@@ -7327,19 +7457,119 @@ def _record_draft_capital() -> list[dict[str, Any]]:
         """
         SELECT
             d.manager_id,
-            max(d.manager_name) AS manager_name,
-            sum(d.picks) AS picks,
-            sum(d.vs_vorp) AS vs_vorp,
-            sum(d.vs_round) AS vs_round,
-            sum(d.hits) AS hits,
-            sum(d.ros_vorp) AS ros_vorp,
+            d.manager_name,
+            d.seasons,
+            d.picks,
+            d.hits,
+            d.hit_rate,
+            d.vs_vorp,
+            d.vs_round,
+            d.ros_vorp,
             c.titles
-        FROM v_draft_manager d
+        FROM v_draft_career d
         LEFT JOIN v_career c ON c.manager_id = d.manager_id
-        GROUP BY d.manager_id, c.titles
-        ORDER BY sum(d.vs_vorp) DESC NULLS LAST, max(d.manager_name), d.manager_id
+        ORDER BY d.vs_vorp DESC NULLS LAST, d.manager_name, d.manager_id
         """
     )
+
+
+def _waiver_cost_coverage() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT *
+        FROM v_waiver_cost_coverage
+        ORDER BY year
+        """
+    )
+
+
+def _pair_symmetry(rows: list[dict[str, Any]]) -> float:
+    """Largest |net_left + net_right|. The view defines the right as the negation."""
+    worst = 0.0
+    for row in rows:
+        gap = abs(float(row["net_left_vorp"] or 0) + float(row["net_right_vorp"] or 0))
+        if gap > worst:
+            worst = gap
+    if worst < 1e-9:
+        return 0.0
+    return worst
+
+
+def _record_trade_partners() -> dict[str, Any]:
+    pairs = fetchall(
+        """
+        SELECT *
+        FROM v_trade_pairs
+        ORDER BY deals DESC, abs(net_left_vorp) DESC, left_name, right_name
+        """
+    )
+    most = max((int(row["deals"]) for row in pairs), default=0)
+    busiest: list[dict[str, Any]] = []
+    for row in pairs:
+        if int(row["deals"]) != most:
+            continue
+        trades = fetchall(
+            """
+            SELECT
+                transaction_id, year, week,
+                left_id, left_name, left_received, left_vorp,
+                right_id, right_name, right_received, right_vorp,
+                left_vorp_edge, winner_id, winner_name
+            FROM v_trade_grades
+            WHERE left_id = %(left_id)s AND right_id = %(right_id)s
+            ORDER BY year, week, transaction_id
+            """,
+            {"left_id": row["left_id"], "right_id": row["right_id"]},
+        )
+        busiest.append({"pair": row, "trades": trades})
+    return {
+        "pairs": pairs,
+        "symmetry_gap": _pair_symmetry(pairs),
+        "busiest": busiest,
+    }
+
+
+def _record_waiver_roi() -> dict[str, Any]:
+    return {
+        "seasons": fetchall(
+            """
+            SELECT *
+            FROM v_waiver_priority_season
+            ORDER BY year, vorp_per_priority DESC NULLS LAST, manager_name
+            """
+        ),
+        "career": fetchall(
+            """
+            SELECT *
+            FROM v_waiver_priority_career
+            ORDER BY vorp_per_priority DESC NULLS LAST, manager_name
+            """
+        ),
+        "coverage": _waiver_cost_coverage(),
+    }
+
+
+def _record_roster_shape() -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_season
+        ORDER BY year, manager_name, manager_id
+        """
+    )
+    career = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_career
+        ORDER BY manager_name, manager_id
+        """
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "league_ir_slots": sum(int(row["ir_slots"] or 0) for row in career),
+        "show_other": _shape_has_other(seasons) or _shape_has_other(career),
+    }
 
 
 def _record_awards() -> list[dict[str, Any]]:
