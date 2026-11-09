@@ -40,10 +40,15 @@
 {% if rings %}
 <p class="note">
     {{ rings|length }} ring{{ "s" if rings|length != 1 else "" }}
-    · {{ "%.1f"|format(ring_points) }} title-week points
     {% for row in rings %}
-    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %} for {{ person(row.manager_id, row.manager_name) }}
+    · <a href="/seasons/{{ row.year }}">{{ row.year }}</a> for {{ person(row.manager_id, row.manager_name) }}
     {% endfor %}
+    {% if title_weeks %}
+    · {{ "%.1f"|format(ring_points) }} title-week points
+    {% for row in title_weeks %}
+    · <a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% if row.points is not none %} ({{ "%.1f"|format(row.points) }}){% endif %}
+    {% endfor %}
+    {% endif %}
 </p>
 {% endif %}
 <p class="jump">

@@ -14,7 +14,7 @@
 {% endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. Trades are times moved. Rings are playoff starts on the title roster. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP scored while unowned. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
+<p class="lede">Career starter PF. Trades are times moved. Rings are championship seasons: at least one start for the manager who won it all. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP scored while unowned. Highest weeks stay on <a href="/records">Records</a>. <a href="#counting">Counting totals</a> are the season and career box score. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
 {% if career | selectattr("vol_partial") | list %}
 <p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
 {% endif %}

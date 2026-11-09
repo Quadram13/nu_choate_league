@@ -4260,12 +4260,10 @@ def players_index() -> dict[str, Any]:
             coalesce(r.rings, 0) AS rings
         FROM v_player_index i
         LEFT JOIN (
-            SELECT pw.player_id, count(*) AS rings
+            SELECT pw.player_id, count(DISTINCT pw.year) AS rings
             FROM v_player_weeks pw
             JOIN season_outcomes o ON o.year = pw.year AND o.champion = pw.manager_id
             WHERE pw.started
-                AND pw.kind = 'playoff'
-                AND (o.playoff_start_week IS NULL OR pw.week >= o.playoff_start_week)
             GROUP BY pw.player_id
         ) r ON r.player_id = i.player_id
         ORDER BY i.starter_points DESC, i.vorp DESC, i.player_name
@@ -4576,7 +4574,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     scored_weeks = list(weeks)
     _fill_missing_bye_weeks(weeks, nfl_labels)
     _attach_sleeper_context(weeks, player_id)
-    rings = _player_title_weeks(player_id)
+    rings = _player_title_seasons(player_id)
+    title_weeks = _player_title_weeks(player_id)
     volatility = _player_volatility_bundle(player_id, seasons, weeks)
     return {
         "player": identity,
@@ -4588,7 +4587,8 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "bio": bio,
         "chairs": _player_chairs(player_id),
         "rings": rings,
-        "ring_points": sum(float(row["points"] or 0) for row in rings),
+        "title_weeks": title_weeks,
+        "ring_points": sum(float(row["points"] or 0) for row in title_weeks),
         "lines": lines,
         "counting": _player_counting(player_id),
         "volatility": volatility,
@@ -5912,7 +5912,26 @@ def _player_chairs(player_id: str) -> dict[str, Any]:
     return row
 
 
+def _player_title_seasons(player_id: str) -> list[dict[str, Any]]:
+    """Championship seasons: any started week (regular or playoff) for that year's champion."""
+    return fetchall(
+        """
+        SELECT
+            pw.year, o.champion AS manager_id, m.display_name AS manager_name
+        FROM v_player_weeks pw
+        JOIN season_outcomes o ON o.year = pw.year AND o.champion = pw.manager_id
+        JOIN managers m ON m.id = o.champion
+        WHERE pw.player_id = %(player_id)s
+            AND pw.started
+        GROUP BY pw.year, o.champion, m.display_name
+        ORDER BY pw.year
+        """,
+        {"player_id": player_id},
+    )
+
+
 def _player_title_weeks(player_id: str) -> list[dict[str, Any]]:
+    """Playoff detail behind the ring count: started title-roster weeks + points."""
     return fetchall(
         """
         SELECT
