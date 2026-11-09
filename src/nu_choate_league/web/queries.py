@@ -7242,69 +7242,17 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
 
 
 def records_page() -> dict[str, Any]:
-    packed = marks_page()
-    streaks = _record_longest_streaks()
-    return {
-        "high_weeks": high_weeks(),
-        "low_weeks": low_weeks(),
-        "blowouts": blowouts(),
-        "closest": closest_games(),
-        "trades": lopsided_trades(),
-        "draft_hits": _record_draft_picks(worst=False),
-        "draft_misses": _record_draft_picks(worst=True),
-        "drafts": _record_drafts(),
-        "wire_adds": _record_wire_adds(),
-        "wire_misses": _record_wire_misses(),
-        "wire_unclaimed": _fa_week_leaders(limit=10),
-        "wire_unclaimed_seasons": _fa_best_week_by_season(),
-        "wire_fa_leaders": _fa_season_leaders(limit=10),
-        "bench_weeks": _record_bench_weeks(),
-        "bench_seasons": _record_bench_seasons(),
-        "win_streaks": streaks["win"],
-        "loss_streaks": streaks["loss"],
-        "current_streaks": current_streaks(),
-        "season_pf": _record_season_pf(),
-        "season_all_play": _record_season_all_play(),
-        "season_luck": _record_season_luck(),
-        "season_pine": _record_bench_seasons(),
-        "playoff_weeks": _record_playoff_weeks(),
-        "playoff_wins": _record_playoff_career(),
-        "chairs": _record_chairs(),
-        "holders": packed["holders"],
-        "labels": packed["labels"],
-        "kind_order": packed["kind_order"],
-        "meta": packed["meta"],
-        "median_tax": median_tax(),
-        "platform": _platform_split_table(),
-        "title_droughts": _title_droughts(),
-        "season_pct": _record_season_pct(),
-        "title_games": _record_title_games(),
-        "fa_adds": _record_fa_adds(),
-        "wire_eras": _wire_eras(),
-        "coaches": management_career(),
-        "draft_capital": _record_draft_capital(),
-        "trade_partners": _record_trade_partners(),
-        "waiver_roi": _record_waiver_roi(),
-        "roster_shape": _record_roster_shape(),
-        "awards": _record_awards(),
-        "journeymen": _record_journeymen(),
-        "most_traded": _record_most_traded(),
-        "rings": _record_rings(),
-        "counting_leaders": _record_counting_leaders(),
-        "counting_summaries": _record_counting_summaries(),
-        "positional_finish_leaders": _record_positional_finishes(),
-        "league_week_records": _record_league_weeks(),
-        "scoring_seasons": _scoring_environment_table(),
-        "consistency": _record_consistency(),
-        "one_score": _record_one_score_career(),
-        "blowout_record": _record_blowout_career(),
-        "pythagorean": _record_pythagorean(),
-        "clutch_cuts": _clutch_cuts(),
-        "stacks": _record_stacks(),
-        "lineup_counting": _record_lineup_counting(),
-        "playoff_history": _record_playoff_history(),
-        "universe_replay": _record_universe_replay(),
-    }
+    """Full record book: the chapter loaders, then the holder facts.
+
+    season_pine repeats the bench-season board. The template never reads it,
+    so one call fills both keys.
+    """
+    data: dict[str, Any] = {}
+    for spec in _RECORD_CHAPTER_SPECS:
+        data.update(spec["load"]())
+    data.update(marks_page())
+    data["season_pine"] = data["bench_seasons"]
+    return data
 
 
 def _record_season_pf(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
@@ -9965,3 +9913,580 @@ def _universe_replay_year(
         "boards": boards,
         "any_champion_differs": any_champion_differs,
     }
+
+# --- B2 record chapters (#97). Append-only loaders.
+# records_page() composes these. A chapter route calls one loader.
+# The index calls records_index_page() and does not build the other boards.
+
+
+def _load_records_awards() -> dict[str, Any]:
+    return {"awards": _record_awards()}
+
+
+def _load_records_season() -> dict[str, Any]:
+    return {
+        "season_pf": _record_season_pf(),
+        "season_all_play": _record_season_all_play(),
+        "season_luck": _record_season_luck(),
+        "season_pct": _record_season_pct(),
+    }
+
+
+def _load_records_clutch() -> dict[str, Any]:
+    return {
+        "consistency": _record_consistency(),
+        "pythagorean": _record_pythagorean(),
+        "one_score": _record_one_score_career(),
+        "blowout_record": _record_blowout_career(),
+        "clutch_cuts": _clutch_cuts(),
+    }
+
+
+def _load_records_playoff() -> dict[str, Any]:
+    return {
+        "playoff_weeks": _record_playoff_weeks(),
+        "playoff_wins": _record_playoff_career(),
+        "title_games": _record_title_games(),
+    }
+
+
+def _load_records_chairs() -> dict[str, Any]:
+    return {"chairs": _record_chairs()}
+
+
+def _load_records_environment() -> dict[str, Any]:
+    return {
+        "median_tax": median_tax(),
+        "platform": _platform_split_table(),
+        "wire_eras": _wire_eras(),
+        "fa_adds": _record_fa_adds(),
+        "high_weeks": high_weeks(),
+        "low_weeks": low_weeks(),
+        "league_week_records": _record_league_weeks(),
+        "scoring_seasons": _scoring_environment_table(),
+    }
+
+
+def _load_records_games() -> dict[str, Any]:
+    return {"blowouts": blowouts(), "closest": closest_games()}
+
+
+def _load_records_trades() -> dict[str, Any]:
+    return {
+        "trades": lopsided_trades(),
+        "most_traded": _record_most_traded(),
+        "journeymen": _record_journeymen(),
+        "trade_partners": _record_trade_partners(),
+    }
+
+
+def _load_records_rings() -> dict[str, Any]:
+    return {"rings": _record_rings()}
+
+
+def _load_records_draft() -> dict[str, Any]:
+    return {
+        "draft_hits": _record_draft_picks(worst=False),
+        "draft_misses": _record_draft_picks(worst=True),
+        "drafts": _record_drafts(),
+        "draft_capital": _record_draft_capital(),
+    }
+
+
+def _load_records_roster() -> dict[str, Any]:
+    return {
+        "waiver_roi": _record_waiver_roi(),
+        "roster_shape": _record_roster_shape(),
+    }
+
+
+def _load_records_wire() -> dict[str, Any]:
+    return {
+        "wire_adds": _record_wire_adds(),
+        "wire_misses": _record_wire_misses(),
+        "wire_unclaimed": _fa_week_leaders(limit=10),
+        "wire_unclaimed_seasons": _fa_best_week_by_season(),
+        "wire_fa_leaders": _fa_season_leaders(limit=10),
+    }
+
+
+def _load_records_lineups() -> dict[str, Any]:
+    return {
+        "bench_weeks": _record_bench_weeks(),
+        "bench_seasons": _record_bench_seasons(),
+        "lineup_counting": _record_lineup_counting(),
+    }
+
+
+def _load_records_counting() -> dict[str, Any]:
+    summaries = _record_counting_summaries()
+    return {
+        "counting_leaders": _record_counting_leaders(),
+        "positional_finish_leaders": _record_positional_finishes(),
+        "counting_summaries": summaries,
+    }
+
+
+def _load_records_coach() -> dict[str, Any]:
+    return {"coaches": management_career()}
+
+
+def _load_records_streaks() -> dict[str, Any]:
+    streaks = _record_longest_streaks()
+    return {
+        "win_streaks": streaks["win"],
+        "loss_streaks": streaks["loss"],
+        "current_streaks": current_streaks(),
+        "title_droughts": _title_droughts(),
+    }
+
+
+def _load_records_stacks() -> dict[str, Any]:
+    return {"stacks": _record_stacks()}
+
+
+def _load_records_playoff_history() -> dict[str, Any]:
+    return {"playoff_history": _record_playoff_history()}
+
+
+def _load_records_universe() -> dict[str, Any]:
+    return {"universe_replay": _record_universe_replay()}
+
+
+def _record_num(value: Any, spec: str) -> str | None:
+    if value is None:
+        return None
+    return format(float(value), spec)
+
+
+def _taste_awards() -> str:
+    # Same rows as the Season awards board, latest decided champion.
+    for row in reversed(_record_awards()):
+        if row.get("champion"):
+            return f"{row['year']} champion {row['champion']}"
+    return "Champion, runner-up, scoring title, and last place by year."
+
+
+def _taste_season() -> str:
+    # Most PF board, first row. limit=1 keeps the same ORDER BY.
+    rows = _record_season_pf(limit=1)["high"]
+    if not rows:
+        return "Finished-season points, winning percentage, all-play, and luck."
+    row = rows[0]
+    points = _record_num(row.get("points_for"), ".1f")
+    return f"Most PF: {row['display_name']} {row['year']} · {points}"
+
+
+def _taste_clutch() -> str:
+    # Steadiest seasons, first row.
+    rows = _record_consistency(limit=1)["steady"]
+    if not rows:
+        return "Consistency, Pythagorean wins, one-score record, and blowout record."
+    row = rows[0]
+    cv = _record_num(row.get("cv"), ".2f")
+    return f"Steadiest: {row['display_name']} {row['year']} · CV {cv}"
+
+
+def _taste_playoff() -> str:
+    rows = _record_playoff_weeks(limit=1)
+    if not rows:
+        return "Highest playoff week, career playoff wins, and title-game margins."
+    row = rows[0]
+    points = _record_num(row.get("points"), ".1f")
+    return f"Highest playoff week: {row['display_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_chairs() -> str:
+    rows = _record_chairs(limit=1)["first"]
+    if not rows:
+        return "Varsity Letter, Varsity Farmer, and Beat the Freeze weeks."
+    row = rows[0]
+    return f"Most Varsity Letter weeks: {row['display_name']} · {int(row['first_chair'])}"
+
+
+def _taste_environment() -> str:
+    # Highest weeks, first row. The other environment boards stay on the chapter.
+    rows = high_weeks(limit=1)
+    if not rows:
+        return "Median tax, platforms, waiver eras, week highs and lows, and the scoring environment."
+    row = rows[0]
+    points = _record_num(row.get("points"), ".2f")
+    return f"Highest week: {row['display_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_games() -> str:
+    rows = blowouts(limit=1)
+    if not rows:
+        return "Biggest blowouts and closest games."
+    row = rows[0]
+    if row["points"] >= row["opp_points"]:
+        winner, loser = row["manager_name"], row["opponent_name"]
+    else:
+        winner, loser = row["opponent_name"], row["manager_name"]
+    margin = _record_num(row.get("abs_margin"), ".1f")
+    return f"Biggest blowout: {winner} over {loser}, {row['year']} W{row['week']} · {margin}"
+
+
+def _taste_trades() -> str:
+    rows = lopsided_trades(limit=1)
+    if not rows:
+        return "Lopsided trades, most traded, journeymen, and trade partners."
+    row = rows[0]
+    gap = _record_num(row["verdict"].get("gap"), ".0f")
+    return f"Most lopsided: {row['home']['name']} over {row['away']['name']}, {row['year']} W{row['week']} · {gap}"
+
+
+def _taste_rings() -> str:
+    # First row of the rings board (champ weeks, then title starts).
+    rows = _record_rings()["rows"]
+    if not rows:
+        return "Championship-roster weeks, title starts, and rings."
+    row = rows[0]
+    return f"{row['player_name']} · {int(row['champ_roster_weeks'])} champ weeks"
+
+
+def _taste_draft() -> str:
+    rows = _record_draft_picks(worst=False, limit=1)
+    if not rows or rows[0].get("vs_vorp") is None:
+        return "Best and worst picks versus round, best drafts, and career draft capital."
+    row = rows[0]
+    edge = _record_num(row.get("vs_vorp"), "+.1f")
+    return f"Best vs round: {row['player_name']} {row['year']} · {edge}"
+
+
+def _taste_roster() -> str:
+    # Career waiver board, first row (per-priority order).
+    rows = _record_waiver_roi()["career"]
+    if not rows or rows[0].get("vorp_per_priority") is None:
+        return "Waiver priority and roster shape."
+    row = rows[0]
+    per = _record_num(row.get("vorp_per_priority"), "+.1f")
+    return f"Per priority: {row['manager_name']} · {per}"
+
+
+def _taste_wire() -> str:
+    rows = _record_wire_adds(limit=1)
+    if not rows or rows[0].get("ros_vorp") is None:
+        return "Best adds, costliest misses, and what was left on the wire."
+    row = rows[0]
+    vorp = _record_num(row.get("ros_vorp"), "+.1f")
+    return f"Best add: {row['player_name']} · {vorp}"
+
+
+def _taste_lineups() -> str:
+    rows = _record_bench_weeks(limit=1)
+    if not rows or rows[0].get("left_on_bench") is None:
+        return "Worst bench weeks and seasons, and lineup counting."
+    row = rows[0]
+    left = _record_num(row.get("left_on_bench"), ".0f")
+    return f"Worst week: {row['manager_name']} {row['year']} W{row['week']} · \u2212{left}"
+
+
+def _taste_counting() -> str:
+    # The counting scans are the expensive part of the old book. The index
+    # names the boards and leaves the numbers on the chapter page.
+    return "Single-week highs, weekly positional finishes, and season and career sums."
+
+
+def _taste_coach() -> str:
+    rows = management_career(limit=1)
+    if not rows or rows[0].get("management_pct") is None:
+        return "Actual points over optimal lineups."
+    row = rows[0]
+    pct = _record_num(float(row["management_pct"]) * 100, ".1f")
+    return f"{row['display_name']} · {pct}%"
+
+
+def _taste_streaks() -> str:
+    rows = _record_longest_streaks(limit=1)["win"]
+    if not rows:
+        return "Win streaks, loss streaks, current streaks, and title droughts."
+    row = rows[0]
+    return f"Longest win streak: {row['display_name']} · {int(row['length'])}"
+
+
+def _taste_stacks() -> str:
+    # Same statement as the best-weeks board, one row. Skips the compare and coverage queries.
+    rows = _stack_weeks("kind = 'regular'", limit=1)
+    if not rows or rows[0].get("combined_points") is None:
+        return "Best stack weeks, season leaders, and the league comparison."
+    row = rows[0]
+    points = _record_num(row.get("combined_points"), ".2f")
+    return f"Best week: {row['manager_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_playoff_history() -> str:
+    return "Seed, result, and every series for each finished season."
+
+
+def _taste_universe() -> str:
+    # The bracket query is the slow statement in the old book. It stays on the chapter.
+    return "Both simulated brackets for every finished season."
+
+
+_RECORD_CHAPTER_SPECS: tuple[dict[str, Any], ...] = (
+    {
+        "slug": "awards",
+        "title": "Season awards",
+        "template": "records/chapters/awards.html",
+        "anchors": (("awards", "Season awards"),),
+        "load": _load_records_awards,
+        "taste": _taste_awards,
+    },
+    {
+        "slug": "season",
+        "title": "Season",
+        "template": "records/chapters/season.html",
+        "anchors": (("season", "Season"),),
+        "load": _load_records_season,
+        "taste": _taste_season,
+    },
+    {
+        "slug": "clutch",
+        "title": "Consistency and clutch",
+        "template": "records/chapters/clutch.html",
+        "anchors": (
+            ("clutch", "Consistency and clutch"),
+            ("consistency", "Weekly consistency"),
+            ("pythagorean", "Pythagorean wins"),
+            ("one-score", "One-score record"),
+            ("blowout-record", "Blowout record"),
+        ),
+        "load": _load_records_clutch,
+        "taste": _taste_clutch,
+    },
+    {
+        "slug": "playoff",
+        "title": "Playoff",
+        "template": "records/chapters/playoff.html",
+        "anchors": (("playoff", "Playoff"),),
+        "load": _load_records_playoff,
+        "taste": _taste_playoff,
+    },
+    {
+        "slug": "chairs",
+        "title": "Weekly honors",
+        "template": "records/chapters/chairs.html",
+        "anchors": (("chairs", "Weekly honors"),),
+        "load": _load_records_chairs,
+        "taste": _taste_chairs,
+    },
+    {
+        "slug": "environment",
+        "title": "Weeks and scoring environment",
+        "template": "records/chapters/environment.html",
+        "anchors": (
+            ("median", "Median tax"),
+            ("platform", "Platform split"),
+            ("eras", "Waiver era vs FAAB era"),
+            ("high", "Highest weeks"),
+            ("low", "Lowest weeks"),
+            ("league-high", "League weeks"),
+            ("league-low", "Lowest totals"),
+            ("league-mean", "Highest means"),
+            ("environment", "Scoring environment"),
+        ),
+        "load": _load_records_environment,
+        "taste": _taste_environment,
+    },
+    {
+        "slug": "games",
+        "title": "Blowouts and closest games",
+        "template": "records/chapters/games.html",
+        "anchors": (
+            ("blowouts", "Biggest blowouts"),
+            ("closest", "Closest games"),
+        ),
+        "load": _load_records_games,
+        "taste": _taste_games,
+    },
+    {
+        "slug": "trades",
+        "title": "Trades",
+        "template": "records/chapters/trades.html",
+        "anchors": (
+            ("trades", "Most lopsided trades"),
+            ("traded", "Most traded"),
+            ("journeymen", "Journeymen"),
+            ("partners", "Trade partners"),
+        ),
+        "load": _load_records_trades,
+        "taste": _taste_trades,
+    },
+    {
+        "slug": "rings",
+        "title": "Rings",
+        "template": "records/chapters/rings.html",
+        "anchors": (("rings", "Rings"),),
+        "load": _load_records_rings,
+        "taste": _taste_rings,
+    },
+    {
+        "slug": "draft",
+        "title": "Draft",
+        "template": "records/chapters/draft.html",
+        "anchors": (
+            ("draft", "Draft"),
+            ("draft-capital", "Career draft capital"),
+        ),
+        "load": _load_records_draft,
+        "taste": _taste_draft,
+    },
+    {
+        "slug": "roster",
+        "title": "Waivers and roster shape",
+        "template": "records/chapters/roster.html",
+        "anchors": (
+            ("waiver-roi", "Waiver priority"),
+            ("roster-shape", "Roster shape"),
+        ),
+        "load": _load_records_roster,
+        "taste": _taste_roster,
+    },
+    {
+        "slug": "wire",
+        "title": "Wire",
+        "template": "records/chapters/wire.html",
+        "anchors": (
+            ("wire", "Wire"),
+            ("wire-left", "Left on the wire"),
+        ),
+        "load": _load_records_wire,
+        "taste": _taste_wire,
+    },
+    {
+        "slug": "lineups",
+        "title": "Bench and lineup counting",
+        "template": "records/chapters/lineups.html",
+        "anchors": (
+            ("lineups", "Bench"),
+            ("lineup-counting", "Lineup counting"),
+        ),
+        "load": _load_records_lineups,
+        "taste": _taste_lineups,
+    },
+    {
+        "slug": "counting",
+        "title": "Counting stats",
+        "template": "records/chapters/counting.html",
+        "anchors": (
+            ("counting", "Counting stats"),
+            ("finishes", "Weekly positional finishes"),
+            ("counting-season", "Season counting"),
+            ("counting-career", "Career counting"),
+        ),
+        "load": _load_records_counting,
+        "taste": _taste_counting,
+    },
+    {
+        "slug": "coach",
+        "title": "Coaching",
+        "template": "records/chapters/coach.html",
+        "anchors": (("coach", "Coaching"),),
+        "load": _load_records_coach,
+        "taste": _taste_coach,
+    },
+    {
+        "slug": "streaks",
+        "title": "Streaks",
+        "template": "records/chapters/streaks.html",
+        "anchors": (
+            ("wins", "Longest win streaks"),
+            ("losses", "Longest loss streaks"),
+            ("current", "Current streaks"),
+            ("drought", "Title droughts"),
+        ),
+        "load": _load_records_streaks,
+        "taste": _taste_streaks,
+    },
+    {
+        "slug": "stacks",
+        "title": "Stacks",
+        "template": "records/chapters/stacks.html",
+        "anchors": (("stacks", "Stacks"),),
+        "load": _load_records_stacks,
+        "taste": _taste_stacks,
+    },
+    {
+        "slug": "playoff-history",
+        "title": "Playoff history",
+        "template": "records/chapters/playoff-history.html",
+        "anchors": (("playoff-history", "Playoff history"),),
+        "load": _load_records_playoff_history,
+        "taste": _taste_playoff_history,
+    },
+    {
+        "slug": "universe-replay",
+        "title": "Universe brackets",
+        "template": "records/chapters/universe-replay.html",
+        "anchors": (("universe-replay", "Universe brackets"),),
+        "load": _load_records_universe,
+        "taste": _taste_universe,
+    },
+)
+
+
+def _check_record_chapters() -> None:
+    slugs: set[str] = set()
+    anchors: set[str] = set()
+    for spec in _RECORD_CHAPTER_SPECS:
+        if spec["slug"] in slugs:
+            raise RuntimeError(f"duplicate record chapter {spec['slug']}")
+        slugs.add(spec["slug"])
+        for anchor_id, _label in spec["anchors"]:
+            if anchor_id in anchors:
+                raise RuntimeError(f"duplicate record anchor {anchor_id}")
+            anchors.add(anchor_id)
+
+
+_check_record_chapters()
+
+
+def _chapter_link(spec: dict[str, Any] | None) -> dict[str, str] | None:
+    if spec is None:
+        return None
+    return {"slug": spec["slug"], "title": spec["title"]}
+
+
+def record_chapter_view(slug: str) -> dict[str, Any] | None:
+    """One chapter: its loader output, plus prev/next for the shell."""
+    specs = _RECORD_CHAPTER_SPECS
+    for index, spec in enumerate(specs):
+        if spec["slug"] != slug:
+            continue
+        prev_spec = specs[index - 1] if index else None
+        next_spec = specs[index + 1] if index + 1 < len(specs) else None
+        return {
+            "template": spec["template"],
+            "chapter": {
+                "slug": spec["slug"],
+                "title": spec["title"],
+                "anchors": [{"id": anchor_id, "label": label} for anchor_id, label in spec["anchors"]],
+            },
+            "prev": _chapter_link(prev_spec),
+            "next": _chapter_link(next_spec),
+            "context": spec["load"](),
+        }
+    return None
+
+
+def records_index_page() -> dict[str, Any]:
+    """Holders plus one cheap taste per chapter. Does not build the other boards."""
+    data = marks_page()
+    chapters: list[dict[str, Any]] = []
+    anchor_chapters: dict[str, str] = {}
+    for spec in _RECORD_CHAPTER_SPECS:
+        anchors = [{"id": anchor_id, "label": label} for anchor_id, label in spec["anchors"]]
+        for anchor in anchors:
+            anchor_chapters[anchor["id"]] = spec["slug"]
+        chapters.append(
+            {
+                "slug": spec["slug"],
+                "title": spec["title"],
+                "taste": spec["taste"](),
+                "anchors": anchors,
+            }
+        )
+    data["chapters"] = chapters
+    data["anchor_chapters"] = anchor_chapters
+    return data

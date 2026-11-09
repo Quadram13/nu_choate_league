@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Record book</h1>
+<p class="lede">Regular-season H2H. Weekly highs and lows skip playoff weeks.</p>
+{% if not holders %}
+<p class="note">No records yet. Load dumps into Postgres first.</p>
+{% endif %}
+<script>
+(function () {
+    var map = {{ anchor_chapters|tojson }};
+    var hash = location.hash.replace(/^#/, "");
+    if (!hash || !Object.prototype.hasOwnProperty.call(map, hash)) {
+        return;
+    }
+    location.replace("/records/" + map[hash] + location.search + "#" + hash);
+})();
+</script>
+{% include "records/chapters/_holders.html" %}
+{% for chapter in chapters %}
+<p class="jump">
+    {% if chapter.anchors|length > 1 %}
+    <span class="jump-label">{{ chapter.title }}</span>
+    {% endif %}
+    {% for anchor in chapter.anchors %}
+    <a id="{{ anchor.id }}" href="/records/{{ chapter.slug }}{{ year_qs }}#{{ anchor.id }}">{{ anchor.label }}</a>
+    {% endfor %}
+</p>
+<p class="note">{{ chapter.taste }}</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,158 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if season_pf %}
+<h2 id="season">Season</h2>
+<p class="note">Finished regular seasons. An in-progress year stays on its season page and is left off these boards.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Most PF</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in season_pf.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Least PF</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in season_pf.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_pct %}
+<p class="note">Official % is the platform line. In 2025 it includes a game vs the weekly median. 2022–24 are head-to-head only.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Best official %</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
+            <tbody>
+                {% for row in season_pct.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst official %</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Official %</th><th>Line</th></tr></thead>
+            <tbody>
+                {% for row in season_pct.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                    <td>{{ row.line }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_all_play %}
+<div class="notable-grid">
+    <section>
+        <h3>Best all-play</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_all_play.high %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst all-play</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Win%</th></tr></thead>
+            <tbody>
+                {% for row in season_all_play.low %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}
+{% if season_luck %}
+<div class="notable-grid">
+    <section>
+        <h3>Luckiest net</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Net</th></tr></thead>
+            <tbody>
+                {% for row in season_luck.lucky %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#luck">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Unluckiest net</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Year</th><th>Manager</th><th class="num">Net</th></tr></thead>
+            <tbody>
+                {% for row in season_luck.unlucky %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}#luck">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%+d"|format(row.net_luck|int) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endif %}

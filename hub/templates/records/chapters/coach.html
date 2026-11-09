@@ -1,0 +1,41 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if coaches %}
+<div data-grain="career">
+<h2 id="coach">Coaching</h2>
+<p class="note">Actual points over optimal lineups.</p>
+<div class="standings-wrap">
+<table class="js-sort sticky-first">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Yrs</th>
+            <th class="num">Weeks</th>
+            <th class="num">%</th>
+            <th class="num">Left</th>
+            <th class="num" title="Optimal starters who sat">Sat</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in coaches %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ (row.seasons or 0)|int }}</td>
+            <td class="num">{{ (row.weeks or 0)|int }}</td>
+            <td class="num">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% else %}—{% endif %}</td>
+            <td class="num">{% if row.left_on_bench is not none %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ (row.sat_starter or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}

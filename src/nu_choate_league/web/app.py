@@ -319,11 +319,12 @@ def records(request: Request) -> HTMLResponse:
     year = int(selected) if selected and selected.isdigit() else None
     return page(
         request,
-        "records.html",
+        "records/index.html",
         nav="records",
         title="Record book",
         selected_year=year,
-        **queries.records_page(),
+        year_qs=f"?year={year}" if year else "",
+        **queries.records_index_page(),
     )
 
 
@@ -365,4 +366,32 @@ def player(request: Request, player_id: str) -> HTMLResponse:
         nav="players",
         title=person["player_name"],
         **data,
+    )
+
+
+# --- B2 record chapters (#97). /records above renders the index. ---
+
+
+@app.get("/records/{chapter}", response_class=HTMLResponse)
+def records_chapter(request: Request, chapter: str) -> HTMLResponse:
+    view = queries.record_chapter_view(chapter)
+    if view is None:
+        raise StarletteHTTPException(
+            status_code=404,
+            detail=f"No records chapter {chapter}.",
+        )
+    selected = request.query_params.get("year")
+    year = int(selected) if selected and selected.isdigit() else None
+    return page(
+        request,
+        "records/chapter.html",
+        nav="records",
+        title=f"{view['chapter']['title']} · Record book",
+        selected_year=year,
+        year_qs=f"?year={year}" if year else "",
+        chapter=view["chapter"],
+        chapter_template=view["template"],
+        prev_chapter=view["prev"],
+        next_chapter=view["next"],
+        **view["context"],
     )

@@ -1,0 +1,62 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if chairs %}
+<div data-grain="career">
+<h2 id="chairs">Weekly honors</h2>
+<p class="note">Each count is a week. A Varsity Letter is the top starter at the position that week. A Varsity Farmer is the lowest starter. Beat the Freeze is a bench score above every starter at the position.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Most Varsity Letter weeks</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+            <tbody>
+                {% for row in chairs.first %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.first_chair|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Most Varsity Farmer weeks</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+            <tbody>
+                {% for row in chairs.last %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.last_chair|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% if chairs.sat %}
+<h3>Most Beat the Freeze weeks</h3>
+<table>
+    <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
+    <tbody>
+        {% for row in chairs.sat %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.benched_first_chair|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>
+{% endif %}

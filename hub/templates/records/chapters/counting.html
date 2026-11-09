@@ -1,0 +1,150 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if counting_leaders %}
+<h2 id="counting">Counting stats</h2>
+<p class="note">Single-week highs by a rostered player. A week is stored when it scored fantasy points, so byes and other all-zero stat lines are left out.</p>
+<div class="notable-grid">
+    {% for board in counting_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}—{% endif %}</td>
+                    <td class="num">{{ row.value|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if positional_finish_leaders %}
+<h2 id="finishes">Weekly positional finishes</h2>
+<p class="note">Sleeper weeks where a player was the PPR QB1, RB1, WR1, or TE1 across the NFL. The league scores a full point per reception, so this is the PPR rank. Half-PPR is on the row. 2022–2023 have no positional rank. Kickers and team defenses are unranked in the dumps.</p>
+<div class="notable-grid">
+    {% for board in positional_finish_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num" title="Half-PPR positional rank the same week">Half</th>
+                    <th class="num">PF</th>
+                    <th class="num">Snaps</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a> <span class="team">{{ row.position }}</span></td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}FA{% endif %}</td>
+                    <td class="num"{% if row.rank_title %} title="{{ row.rank_title }}"{% endif %}>{% if row.pos_rank_half_ppr is not none %}{{ row.pos_rank_half_ppr|int }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
+                    <td class="num">{% if row.snap_note %}{{ row.snap_note }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if counting_summaries and counting_summaries.season %}
+<h2 id="counting-season">Season counting</h2>
+<p class="note">Top season sums from finished regular seasons. An in-progress year is left off, so a short defense sample cannot lead a per-game board. The weekly board above is single-game and rostered. These totals use every counting-stat row, free-agent weeks included, so there is no one manager. G is that row count, not starts. Total TD is rush + rec + pass, not defensive or special-teams scores. Milestone games are 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Points-allowed and yards-allowed boards are DEF only, at least 4 counting games, ranked per game because a sum grows with the number of weeks stored.</p>
+<div class="notable-grid">
+    {% for board in counting_summaries.season %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th class="num">Year</th>
+                    <th>Player</th>
+                    <th class="num">G</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td class="num">{{ row.games|int }}</td>
+                    <td class="num">{% if board.rate %}{{ "%.1f"|format(row.value) }}{% else %}{{ row.value|int }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if counting_summaries and counting_summaries.career %}
+<div data-grain="career">
+<h2 id="counting-career">Career counting</h2>
+<p class="note">Same definitions as the season counting block, summed across years. Per-game defense rates divide the career sum by career counting games. They are not an average of season rates.</p>
+<div class="notable-grid">
+    {% for board in counting_summaries.career %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Player</th>
+                    <th>Years</th>
+                    <th class="num">G</th>
+                    <th class="num">{{ board.unit }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{% if row.first_year == row.last_year %}{{ row.first_year }}{% else %}{{ row.first_year }}–{{ row.last_year }}{% endif %}</td>
+                    <td class="num">{{ row.games|int }}</td>
+                    <td class="num">{% if board.rate %}{{ "%.1f"|format(row.value) }}{% else %}{{ row.value|int }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+</div>
+{% endif %}
