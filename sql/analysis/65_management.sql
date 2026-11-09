@@ -31,12 +31,15 @@ defaults AS (
 observed AS (
     SELECT year, slot, max(n) AS n
     FROM (
-        SELECT year, week, manager_id, slot, count(*) AS n
-        FROM v_player_weeks
-        WHERE started
-            AND slot NOT IN ('BN', 'IR')
-            AND kind IN ('regular', 'playoff', 'consolation')
-        GROUP BY year, week, manager_id, slot
+        SELECT pw.year, pw.week, pw.manager_id, pw.slot, count(*) AS n
+        FROM v_player_weeks pw
+        JOIN v_posted_weeks posted
+            ON posted.year = pw.year
+            AND posted.week = pw.week
+        WHERE pw.started
+            AND pw.slot NOT IN ('BN', 'IR')
+            AND pw.kind IN ('regular', 'playoff', 'consolation')
+        GROUP BY pw.year, pw.week, pw.manager_id, pw.slot
     ) counts
     GROUP BY year, slot
 )
@@ -68,6 +71,9 @@ WITH roster AS (
         pw.points,
         pw.started
     FROM v_player_weeks pw
+    JOIN v_posted_weeks posted
+        ON posted.year = pw.year
+        AND posted.week = pw.week
     WHERE pw.kind IN ('regular', 'playoff', 'consolation')
         AND pw.position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
     ORDER BY
@@ -191,6 +197,9 @@ SELECT
     pw.points,
     'should_sit'::text AS call
 FROM v_player_weeks pw
+JOIN v_posted_weeks posted
+    ON posted.year = pw.year
+    AND posted.week = pw.week
 WHERE pw.started
     AND pw.kind IN ('regular', 'playoff', 'consolation')
     AND NOT EXISTS (

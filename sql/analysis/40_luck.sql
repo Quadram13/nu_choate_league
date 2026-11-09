@@ -65,14 +65,16 @@ LEFT JOIN (
     FROM week_scores
 ) opp ON opp.year = g.year AND opp.week = g.week AND opp.manager_id = g.opponent_id
 LEFT JOIN (
-    SELECT year, manager_id, avg(points) AS avg_pf
-    FROM week_scores
-    GROUP BY year, manager_id
+    SELECT w.year, w.manager_id, avg(w.points) AS avg_pf
+    FROM week_scores w
+    JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
+    GROUP BY w.year, w.manager_id
 ) my_avg ON my_avg.year = g.year AND my_avg.manager_id = g.manager_id
 LEFT JOIN (
-    SELECT year, manager_id, avg(points) AS avg_pf
-    FROM week_scores
-    GROUP BY year, manager_id
+    SELECT w.year, w.manager_id, avg(w.points) AS avg_pf
+    FROM week_scores w
+    JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
+    GROUP BY w.year, w.manager_id
 ) opp_avg ON opp_avg.year = g.year AND opp_avg.manager_id = g.opponent_id
 LEFT JOIN v_all_play ap
     ON ap.year = g.year AND ap.week = g.week AND ap.manager_id = g.manager_id

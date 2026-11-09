@@ -93,7 +93,10 @@ JOIN ranked r
     ON r.year = s.year
     AND r.week = s.week
     AND r.position = s.position
-    AND r.rnk = greatest(s.n_starters, 1);
+    AND r.rnk = greatest(s.n_starters, 1)
+JOIN v_posted_weeks pw
+    ON pw.year = s.year
+    AND pw.week = s.week;
 
 CREATE VIEW v_player_vorp AS
 SELECT
@@ -164,6 +167,9 @@ SELECT
     coalesce(mv.drops, 0) AS times_dropped,
     coalesce(tr.times_traded, 0) AS times_traded
 FROM v_player_weeks pw
+JOIN v_posted_weeks posted
+    ON posted.year = pw.year
+    AND posted.week = pw.week
 LEFT JOIN players p ON p.id = pw.player_id
 LEFT JOIN (
     SELECT player_id, count(*) AS times_drafted
@@ -208,6 +214,12 @@ WITH weeks AS (
         kind
     FROM v_player_weeks
     WHERE kind IN ('regular', 'playoff')
+        AND EXISTS (
+            SELECT 1
+            FROM v_posted_weeks posted
+            WHERE posted.year = v_player_weeks.year
+                AND posted.week = v_player_weeks.week
+        )
 ),
 started AS (
     SELECT

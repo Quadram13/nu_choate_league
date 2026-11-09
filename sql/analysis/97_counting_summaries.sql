@@ -2,6 +2,9 @@
 -- Plain views (not materialized): load applies this file in numeric order and
 -- does not refresh them. Facts stay in sql/facts.sql. No fact columns change.
 --
+-- Sums are posted weeks only (v_posted_weeks). A live leg stays out until
+-- the median team total reaches 40.
+--
 -- games counts counting-stat rows. Byes and other all-zero fantasy weeks have
 -- no row, so games is not an NFL games-played count and not a fantasy start
 -- count. Rostered weeks and free-agent weeks are both included.
@@ -111,6 +114,7 @@ SELECT
     count(*) FILTER (WHERE c.pass_yd >= 300) AS g_pass_300,
     count(*) FILTER (WHERE (c.pass_td + c.rush_td + c.rec_td) >= 2) AS g_td_2
 FROM player_week_counting_stats c
+JOIN v_posted_weeks posted ON posted.year = c.year AND posted.week = c.week
 LEFT JOIN players p ON p.id = c.player_id
 GROUP BY c.year, c.player_id, p.display_name, p.position;
 
