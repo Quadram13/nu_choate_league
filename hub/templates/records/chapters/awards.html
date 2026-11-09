@@ -1,0 +1,37 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if awards %}
+<h2 id="awards">Season awards</h2>
+<p class="note">Champion and runner-up wait for a decided title. Regular-season champ, most points, and last place stay empty until that regular season is finished. Last place is the worst rank on the official standings.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Champion</th>
+            <th>Runner-up</th>
+            <th>RS champ</th>
+            <th>Most PF</th>
+            <th>Last place</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in awards %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{% if row.champion_id %}{{ person(row.champion_id, row.champion) }}{% else %}—{% endif %}</td>
+            <td>{% if row.runner_up_id %}{{ person(row.runner_up_id, row.runner_up) }}{% else %}—{% endif %}</td>
+            <td>{% if row.regular_season_champion_id %}{{ person(row.regular_season_champion_id, row.regular_season_champion) }}{% else %}—{% endif %}</td>
+            <td>{% if row.most_points_id %}{{ person(row.most_points_id, row.most_points) }}{% else %}—{% endif %}</td>
+            <td>{% if row.last_place_id %}{{ person(row.last_place_id, row.last_place) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}

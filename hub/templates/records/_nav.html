@@ -1,0 +1,11 @@
+<p class="jump">
+    <a href="/records{{ year_qs }}">Index</a>
+    {% if prev_chapter %}
+    <span class="jump-label">Prev</span>
+    <a href="/records/{{ prev_chapter.slug }}{{ year_qs }}">{{ prev_chapter.title }}</a>
+    {% endif %}
+    {% if next_chapter %}
+    <span class="jump-label">Next</span>
+    <a href="/records/{{ next_chapter.slug }}{{ year_qs }}">{{ next_chapter.title }}</a>
+    {% endif %}
+</p>

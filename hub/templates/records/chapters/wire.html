@@ -1,0 +1,156 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<h2 id="wire">Wire</h2>
+<p class="note">Adds are starter VORP on that roster after the add. A miss gap is league VORP from the claim week, bench weeks included: the missed player minus what you got.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Best adds</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_adds %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                        <span class="team">{{ row.kind }}</span>
+                    </td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Costliest misses</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th>Missed</th>
+                    <th>Got</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_misses %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }} <span class="team">{{ row.flag }}</span></td>
+                    <td>{% if row.missed_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}</td>
+                    <td>{% if row.won_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
+                    <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<h3 id="wire-left">Left on the wire</h3>
+<p class="note">Unowned posted weeks, playoffs included. Points are the score while nobody rostered the player. FA VORP is the season sum, and a posted week with no stored score counts as 0 minus replacement. Claim gaps stay in the tables above. 2026 is posted weeks only.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Highest unowned weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th class="num">Pts</th>
+                    <th class="num" title="Points minus that week's replacement">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_unclaimed %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ row.position or "—" }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points) }}</td>
+                    <td class="num{% if row.vorp and row.vorp > 0 %} plus{% elif row.vorp and row.vorp < 0 %} minus{% endif %}">{% if row.vorp is not none %}{{ "%+.1f"|format(row.vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Best week each season</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th class="num">Pts</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_unclaimed_seasons %}
+                <tr data-year="{{ row.year }}">
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ row.position or "—" }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points) }}</td>
+                    <td class="num{% if row.vorp and row.vorp > 0 %} plus{% elif row.vorp and row.vorp < 0 %} minus{% endif %}">{% if row.vorp is not none %}{{ "%+.1f"|format(row.vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+<div class="notable-grid">
+    <section>
+        <h3>Most FA VORP</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th class="num">Year</th>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th class="num">FA</th>
+                    <th class="num">Pts</th>
+                    <th class="num" title="VORP on posted weeks the player was not rostered. A week with no stored score counts as 0 minus replacement.">FA VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire_fa_leaders %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="num"><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+                    <td>{% if row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}</td>
+                    <td>{{ row.position or "—" }}</td>
+                    <td class="num">{{ (row.fa_weeks or 0)|int }}</td>
+                    <td class="num">{% if row.fa_points is not none %}{{ "%.1f"|format(row.fa_points) }}{% endif %}</td>
+                    <td class="num{% if row.fa_vorp and row.fa_vorp > 0 %} plus{% elif row.fa_vorp and row.fa_vorp < 0 %} minus{% endif %}">{% if row.fa_vorp is not none %}{{ "%+.1f"|format(row.fa_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>

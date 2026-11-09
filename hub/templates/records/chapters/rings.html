@@ -1,0 +1,41 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if rings.rows %}
+<div data-grain="career">
+<h2 id="rings">Rings</h2>
+<p class="note">Championship-roster weeks are weeks on that season's champion, bench included ({{ rings.champ_players }} players, {{ rings.champ_weeks }} weeks). A title-week start is a start for the champion in a playoff week on or after playoff_start_week ({{ rings.title_players }} players, {{ rings.title_starts }} starts, {{ "%.1f"|format(rings.title_points) }} points). Rings are seasons with any start for the champion. Sorted by championship-roster weeks.</p>
+<table class="js-sort js-fold" data-fold="15">
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Champ weeks</th>
+            <th class="num">Title starts</th>
+            <th class="num">Title pts</th>
+            <th class="num">Rings</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rings.rows %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a></td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ row.champ_roster_weeks|int }}</td>
+            <td class="num">{{ row.title_starts|int }}</td>
+            <td class="num" data-value="{{ row.title_points }}">{{ "%.1f"|format(row.title_points) }}</td>
+            <td class="num">{{ row.rings|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}

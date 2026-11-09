@@ -1,0 +1,214 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if median_tax %}
+<h2 id="median">Median tax</h2>
+<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only. The playoff cell stays blank until that year's field is set.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            <th class="num">Extra</th>
+            <th>Playoffs</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in median_tax %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}#median-tax">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ "%+d"|format(row.extra_wins|int) }}</td>
+            <td>
+                {% if row.playoff_flip %}{% if row.official_playoff %}in without H2H{% else %}out despite H2H{% endif %}
+                {% elif row.official_playoff %}in
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if platform %}
+<div data-grain="career">
+<h2 id="platform">Platform split</h2>
+<p class="note">ESPN 2022–23 vs Sleeper 2024 onward. Record is the platform line: head-to-head, plus a game vs the weekly median from 2025. 2024 is head-to-head only, so those games sit in H2H. Median is played median games.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Platform</th>
+            <th>Manager</th>
+            <th class="num">Yrs</th>
+            <th data-type="num" title="Platform line. Head-to-head, plus a median game from 2025.">Record</th>
+            <th data-type="num" title="Head-to-head games only.">H2H</th>
+            <th data-type="num" title="Games vs the weekly median. Blank when that platform played none.">Median</th>
+            <th class="num">PF</th>
+            <th class="num">Titles</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in platform %}
+        <tr>
+            <td>{{ row.platform }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.seasons|int }}</td>
+            <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.wins|int }}-{{ row.losses|int }}-{{ row.ties|int }}</td>
+            <td>{{ row.h2h or "—" }}</td>
+            <td>{{ row.median or "—" }}</td>
+            <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+            <td class="num">{{ (row.titles or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if wire_eras %}
+<div data-grain="career">
+<h2 id="eras">Waiver era vs FAAB era</h2>
+<p class="note">Priority 2022–2025. FAAB from 2026.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Era</th>
+            <th>Years</th>
+            <th class="num">Claims</th>
+            <th class="num">FA</th>
+            <th class="num">Avg bid</th>
+            <th class="num">Avg pri</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in wire_eras %}
+        <tr>
+            <td>{{ row.era }}</td>
+            <td>{{ row.first_year }}–{{ row.last_year }}</td>
+            <td class="num">{{ (row.claims or 0)|int }}</td>
+            <td class="num">{{ (row.free_agents or 0)|int }}</td>
+            <td class="num">{% if row.avg_bid is not none %}{{ "%.1f"|format(row.avg_bid) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.avg_priority is not none %}{{ "%.1f"|format(row.avg_priority) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if fa_adds %}
+<h3>Most FA adds in a season</h3>
+<p class="note">Ranked by free-agent adds. Adds is waiver claims plus free agents. Finished regular seasons. Adds from an in-progress year are still coming in.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Year</th>
+            <th>Manager</th>
+            <th class="num" title="Free-agent adds. This board is ranked by this column.">FA</th>
+            <th class="num" title="Waiver claims plus free-agent adds.">Adds</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in fa_adds %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ (row.free_agents or 0)|int }}</td>
+            <td class="num">{{ row.adds|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<h2 id="high">Highest weeks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>When</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in high_weeks %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="low">Lowest weeks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th>When</th>
+            <th class="num">PF</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in low_weeks %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if league_week_records %}
+<h2 id="league-high">League weeks</h2>
+<p class="note">Sum of paired regular-season manager totals on a posted week, and the mean of those totals. 2023 and 2024 had 10 teams. 2022, 2025, and 2026 had 12. The total board and the mean board can crown different weeks. 2026's posted weeks are included. Playoff weeks stay off, the same cut as the manager-week boards above.</p>
+<div class="notable-grid">
+    <section>
+        <h3>Highest totals</h3>
+        {{ league_week_board(league_week_records.high_total) }}
+    </section>
+    <section>
+        <h3 id="league-low">Lowest totals</h3>
+        {{ league_week_board(league_week_records.low_total) }}
+    </section>
+</div>
+<div class="notable-grid">
+    <section>
+        <h3 id="league-mean">Highest means</h3>
+        {{ league_week_board(league_week_records.high_mean) }}
+    </section>
+    <section>
+        <h3>Lowest means</h3>
+        {{ league_week_board(league_week_records.low_mean) }}
+    </section>
+</div>
+{% endif %}
+
+{% if scoring_seasons and scoring_seasons.seasons %}
+<h2 id="environment">Scoring environment</h2>
+<p class="note">Average, median, and std dev are manager-weeks on posted regular weeks. League PF is their sum. A partial year is the posted weeks only. Team count differs by season, so the average compares across seasons and the total carries the field size with it.</p>
+{{ environment_table(scoring_seasons.seasons) }}
+<h3>Tightest and boom weeks</h3>
+<p class="note">Tightest is the smallest sample standard deviation. Span is that week's high minus its low. Boom is the highest league total. Inside a season that week is also the highest mean.</p>
+{{ marks_table(scoring_seasons.seasons) }}
+<h3>Position share</h3>
+<p class="note">Share of started points in player_week_scores, by the player's position, on these same weeks. A flex start stays with RB, WR, or TE. Bench points are left out.</p>
+{{ share_table(scoring_seasons.seasons, scoring_seasons.positions, scoring_seasons.show_other) }}
+{% endif %}

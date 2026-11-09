@@ -1,0 +1,112 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<div data-grain="career">
+<h2 id="wins">Longest win streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th class="num">Games</th>
+            <th>Span</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in win_streaks %}
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+                –
+                <a href="/seasons/{{ row.end_year }}/week/{{ row.end_week }}">{{ row.end_year }} W{{ row.end_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="losses">Longest loss streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Manager</th>
+            <th class="num">Games</th>
+            <th>Span</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in loss_streaks %}
+        <tr data-year-start="{{ row.start_year }}" data-year-end="{{ row.end_year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ row.length }}{% if row.is_current %} · current{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+                –
+                <a href="/seasons/{{ row.end_year }}/week/{{ row.end_week }}">{{ row.end_year }} W{{ row.end_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="current">Current streaks</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Since</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in current_streaks %}
+        <tr data-year-start="{{ row.start_year }}">
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td>{{ row.length }} {{ row.result }}{% if row.length != 1 %}s{% endif %}</td>
+            <td>
+                <a href="/seasons/{{ row.start_year }}/week/{{ row.start_week }}">{{ row.start_year }} W{{ row.start_week }}</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if title_droughts %}
+<h2 id="drought">Title droughts</h2>
+<p class="note">Completed seasons played after the last title, and after the last winners-bracket appearance. The cell reads never when that has not happened. Only a season whose champion is stored is counted.</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Titles</th>
+            <th class="num">Last title</th>
+            <th class="num">Title drought</th>
+            <th class="num">Last PO</th>
+            <th class="num">PO drought</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in title_droughts %}
+        <tr>
+            <td>{{ person(row.manager_id, row.display_name) }}</td>
+            <td class="num">{{ (row.titles or 0)|int }}</td>
+            <td class="num">{{ row.last_title or "—" }}</td>
+            <td class="num" data-value="{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}-1{% endif %}">{% if row.title_drought is not none %}{{ row.title_drought }}{% else %}never{% endif %}</td>
+            <td class="num">{{ row.last_playoff or "—" }}</td>
+            <td class="num" data-value="{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}-1{% endif %}">{% if row.playoff_drought is not none %}{{ row.playoff_drought }}{% else %}never{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>

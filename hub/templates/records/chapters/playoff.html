@@ -1,0 +1,73 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if playoff_weeks or playoff_wins or title_games %}
+<h2 id="playoff">Playoff</h2>
+<div class="notable-grid">
+    {% if playoff_weeks %}
+    <section>
+        <h3>Highest playoff week</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>When</th><th>Manager</th><th class="num">PF</th></tr></thead>
+            <tbody>
+                {% for row in playoff_weeks %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ "%.1f"|format(row.points) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if playoff_wins %}
+    <section>
+        <h3>Most playoff wins</h3>
+        <table>
+            <thead><tr><th class="num">#</th><th>Manager</th><th class="num">W</th><th class="num" title="Seasons as champion or runner-up. A two-week final counts as one season.">Title seasons</th></tr></thead>
+            <tbody>
+                {% for row in playoff_wins %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ person(row.manager_id, row.display_name) }}</td>
+                    <td class="num">{{ row.wins|int }}</td>
+                    <td class="num">{{ (row.title_games or 0)|int }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% if title_games %}
+<h3>Title-game margins</h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>When</th>
+            <th>Matchup</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in title_games %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td>{{ person(row.manager_id, row.display_name) }} {{ "%.1f"|format(row.points) }} – {{ person(row.opponent_id, row.opponent_name) }} {{ "%.1f"|format(row.opp_points) }}</td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
