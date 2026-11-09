@@ -14,6 +14,9 @@ from ..paths import project_root
 from . import queries
 from .names import flavor_team, manager_hue
 from .photos import avatar_url, headshot_url
+from .theme import THEMES, assert_theme_contract, resolve_theme, theme_query
+
+assert_theme_contract()
 
 HUB_DIR = project_root() / "hub"
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -50,11 +53,16 @@ app.router.route_class = HubRoute
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 
+def _shell(request: Request) -> dict[str, object]:
+    raw = request.query_params.get("theme")
+    return {"theme": resolve_theme(raw), "themes": THEMES}
+
+
 def page(request: Request, name: str, *, nav: str, title: str, **context) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         name,
-        {"nav": nav, "title": title, **context},
+        {"nav": nav, "title": title, **context, **_shell(request)},
     )
 
 
@@ -66,7 +74,7 @@ async def http_error(request: Request, exc: StarletteHTTPException) -> HTMLRespo
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"nav": "", "title": heading, "status": status, "detail": exc.detail},
+        {"nav": "", "title": heading, "status": status, "detail": exc.detail, **_shell(request)},
         status_code=status,
     )
 
@@ -95,7 +103,10 @@ def seasons(request: Request) -> HTMLResponse | RedirectResponse:
             seasons=[],
         )
     year = queries.latest_scored_year() or years[0]["year"]
-    return RedirectResponse(url=f"/seasons/{year}", status_code=302)
+    return RedirectResponse(
+        url=f"/seasons/{year}{theme_query(request.query_params.get('theme'))}",
+        status_code=302,
+    )
 
 
 @app.get("/seasons/{year}", response_class=HTMLResponse)
@@ -328,28 +339,32 @@ def records(request: Request) -> HTMLResponse:
 
 
 @app.get("/luck")
-def luck() -> RedirectResponse:
+def luck(request: Request) -> RedirectResponse:
     year = queries.latest_scored_year()
+    query = theme_query(request.query_params.get("theme"))
     if year is None:
-        return RedirectResponse(url="/records#season", status_code=302)
-    return RedirectResponse(url=f"/seasons/{year}#luck", status_code=302)
+        return RedirectResponse(url=f"/records{query}#season", status_code=302)
+    return RedirectResponse(url=f"/seasons/{year}{query}#luck", status_code=302)
 
 
 @app.get("/players", response_class=HTMLResponse)
 def players(request: Request) -> HTMLResponse:
     data = queries.players_index()
+    # Spike cut: one career board, 50 rows. The query is unchanged.
+    # Season, wire, and counting boards stay off this document so the
+    # three skins can be diffed on the rankings table alone.
     return page(
         request,
         "players.html",
         nav="players",
         title="Players",
-        career=data["career"],
-        seasons=data["seasons"],
-        wire_leaders=data["wire_leaders"],
-        wire_career=data["wire_career"],
-        wire_unowned=data["wire_unowned"],
-        wire_gap=data["wire_gap"],
-        counting=data["counting"],
+        career=data["career"][:50],
+        seasons=[],
+        wire_leaders=[],
+        wire_career=[],
+        wire_unowned=[],
+        wire_gap=None,
+        counting=None,
     )
 
 

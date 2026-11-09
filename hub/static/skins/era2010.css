@@ -1,0 +1,275 @@
+/* ~2010 glossy shell. No reached ESPN league page gave a width, a tab
+   order, or a matchup-card spec. The tab labels are this hub's panes, in
+   document order. 960px is a fixed shell, not a measured ESPN width.
+   CBS 17 Sep 2009 is the readable cousin: a bar, modules, a short list,
+   and a View all link. Stat grids stay light (Yahoo 2013). */
+
+html[data-theme="era2010"] {
+    --pane-on-color: #0a2f6b;
+    --pane-on-bg: #ffffff;
+    --pane-on-border: #1b4f9c;
+    --pane-on-weight: 700;
+    --pane-on-decoration: none;
+}
+
+html[data-theme="era2010"] body {
+    background: linear-gradient(#6f93bf, #d5e2f0 220px);
+    color: #111111;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    padding: 16px 12px 32px;
+}
+
+html[data-theme="era2010"] .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 1px solid #8eaccf;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), 0 12px 28px rgba(10, 40, 80, 0.25);
+    padding: 0 0 20px;
+}
+
+html[data-theme="era2010"] .mast {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: linear-gradient(#2a6fce, #0c3d86);
+    color: #ffffff;
+}
+
+html[data-theme="era2010"] .band {
+    display: block;
+    padding: 10px 14px 2px;
+}
+
+html[data-theme="era2010"] .wordmark,
+html[data-theme="era2010"] .wordmark:hover,
+html[data-theme="era2010"] .wordmark-nu,
+html[data-theme="era2010"] .wordmark-league {
+    color: #ffffff;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    text-decoration: none;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+html[data-theme="era2010"] .theme-switch {
+    order: 0;
+    flex-basis: auto;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 3px 12px 5px;
+    background: #08264f;
+    font-size: 11px;
+}
+
+html[data-theme="era2010"] .theme-switch a,
+html[data-theme="era2010"] .theme-switch a:visited {
+    color: #d6e4f5;
+    text-decoration: none;
+}
+
+html[data-theme="era2010"] .theme-switch a[href="?theme=era2010"] {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+html[data-theme="era2010"] .nav-toggle {
+    display: none;
+}
+
+html[data-theme="era2010"] #site-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0;
+    width: auto;
+    background: #0a2f6b;
+}
+
+html[data-theme="era2010"] #site-nav a,
+html[data-theme="era2010"] #site-nav a:visited {
+    color: #ffffff;
+    text-decoration: none;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 8px 12px;
+}
+
+html[data-theme="era2010"] #site-nav a.on,
+html[data-theme="era2010"] #site-nav a:hover {
+    background: #ffffff;
+    color: #0a2f6b;
+}
+
+html[data-theme="era2010"] .portal-main {
+    padding: 12px 14px 0;
+    overflow-x: auto;
+}
+
+html[data-theme="era2010"] a {
+    color: #003399;
+}
+
+html[data-theme="era2010"] h1,
+html[data-theme="era2010"] h2,
+html[data-theme="era2010"] h3,
+html[data-theme="era2010"] .lede,
+html[data-theme="era2010"] .note,
+html[data-theme="era2010"] .kicker,
+html[data-theme="era2010"] .team,
+html[data-theme="era2010"] .plaque,
+html[data-theme="era2010"] .plaque-kicker,
+html[data-theme="era2010"] .plaque-who,
+html[data-theme="era2010"] .plaque-figure,
+html[data-theme="era2010"] .plaque-meta {
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    color: #142033;
+}
+
+html[data-theme="era2010"] h1 {
+    font-size: 20px;
+}
+
+html[data-theme="era2010"] .plaque {
+    background: linear-gradient(#ffffff, #e7eef8);
+    border: 1px solid #b7c6dc;
+    color: #142033;
+}
+
+html[data-theme="era2010"] .season-pick select {
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    color: #142033;
+    background: #ffffff;
+    border: 1px solid #8eaccf;
+    color-scheme: light;
+}
+
+html[data-theme="era2010"] .js-season-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 4px;
+    margin: 10px 0 0;
+    padding: 8px 8px 0;
+    background: linear-gradient(#e6eef8, #c3d2e6);
+    border-bottom: 2px solid #1b4f9c;
+}
+
+html[data-theme="era2010"] .js-season-tabs a[data-tab] {
+    display: inline-block;
+    padding: 6px 12px 5px;
+    background: linear-gradient(#f7f9fc, #d9e2ee);
+    border: 1px solid #9eb0c6;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: #1a3f73;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    text-decoration: none;
+    position: relative;
+    top: 1px;
+}
+
+html[data-theme="era2010"] .js-season-tabs a:not([data-tab]) {
+    display: none;
+}
+
+html[data-theme="era2010"] table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    color: #111111;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 12px;
+}
+
+html[data-theme="era2010"] th {
+    background: linear-gradient(#f5f7fa, #d5dbe3);
+    color: #1a1a1a;
+    border: 1px solid #b5b5b5;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+html[data-theme="era2010"] td {
+    background: #ffffff;
+    color: #111111;
+    border: 1px solid #dddddd;
+}
+
+html[data-theme="era2010"] tr.this td,
+html[data-theme="era2010"] tr.leader td {
+    background: #ffffff;
+    font-weight: bold;
+    font-style: normal;
+}
+
+html[data-theme="era2010"] .sticky-first thead th:first-child,
+html[data-theme="era2010"] .sticky-first tbody td:first-child,
+html[data-theme="era2010"] .sticky-first tbody th:first-child {
+    background: #ffffff;
+}
+
+html[data-theme="era2010"] .sticky-first thead th:first-child {
+    background: linear-gradient(#f5f7fa, #d5dbe3);
+}
+
+html[data-theme="era2010"] .view-all {
+    display: block;
+    text-align: right;
+    margin: 6px 0 0;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+html[data-theme="era2010"] #rank-board:not(:target) tbody tr:nth-child(n + 11) {
+    display: none;
+}
+
+html[data-theme="era2010"] .gc-match {
+    background: linear-gradient(#ffffff, #f3f6fb);
+    border: 1px solid #c5d0e0;
+    border-top: 3px solid #1b4f9c;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(16, 42, 90, 0.12);
+    color: #111111;
+}
+
+html[data-theme="era2010"] .gc-score {
+    grid-template-columns: 1fr;
+    gap: 4px;
+}
+
+html[data-theme="era2010"] .gc-score .who {
+    min-width: 8rem;
+}
+
+html[data-theme="era2010"] .gc-score .person-name {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+html[data-theme="era2010"] .gc-score {
+    border-bottom-color: #d5dbe3;
+}
+
+html[data-theme="era2010"] .score-chart .tick {
+    fill: #333333;
+}
+
+html[data-theme="era2010"] .score-chart .grid {
+    stroke: #c5cdd6;
+}
+
+html[data-theme="era2010"] .score-chart .line.high {
+    stroke: #142033;
+}
+
+html[data-theme="era2010"] .score-chart circle.high {
+    fill: #142033;
+}

@@ -1,0 +1,75 @@
+/* Shared document contract. Loaded after the theme file.
+   Era-only pieces exist in every theme's HTML. This file hides them.
+   A skin shows one by overriding display at higher specificity
+   (html[data-theme="..."] .thing).
+
+   Pane ids tracked in src/nu_choate_league/web/theme.py PANE_IDS.
+   The no-hash pane is the first .js-season-pane section under .season-page.
+*/
+
+:root {
+    --pane-on-color: #e4e4e7;
+    --pane-on-bg: transparent;
+    --pane-on-border: transparent;
+    --pane-on-weight: inherit;
+    --pane-on-decoration: none;
+}
+
+.theme-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    order: 1;
+    flex-basis: 100%;
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.band {
+    display: contents;
+}
+
+.commish,
+.fantasy-links,
+.col-w,
+.col-l,
+.col-t,
+.wlt-glossary,
+.view-all {
+    display: none;
+}
+
+/* No-JS panes. :target shows the requested pane. The first pane shows when
+   nothing is targeted. :has() hides that first pane when another pane is
+   targeted. Without :has(), the first pane stays visible beside the target. */
+.season-page > .js-season-pane {
+    display: none;
+}
+
+.season-page > .js-season-pane:target {
+    display: block;
+}
+
+.season-page > section.js-season-pane:first-of-type {
+    display: block;
+}
+
+.season-page:has(> .js-season-pane:target) > section.js-season-pane:first-of-type:not(:target) {
+    display: none;
+}
+
+html[data-theme] .js-season-tabs a.on,
+html[data-theme] .season-page:not(:has(> .js-season-pane:target)) .js-season-tabs a[data-tab="standings"],
+html[data-theme] .season-page:has(> #standings:target) .js-season-tabs a[data-tab="standings"],
+html[data-theme] .season-page:has(> #weeks:target) .js-season-tabs a[data-tab="weeks"],
+html[data-theme] .season-page:has(> #playoffs:target) .js-season-tabs a[data-tab="playoffs"],
+html[data-theme] .season-page:has(> #moves:target) .js-season-tabs a[data-tab="moves"],
+html[data-theme] .season-page:has(> #draft:target) .js-season-tabs a[data-tab="draft"],
+html[data-theme] .season-page:has(> #lineups:target) .js-season-tabs a[data-tab="lineups"],
+html[data-theme] .season-page:has(> #stacks:target) .js-season-tabs a[data-tab="stacks"] {
+    color: var(--pane-on-color);
+    background: var(--pane-on-bg);
+    border-color: var(--pane-on-border);
+    font-weight: var(--pane-on-weight);
+    text-decoration: var(--pane-on-decoration);
+}

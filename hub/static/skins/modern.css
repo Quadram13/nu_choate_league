@@ -1,0 +1,16 @@
+/* Modern is hub.css. These tokens keep the current tab highlight
+   once spine.css restates it through custom properties. */
+
+html[data-theme="modern"] {
+    --pane-on-color: #e4e4e7;
+    --pane-on-bg: transparent;
+    --pane-on-border: transparent;
+    --pane-on-weight: inherit;
+    --pane-on-decoration: none;
+}
+
+html[data-theme="modern"] .theme-switch a[href="?theme=modern"] {
+    color: #e4e4e7;
+    font-weight: 600;
+    text-decoration: none;
+}

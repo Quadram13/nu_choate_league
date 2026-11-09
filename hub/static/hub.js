@@ -40,7 +40,7 @@ function enableSeasonPicker() {
     }
     const suffix = select.dataset.suffix || "";
     select.addEventListener("change", () => {
-        window.location.href = `/seasons/${select.value}${suffix}`;
+        window.location.href = `/seasons/${select.value}${suffix}${location.search}`;
     });
 }
 

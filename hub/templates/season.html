@@ -112,7 +112,7 @@
 <p class="season-head">
     <label class="season-pick">
         <span class="sr-only">Season</span>
-        <select class="js-season-pick" aria-label="Season" onchange="location.href='/seasons/'+this.value">
+        <select class="js-season-pick" aria-label="Season" onchange="location.href='/seasons/'+this.value+location.search">
             {% for row in seasons %}
             <option value="{{ row.year }}"{% if row.year == current.year %} selected{% endif %}>{{ row.year }}</option>
             {% endfor %}
@@ -167,13 +167,13 @@
 </p>
 
 <p class="jump js-season-tabs">
-    <a href="#standings" data-tab="standings">Standings</a>
-    <a href="#weeks" data-tab="weeks">Weeks</a>
-    {% if schedule.winners_tree or schedule.consolation_tree or path %}<a href="#playoffs" data-tab="playoffs">Playoffs</a>{% endif %}
-    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority or wire.unclaimed or wire.fa_leaders %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
-    {% if draft.managers or draft.hits or draft.misses %}<a href="#draft" data-tab="draft">Draft</a>{% endif %}
-    {% if lineups and lineups.coaches %}<a href="#lineups" data-tab="lineups">Lineups</a>{% endif %}
-    <a href="#stacks" data-tab="stacks">Stacks</a>
+    <a href="#standings" data-tab="standings"><span class="tab-label">Standings</span></a>
+    <a href="#weeks" data-tab="weeks"><span class="tab-label">Weeks</span></a>
+    {% if schedule.winners_tree or schedule.consolation_tree or path %}<a href="#playoffs" data-tab="playoffs"><span class="tab-label">Playoffs</span></a>{% endif %}
+    {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority or wire.unclaimed or wire.fa_leaders %}<a href="#moves" data-tab="moves"><span class="tab-label">Moves</span></a>{% endif %}
+    {% if draft.managers or draft.hits or draft.misses %}<a href="#draft" data-tab="draft"><span class="tab-label">Draft</span></a>{% endif %}
+    {% if lineups and lineups.coaches %}<a href="#lineups" data-tab="lineups"><span class="tab-label">Lineups</span></a>{% endif %}
+    <a href="#stacks" data-tab="stacks"><span class="tab-label">Stacks</span></a>
     {% if all_pro %}<a href="#allpro">All-pro</a>{% endif %}
     {% if all_bench %}<a href="#allbench">All-bench</a>{% endif %}
 </p>
@@ -193,31 +193,34 @@
         <table class="js-sort sticky-first">
             <thead>
                 <tr>
-                    <th class="num">#</th>
+                    <th class="num col-rank">#</th>
                     <th>Manager</th>
-                    <th data-type="num">{% if current.vs_median %}Official{% else %}Record{% endif %}</th>
+                    <th class="col-record" data-type="num">{% if current.vs_median %}Official{% else %}Record{% endif %}</th>
+                    <th class="num col-w" data-type="num">W</th>
+                    <th class="num col-l" data-type="num">L</th>
+                    <th class="num col-t" data-type="num">T</th>
                     {% if current.vs_median %}
-                    <th data-type="num">H2H</th>
-                    <th data-type="num">Median</th>
+                    <th class="col-opt" data-type="num">H2H</th>
+                    <th class="col-opt" data-type="num">Median</th>
                     {% endif %}
                     <th class="num">PF</th>
                     <th class="num">PA</th>
-                    <th data-type="num">All-play</th>
-                    <th class="num">Luck</th>
-                    <th class="num">vsExp</th>
-                    <th class="num" title="Sample standard deviation of posted weekly totals, divided by the mean">CV</th>
-                    <th data-type="num" title="{% if standings[0].one_score_margin is not none %}Head-to-head record in games decided by {{ standings[0].one_score_margin|int }} or fewer{% else %}One-score record{% endif %}">1-score</th>
-                    <th class="num" title="{% if standings[0].pythagorean_exponent is not none %}Pythagorean wins, exponent {{ "%.1f"|format(standings[0].pythagorean_exponent) }}{% else %}Pythagorean wins{% endif %}">Pyth</th>
-                    <th class="num" title="Actual wins, a tie counting half, minus Pythagorean wins">vsPy</th>
-                    <th class="num">Mgmt</th>
-                    <th class="num" title="Varsity Letter weeks: the top starter at the position that week">Letters</th>
-                    <th class="num" title="Varsity Farmer weeks: the lowest starter at the position that week">Farmers</th>
+                    <th class="col-opt" data-type="num">All-play</th>
+                    <th class="num col-opt">Luck</th>
+                    <th class="num col-opt">vsExp</th>
+                    <th class="num col-opt" title="Sample standard deviation of posted weekly totals, divided by the mean">CV</th>
+                    <th class="col-opt" data-type="num" title="{% if standings[0].one_score_margin is not none %}Head-to-head record in games decided by {{ standings[0].one_score_margin|int }} or fewer{% else %}One-score record{% endif %}">1-score</th>
+                    <th class="num col-opt" title="{% if standings[0].pythagorean_exponent is not none %}Pythagorean wins, exponent {{ "%.1f"|format(standings[0].pythagorean_exponent) }}{% else %}Pythagorean wins{% endif %}">Pyth</th>
+                    <th class="num col-opt" title="Actual wins, a tie counting half, minus Pythagorean wins">vsPy</th>
+                    <th class="num col-opt">Mgmt</th>
+                    <th class="num col-opt" title="Varsity Letter weeks: the top starter at the position that week">Letters</th>
+                    <th class="num col-opt" title="Varsity Farmer weeks: the lowest starter at the position that week">Farmers</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in standings %}
-                <tr id="m-{{ row.manager_id }}">
-                    <td class="num">{{ row.rank }}</td>
+                <tr id="m-{{ row.manager_id }}"{% if row.rank == 1 %} class="leader"{% endif %}>
+                    <td class="num col-rank">{{ row.rank }}</td>
                     <td>
                         <span class="who">
                             {% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}
@@ -226,28 +229,32 @@
                             {% if jersey %}<span class="team">{{ jersey }}</span>{% endif %}
                         </span>
                     </td>
-                    <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
+                    <td class="col-record" data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
+                    <td class="num col-w" data-value="{{ row.wins or 0 }}">{{ row.wins or 0 }}</td>
+                    <td class="num col-l" data-value="{{ row.losses or 0 }}">{{ row.losses or 0 }}</td>
+                    <td class="num col-t" data-value="{{ row.ties or 0 }}">{% if row.ties %}{{ row.ties }}{% else %}-{% endif %}</td>
                     {% if current.vs_median %}
-                    <td data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
-                    <td data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
+                    <td class="col-opt" data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
+                    <td class="col-opt" data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
                     {% endif %}
                     <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
                     <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
-                    <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
-                    <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% else %}—{% endif %}</td>
-                    <td data-value="{{ row.one_score_win_pct if row.one_score_win_pct is not none else '' }}">{{ row.one_score or "—" }}</td>
-                    <td class="num" data-value="{{ row.pythagorean_wins if row.pythagorean_wins is not none else '' }}">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.wins_vs_pythagorean if row.wins_vs_pythagorean is not none else '' }}">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.management_pct if row.management_pct is not none else '' }}">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% else %}—{% endif %}</td>
-                    <td class="num">{{ (row.first_chair or 0)|int }}</td>
-                    <td class="num">{{ (row.last_chair or 0)|int }}</td>
+                    <td class="col-opt" data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
+                    <td class="num col-opt" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
+                    <td class="num col-opt" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+                    <td class="num col-opt" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% else %}—{% endif %}</td>
+                    <td class="col-opt" data-value="{{ row.one_score_win_pct if row.one_score_win_pct is not none else '' }}">{{ row.one_score or "—" }}</td>
+                    <td class="num col-opt" data-value="{{ row.pythagorean_wins if row.pythagorean_wins is not none else '' }}">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
+                    <td class="num col-opt" data-value="{{ row.wins_vs_pythagorean if row.wins_vs_pythagorean is not none else '' }}">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
+                    <td class="num col-opt" data-value="{{ row.management_pct if row.management_pct is not none else '' }}">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% else %}—{% endif %}</td>
+                    <td class="num col-opt">{{ (row.first_chair or 0)|int }}</td>
+                    <td class="num col-opt">{{ (row.last_chair or 0)|int }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <p class="wlt-glossary">W, L, and T are wins, losses, and ties. A tie is -, not 0. PF is points for. PA is points against. Bold marks first place.</p>
     {% if scoring %}
     <div class="chart-head" id="scoring">
         <h3>Weekly scoring</h3>

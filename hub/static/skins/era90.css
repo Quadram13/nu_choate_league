@@ -1,0 +1,335 @@
+/* 1998 portal. Eagle's borderless 3-column (178px task rail) and #660000
+   commissioner band; LFFL's gray page, white grid, #0000FF / #990099 links;
+   Reeve's border=2 W-L-T / PF / PA grid with a hyphen for a zero tie.
+   No reached source gave a stylesheet. This file is the skin. */
+
+html[data-theme="era90"] {
+    --pane-on-color: #0000ff;
+    --pane-on-bg: transparent;
+    --pane-on-border: transparent;
+    --pane-on-weight: 700;
+    --pane-on-decoration: underline;
+}
+
+html[data-theme="era90"] body {
+    background: #eeeeee;
+    color: #000000;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 16px;
+    line-height: 1.35;
+    padding: 8px;
+}
+
+html[data-theme="era90"] .wrap {
+    display: grid;
+    grid-template-columns: 178px minmax(0, 1fr) 210px;
+    grid-template-areas:
+        "band band band"
+        "switch switch switch"
+        "tasks main links";
+    column-gap: 16px;
+    row-gap: 8px;
+    max-width: none;
+    margin: 0;
+}
+
+html[data-theme="era90"] .mast {
+    display: contents;
+}
+
+html[data-theme="era90"] .band {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px 18px;
+    grid-area: band;
+    background: #660000;
+    color: #ffffff;
+    padding: 6px 10px;
+}
+
+html[data-theme="era90"] .wordmark,
+html[data-theme="era90"] .wordmark:hover,
+html[data-theme="era90"] .wordmark-nu,
+html[data-theme="era90"] .wordmark-league {
+    color: #ffffff;
+    font-family: "Times New Roman", Times, serif;
+    font-weight: normal;
+    font-size: 22px;
+    letter-spacing: 0;
+    text-transform: none;
+    text-decoration: none;
+}
+
+html[data-theme="era90"] .commish {
+    display: block;
+    margin: 0;
+    color: #ffffff;
+    font-size: 16px;
+}
+
+html[data-theme="era90"] .commish a,
+html[data-theme="era90"] .commish a:visited {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+html[data-theme="era90"] .theme-switch {
+    grid-area: switch;
+    order: 0;
+    flex-basis: auto;
+    margin: 0;
+    font-size: 16px;
+}
+
+html[data-theme="era90"] .nav-toggle {
+    display: none;
+}
+
+html[data-theme="era90"] #site-nav {
+    grid-area: tasks;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 178px;
+}
+
+html[data-theme="era90"] .portal-main {
+    grid-area: main;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+html[data-theme="era90"] .fantasy-links {
+    display: block;
+    grid-area: links;
+    align-self: start;
+    background: #ffffff;
+    border: 1px solid #660000;
+    padding: 8px 10px;
+}
+
+html[data-theme="era90"] .fantasy-links h2 {
+    margin: 0 0 8px;
+    color: #660000;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 18px;
+    font-weight: normal;
+}
+
+html[data-theme="era90"] .fantasy-links ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+html[data-theme="era90"] .fantasy-links li {
+    margin: 0 0 6px;
+}
+
+html[data-theme="era90"] a {
+    color: #0000ff;
+}
+
+html[data-theme="era90"] a:visited {
+    color: #990099;
+}
+
+html[data-theme="era90"] #site-nav a,
+html[data-theme="era90"] #site-nav a:hover,
+html[data-theme="era90"] #site-nav a.on {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+html[data-theme="era90"] #site-nav a:visited {
+    color: #990099;
+}
+
+html[data-theme="era90"] h1,
+html[data-theme="era90"] h2,
+html[data-theme="era90"] h3,
+html[data-theme="era90"] .lede,
+html[data-theme="era90"] .note,
+html[data-theme="era90"] .kicker,
+html[data-theme="era90"] .plaque,
+html[data-theme="era90"] .plaque-kicker,
+html[data-theme="era90"] .plaque-who,
+html[data-theme="era90"] .plaque-figure,
+html[data-theme="era90"] .plaque-meta,
+html[data-theme="era90"] .team {
+    font-family: "Times New Roman", Times, serif;
+    color: #000000;
+    font-weight: normal;
+}
+
+html[data-theme="era90"] h1 {
+    font-size: 22px;
+}
+
+html[data-theme="era90"] h2 {
+    font-size: 18px;
+    margin: 14px 0 6px;
+}
+
+html[data-theme="era90"] h3 {
+    font-size: 16px;
+}
+
+html[data-theme="era90"] .plaque {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #000000;
+    padding: 4px 0;
+}
+
+html[data-theme="era90"] .hardware-row {
+    display: block;
+}
+
+html[data-theme="era90"] .hardware-row .plaque {
+    max-width: none;
+}
+
+html[data-theme="era90"] .season-pick select {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 20px;
+    font-weight: normal;
+    color: #000000;
+    background: #ffffff;
+    border: 1px solid #000000;
+    color-scheme: light;
+}
+
+html[data-theme="era90"] table {
+    width: auto;
+    max-width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    color: #000000;
+}
+
+html[data-theme="era90"] th,
+html[data-theme="era90"] td {
+    border: 2px solid #000000;
+    background: #ffffff;
+    color: #000000;
+    padding: 5px;
+    font-weight: normal;
+}
+
+html[data-theme="era90"] tr.this td,
+html[data-theme="era90"] tr.leader td {
+    background: #ffffff;
+    font-weight: bold;
+}
+
+html[data-theme="era90"] tr.this td {
+    font-style: italic;
+}
+
+html[data-theme="era90"] .col-rank,
+html[data-theme="era90"] .col-record,
+html[data-theme="era90"] .col-opt {
+    display: none;
+}
+
+html[data-theme="era90"] th.col-w,
+html[data-theme="era90"] th.col-l,
+html[data-theme="era90"] th.col-t,
+html[data-theme="era90"] td.col-w,
+html[data-theme="era90"] td.col-l,
+html[data-theme="era90"] td.col-t {
+    display: table-cell;
+}
+
+html[data-theme="era90"] .wlt-glossary {
+    display: block;
+    margin: 6px 0 0;
+    font-size: 16px;
+    color: #000000;
+}
+
+html[data-theme="era90"] .js-season-tabs {
+    counter-reset: pane;
+    display: block;
+    margin: 8px 0;
+    font-size: 16px;
+}
+
+html[data-theme="era90"] .js-season-tabs::before {
+    content: "League ";
+    color: #000000;
+}
+
+html[data-theme="era90"] .js-season-tabs a[data-tab] {
+    counter-increment: pane;
+    font-size: 16px;
+    margin-right: 0.15em;
+}
+
+html[data-theme="era90"] .js-season-tabs a[data-tab]::before {
+    content: counter(pane);
+}
+
+html[data-theme="era90"] .js-season-tabs a:not([data-tab]) {
+    display: none;
+}
+
+html[data-theme="era90"] .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+html[data-theme="era90"] .sticky-first thead th:first-child,
+html[data-theme="era90"] .sticky-first tbody td:first-child,
+html[data-theme="era90"] .sticky-first tbody th:first-child {
+    background: #ffffff;
+}
+
+html[data-theme="era90"] .gc-match {
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 0;
+    box-shadow: none;
+    color: #000000;
+}
+
+html[data-theme="era90"] .gc-score {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    border-bottom-color: #000000;
+}
+
+html[data-theme="era90"] .gc-score .who {
+    min-width: 8rem;
+}
+
+html[data-theme="era90"] .gc-score .person-name {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+html[data-theme="era90"] .score-chart .tick {
+    fill: #000000;
+}
+
+html[data-theme="era90"] .score-chart .grid {
+    stroke: #000000;
+}
+
+html[data-theme="era90"] .score-chart .line.high {
+    stroke: #000000;
+}
+
+html[data-theme="era90"] .score-chart circle.high {
+    fill: #000000;
+}

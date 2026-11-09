@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ theme }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,14 +10,24 @@
     <meta property="og:type" content="website">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/hub.css">
+    <link rel="stylesheet" href="/static/skins/{{ theme }}.css">
+    <link rel="stylesheet" href="/static/skins/spine.css">
     <script src="/static/hub.js" defer></script>
 </head>
 <body>
     <div class="wrap">
         <header class="mast">
-            <a class="wordmark" href="/">
-                <span class="wordmark-nu">Nu Choate</span><span class="wordmark-league">League</span>
-            </a>
+            <div class="band">
+                <a class="wordmark" href="/">
+                    <span class="wordmark-nu">Nu Choate</span><span class="wordmark-league">League</span>
+                </a>
+                <p class="commish"><a href="/members">Email the COMMISSIONER</a></p>
+            </div>
+            <nav class="theme-switch" aria-label="Theme">
+                {% for name, label in themes %}
+                <a href="?theme={{ name }}">{{ label }}</a>
+                {% endfor %}
+            </nav>
             <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
             <nav id="site-nav">
                 <a href="/" {% if nav == "home" %}class="on"{% endif %}>Home</a>
@@ -28,7 +38,20 @@
                 <a href="/players" {% if nav == "players" %}class="on"{% endif %}>Players</a>
             </nav>
         </header>
-        {% block body %}{% endblock %}
+        <main class="portal-main">
+            {% block body %}{% endblock %}
+        </main>
+        <aside class="fantasy-links">
+            <h2>Fantasy links</h2>
+            <ul>
+                <li><a href="https://www.espn.com/">ESPN</a></li>
+                <li><a href="https://www.usatoday.com/sports/">USA Today</a></li>
+                <li><a href="https://www.cbssports.com/">CBS SportsLine</a></li>
+                <li>Nando</li>
+                <li>CNN/SI</li>
+                <li><a href="https://www.nfl.com/injuries/">Injury report</a></li>
+            </ul>
+        </aside>
     </div>
 </body>
 </html>
