@@ -6,6 +6,9 @@
 {% macro pct(value) %}
 {% if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif %}
 {% endmacro %}
+{% macro num1(value) %}
+{% if value is not none %}{{ "%.1f"|format(value) }}{% endif %}
+{% endmacro %}
 {% macro cell(line, key) -%}
 {%- if line and line[key] -%}{{ line[key]|int }}{%- else -%}—{%- endif -%}
 {%- endmacro %}
@@ -49,6 +52,21 @@
     <a href="#counting">Counting</a>
     <a href="#weeks">Weeks</a>
 </p>
+{% if volatility %}
+<p class="note">
+    Volatility over {{ volatility.weeks_scored|int }} scored week{{ "s" if volatility.weeks_scored != 1 else "" }}
+    · mean {{ num1(volatility.mean_points) }}
+    · median {{ num1(volatility.median_points) }}
+    · sd {{ num1(volatility.stddev_points) }}
+    {% if volatility.cv is not none %}· cv {{ "%.2f"|format(volatility.cv) }}{% endif %}
+    {% if volatility.boom_rate is not none %}· boom {{ pct(volatility.boom_rate) }} ({{ volatility.boom_weeks|int }}){% endif %}
+    {% if volatility.bust_rate is not none %}· bust {{ pct(volatility.bust_rate) }} ({{ volatility.bust_weeks|int }}){% endif %}
+    {% if volatility.best_points is not none %}· best {{ num1(volatility.best_points) }} in {{ volatility.best_year }} W{{ volatility.best_week }}{% endif %}
+    {% if volatility.worst_points is not none %}· worst {{ num1(volatility.worst_points) }} in {{ volatility.worst_year }} W{{ volatility.worst_week }}{% endif %}
+    {% if volatility.best3_share is not none %}· best 3 weeks {{ pct(volatility.best3_share) }} of points{% endif %}
+    {% if volatility.includes_partial %}· includes in-progress 2026{% endif %}
+</p>
+{% endif %}
 <p class="jump js-year-filter" hidden></p>
 
 <h2 id="own">Ownership</h2>
@@ -92,6 +110,8 @@
 </table>
 
 <h2 id="seasons">By season</h2>
+<p class="note">Wk through Top3 are scored weeks only: a non-zero week, or a start that scored zero. SD is the sample standard deviation. Boom is at least 1.5× that season’s mean. Bust is at most half. Dev on each week is points minus that season mean. A live week stays out until the median team total reaches 40.</p>
+<div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
@@ -103,12 +123,23 @@
             <th class="num">PF</th>
             <th class="num">VORP</th>
             <th class="num">Own</th>
+            <th class="num" title="Scored weeks">Wk</th>
+            <th class="num">Mean</th>
+            <th class="num">Med</th>
+            <th class="num" title="Sample standard deviation">SD</th>
+            <th class="num" title="Sample SD / mean">CV</th>
+            <th class="num" title="Weeks at least 1.5× this season mean">Boom</th>
+            <th class="num" title="Weeks at most half this season mean">Bust</th>
+            <th class="num">Best</th>
+            <th class="num">Worst</th>
+            <th class="num" title="Share of season points in the best 3 weeks">Top3</th>
         </tr>
     </thead>
     <tbody>
         {% for row in seasons %}
+        {% set vol = row.volatility %}
         <tr data-year="{{ row.year }}">
-            <td class="num">{{ row.year }}</td>
+            <td class="num">{{ row.year }}{% if vol and vol.partial_season %}*{% endif %}</td>
             <td>{{ person(row.manager_id, row.owner_name) }}</td>
             <td class="num">{{ (row.rostered_weeks or 0)|int }}</td>
             <td class="num">{{ (row.starts or 0)|int }}</td>
@@ -116,10 +147,21 @@
             <td class="num" data-value="{{ row.points }}">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
             <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
+            <td class="num" data-value="{{ vol.weeks_scored if vol and vol.weeks_scored is not none else '' }}">{% if vol and vol.weeks_scored is not none %}{{ vol.weeks_scored|int }}{% endif %}</td>
+            <td class="num" data-value="{{ vol.mean_points if vol and vol.mean_points is not none else '' }}">{{ num1(vol.mean_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.median_points if vol and vol.median_points is not none else '' }}">{{ num1(vol.median_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.stddev_points if vol and vol.stddev_points is not none else '' }}">{{ num1(vol.stddev_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.cv if vol and vol.cv is not none else '' }}">{% if vol and vol.cv is not none %}{{ "%.2f"|format(vol.cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ vol.boom_rate if vol and vol.boom_rate is not none else '' }}">{{ pct(vol.boom_rate if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.bust_rate if vol and vol.bust_rate is not none else '' }}">{{ pct(vol.bust_rate if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.best_points if vol and vol.best_points is not none else '' }}" {% if vol and vol.best_year %}title="W{{ vol.best_week }}"{% endif %}>{{ num1(vol.best_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.worst_points if vol and vol.worst_points is not none else '' }}" {% if vol and vol.worst_year %}title="W{{ vol.worst_week }}"{% endif %}>{{ num1(vol.worst_points if vol else none) }}</td>
+            <td class="num" data-value="{{ vol.best3_share if vol and vol.best3_share is not none else '' }}">{{ pct(vol.best3_share if vol else none) }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 <h2 id="weeks">Weeks</h2>
 <div class="standings-wrap">
@@ -131,6 +173,7 @@
             <th>Role</th>
             <th title="2022-2023 NFL opponent for this player's current club">NFL</th>
             <th class="num">PF</th>
+            <th class="num" title="Points minus this season's own mean">Dev</th>
             <th class="num" title="Pass yards">P yd</th>
             <th class="num" title="Pass touchdowns">P TD</th>
             <th class="num" title="Rush yards">Ru yd</th>
@@ -159,6 +202,7 @@
             <td>{% if row.bye_only %}bye{% elif row.started %}start{% elif row.rostered %}bench{% else %}FA{% endif %}</td>
             <td>{% if row.nfl_opponent %}{{ row.nfl_opponent }}{% else %}—{% endif %}</td>
             <td class="num">{% if row.points is not none %}{{ "%.2f"|format(row.points) }}{% endif %}</td>
+            <td class="num{% if row.is_boom %} plus{% elif row.is_bust %} minus{% endif %}">{% if row.deviation is not none %}{{ "%+.2f"|format(row.deviation) }}{% endif %}</td>
             <td class="num">{{ cell(row.line, "pass_yd") }}</td>
             <td class="num">{{ cell(row.line, "pass_td") }}</td>
             <td class="num">{{ cell(row.line, "rush_yd") }}</td>

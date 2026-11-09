@@ -3253,6 +3253,7 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "kind_order": list(MARK_KIND_ORDER),
         "labels": MARK_LABELS,
         "meta": MARK_META,
+        "volatility": _manager_volatility_bundle(manager_id),
     }
 
 
@@ -4284,6 +4285,7 @@ def players_index() -> dict[str, Any]:
         row["avg"] = _per_start(row.get("starter_points"), row.get("starts"))
     for row in seasons:
         row["avg"] = _per_start(row.get("started_points"), row.get("starts"))
+    _attach_index_volatility(career, seasons)
     wire = _fa_vorp_board()
     return {
         "career": career,
@@ -4574,6 +4576,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     scored_weeks = list(weeks)
     _fill_missing_bye_weeks(weeks, nfl_labels)
     rings = _player_title_weeks(player_id)
+    volatility = _player_volatility_bundle(player_id, seasons, weeks)
     return {
         "player": identity,
         "seasons": seasons,
@@ -4587,6 +4590,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "ring_points": sum(float(row["points"] or 0) for row in rings),
         "lines": lines,
         "counting": _player_counting(player_id),
+        "volatility": volatility,
     }
 
 
@@ -6803,5 +6807,139 @@ def _record_counting_summaries(limit: int = 10) -> dict[str, list[dict[str, Any]
         "season": _rank_counting_boards(season_rows, season=True, limit=limit),
         "career": _rank_counting_boards(career_rows, season=False, limit=limit),
     }
+
+
+# Weekly volatility (sql/analysis/97_volatility.sql). Appended so sibling
+# tickets can keep editing the queries above. Boom is a week at least
+# 1.5x the row's own mean; bust is at most half. Spread is sample stddev.
+
+
+def _attach_index_volatility(
+    career: list[dict[str, Any]],
+    seasons: list[dict[str, Any]],
+) -> None:
+    career_rows = fetchall(
+        """
+        SELECT
+            player_id, weeks_scored, mean_points, stddev_points, cv,
+            boom_rate, best_points, best_year, best_week, includes_partial
+        FROM v_player_volatility_career
+        """
+    )
+    season_rows = fetchall(
+        """
+        SELECT
+            year, player_id, weeks_scored, mean_points, stddev_points, cv,
+            boom_rate, best_points, best_year, best_week, partial_season
+        FROM v_player_volatility_season
+        """
+    )
+    by_player = {row["player_id"]: row for row in career_rows}
+    by_season = {(row["year"], row["player_id"]): row for row in season_rows}
+    for row in career:
+        _copy_volatility(row, by_player.get(row["player_id"]), partial_key="includes_partial")
+    for row in seasons:
+        _copy_volatility(
+            row,
+            by_season.get((row["year"], row["player_id"])),
+            partial_key="partial_season",
+        )
+
+
+def _copy_volatility(
+    row: dict[str, Any],
+    vol: dict[str, Any] | None,
+    *,
+    partial_key: str,
+) -> None:
+    row["vol_weeks"] = None if vol is None else vol["weeks_scored"]
+    row["vol_mean"] = None if vol is None else vol["mean_points"]
+    row["vol_stddev"] = None if vol is None else vol["stddev_points"]
+    row["vol_cv"] = None if vol is None else vol["cv"]
+    row["vol_boom"] = None if vol is None else vol["boom_rate"]
+    row["vol_best"] = None if vol is None else vol["best_points"]
+    row["vol_best_year"] = None if vol is None else vol["best_year"]
+    row["vol_best_week"] = None if vol is None else vol["best_week"]
+    row["vol_partial"] = False if vol is None else bool(vol[partial_key])
+
+
+def _player_volatility_bundle(
+    player_id: str,
+    seasons: list[dict[str, Any]],
+    weeks: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    career = fetchone(
+        """
+        SELECT
+            player_id, seasons, weeks_scored, started_weeks, mean_points,
+            median_points, stddev_points, cv, best_points, best_year, best_week,
+            worst_points, worst_year, worst_week, best3_points, best3_share,
+            boom_weeks, bust_weeks, boom_rate, bust_rate, includes_partial
+        FROM v_player_volatility_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    season_rows = fetchall(
+        """
+        SELECT
+            year, weeks_scored, started_weeks, mean_points, median_points,
+            stddev_points, cv, best_points, best_year, best_week,
+            worst_points, worst_year, worst_week, best3_points, best3_share,
+            boom_weeks, bust_weeks, boom_rate, bust_rate, partial_season
+        FROM v_player_volatility_season
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    by_year = {row["year"]: row for row in season_rows}
+    for season in seasons:
+        season["volatility"] = by_year.get(season["year"])
+    deviations = fetchall(
+        """
+        SELECT year, week, deviation, is_boom, is_bust, season_mean
+        FROM v_player_week_deviation
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    by_week = {(row["year"], row["week"]): row for row in deviations}
+    for week in weeks:
+        dev = by_week.get((week["year"], week["week"]))
+        week["deviation"] = None if dev is None else dev["deviation"]
+        week["is_boom"] = None if dev is None else dev["is_boom"]
+        week["is_bust"] = None if dev is None else dev["is_bust"]
+    return career
+
+
+def _manager_volatility_bundle(manager_id: str) -> dict[str, Any] | None:
+    career = fetchone(
+        """
+        SELECT
+            manager_id, seasons, weeks_scored, mean_points, median_points,
+            stddev_points, cv, best_points, best_year, best_week,
+            worst_points, worst_year, worst_week, best3_points, best3_share,
+            boom_weeks, bust_weeks, boom_rate, bust_rate, includes_partial
+        FROM v_manager_volatility_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    seasons = fetchall(
+        """
+        SELECT
+            year, weeks_scored, mean_points, median_points, stddev_points, cv,
+            best_points, best_year, best_week, worst_points, worst_year, worst_week,
+            best3_points, best3_share, boom_weeks, bust_weeks, boom_rate, bust_rate,
+            partial_season, through_week
+        FROM v_manager_volatility_season
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    if career is None and not seasons:
+        return None
+    return {"career": career, "seasons": seasons}
 
 

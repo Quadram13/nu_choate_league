@@ -19,6 +19,7 @@
     {% if lineups.career %}<a href="#lineups">Lineups</a>{% endif %}
     {% if luck %}<a href="#luck">Luck</a>{% endif %}
     {% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}<a href="#highs">Highs</a>{% endif %}
+    {% if volatility %}<a href="#volatility">Volatility</a>{% endif %}
 </p>
 <h1>{{ member.display_name }}</h1>
 <p class="lede">
@@ -464,5 +465,64 @@
         {% endif %}
     </tbody>
 </table>
+{% endif %}
+
+{% if volatility %}
+<h2 id="volatility">Volatility</h2>
+<p class="note">Weekly team totals on posted weeks. SD is the sample standard deviation. CV is SD / mean. Boom is a week at least 1.5× that row’s own mean. Bust is a week at most half of it. Team totals are tight, so boom and bust weeks are rare and CV is the consistency ranking. * 2026 is in progress: the live week is left out until the median team total reaches 40.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num" title="Posted weeks">Wk</th>
+            <th class="num">Mean</th>
+            <th class="num">Med</th>
+            <th class="num">SD</th>
+            <th class="num">CV</th>
+            <th class="num">Boom</th>
+            <th class="num">Bust</th>
+            <th class="num">Best</th>
+            <th class="num">Worst</th>
+            <th class="num" title="Share of points in the best 3 weeks">Top3</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in volatility.seasons %}
+        <tr>
+            <td class="num">{{ row.year }}{% if row.partial_season %}*{% endif %}</td>
+            <td class="num">{{ row.weeks_scored|int }}</td>
+            <td class="num" data-value="{{ row.mean_points }}">{% if row.mean_points is not none %}{{ "%.1f"|format(row.mean_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.median_points }}">{% if row.median_points is not none %}{{ "%.1f"|format(row.median_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.stddev_points }}">{% if row.stddev_points is not none %}{{ "%.1f"|format(row.stddev_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.cv if row.cv is not none else '' }}">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.boom_rate if row.boom_rate is not none else '' }}">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
+            <td class="num" data-value="{{ row.bust_rate if row.bust_rate is not none else '' }}">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" title="W{{ row.best_week }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.worst_points }}" title="W{{ row.worst_week }}">{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best3_share if row.best3_share is not none else '' }}">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if volatility.career %}
+    {% set row = volatility.career %}
+    <tfoot>
+        <tr>
+            <td>Career{% if row.includes_partial %}*{% endif %}</td>
+            <td class="num">{{ row.weeks_scored|int }}</td>
+            <td class="num">{% if row.mean_points is not none %}{{ "%.1f"|format(row.mean_points) }}{% endif %}</td>
+            <td class="num">{% if row.median_points is not none %}{{ "%.1f"|format(row.median_points) }}{% endif %}</td>
+            <td class="num">{% if row.stddev_points is not none %}{{ "%.1f"|format(row.stddev_points) }}{% endif %}</td>
+            <td class="num">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
+            <td class="num">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
+            <td class="num">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
+            <td class="num" {% if row.best_year %}title="{{ row.best_year }} W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" {% if row.worst_year %}title="{{ row.worst_year }} W{{ row.worst_week }}"{% endif %}>{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
 {% endif %}
 {% endblock %}
