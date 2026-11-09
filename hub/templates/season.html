@@ -141,6 +141,9 @@
     {{ plaque_free("Should've done Artscon", who=current.last_chair, who_id=current.last_chair_id, hue=manager_hue(current.last_chair_id), polarity="low") }}
     {% endif %}
 </div>
+{% if not current.regular_season_complete %}
+<p class="note">Regular season in progress. Champion, RS champ, most points, and Should've done Artscon stay blank until it is finished.</p>
+{% endif %}
 {% if luck_plaques %}
 <div class="plaque-grid recap-records" id="luck">
     {% for row in luck_plaques %}
@@ -534,7 +537,7 @@
 
     {% if median_tax %}
     <h2 id="median-tax">Median tax</h2>
-    <p class="note">Extra official wins from the vs-median game.</p>
+    <p class="note">Extra official wins from the vs-median game.{% if not current.playoff_field_set %} The playoff column stays blank until the field is set.{% endif %}</p>
     <div class="standings-wrap">
     <table class="js-sort">
         <thead>

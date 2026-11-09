@@ -59,7 +59,7 @@
 
 {% if awards %}
 <h2 id="awards">Season awards</h2>
-<p class="note">Champion, runner-up, regular-season champ, and most points. 2022–2025 are finished. 2026 is in progress, so those cells stay empty.</p>
+<p class="note">Champion and runner-up wait for a decided title. Regular-season champ and most points stay empty until that regular season is finished.</p>
 <table>
     <thead>
         <tr>
@@ -86,6 +86,7 @@
 
 {% if season_pf %}
 <h2 id="season">Season</h2>
+<p class="note">Finished regular seasons. An in-progress year stays on its season page and is left off these boards.</p>
 <div class="notable-grid">
     <section>
         <h3>Most PF</h3>
@@ -351,7 +352,7 @@
 
 {% if median_tax %}
 <h2 id="median">Median tax</h2>
-<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only.</p>
+<p class="note">Vs-median is off through 2024. Extra wins and playoff flips vs H2H-only. The playoff cell stays blank until that year's field is set.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
@@ -445,7 +446,7 @@
 {% endif %}
 {% if fa_adds %}
 <h3>Most FA adds in a season</h3>
-<p class="note">Ranked by free-agent adds. Adds is waiver claims plus free agents.</p>
+<p class="note">Ranked by free-agent adds. Adds is waiver claims plus free agents. Finished regular seasons. Adds from an in-progress year are still coming in.</p>
 <table>
     <thead>
         <tr>
@@ -815,7 +816,7 @@
 </div>
 
 <h2 id="lineups">Bench</h2>
-<p class="note">Points left on the bench vs optimal. <a href="/seasons">Season heatmaps</a></p>
+<p class="note">Points left on the bench vs optimal. Season totals wait until the regular season is finished. <a href="/seasons">Season heatmaps</a></p>
 <div class="notable-grid">
     <section>
         <h3>Worst weeks</h3>
@@ -1078,7 +1079,7 @@
 
 {% if counting_summaries and counting_summaries.season %}
 <h2 id="counting-season">Season counting</h2>
-<p class="note">Top season sums. The weekly board above is single-game and rostered. These totals use every counting-stat row, free-agent weeks included, so there is no one manager. G is that row count, not starts. Total TD is rush + rec + pass, not defensive or special-teams scores. Milestone games are 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Points-allowed and yards-allowed boards are DEF only, at least 4 counting games, ranked per game because a sum grows with the number of weeks stored.</p>
+<p class="note">Top season sums from finished regular seasons. An in-progress year is left off, so a short defense sample cannot lead a per-game board. The weekly board above is single-game and rostered. These totals use every counting-stat row, free-agent weeks included, so there is no one manager. G is that row count, not starts. Total TD is rush + rec + pass, not defensive or special-teams scores. Milestone games are 100+ rush yards, 100+ receiving yards, 300+ pass yards, and 2+ total TDs. Points-allowed and yards-allowed boards are DEF only, at least 4 counting games, ranked per game because a sum grows with the number of weeks stored.</p>
 <div class="notable-grid">
     {% for board in counting_summaries.season %}
     <section>
