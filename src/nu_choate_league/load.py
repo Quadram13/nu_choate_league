@@ -21,6 +21,7 @@ from .ingest.score import (
     espn_point_buckets,
     score_sleeper_buckets,
 )
+from .ingest.sleeper_context import SLEEPER_CONTEXT_COLUMNS, context_insert_tuple, sleeper_context_rows
 from .models import EspnMarket, Matchup, Platform, Season, SeasonBundle, Transaction
 from .players import PlayerIndex
 
@@ -54,6 +55,7 @@ def load_facts(*, year: int | None = None) -> list[str]:
             _insert_espn_market(conn, bundle)
             _insert_roster_extras(conn, bundle)
             _insert_nfl_schedule(conn, bundle)
+            _insert_sleeper_context(conn, bundle)
             _progress(f"insert {bundle.season.year} ({time.perf_counter() - step:.1f}s)")
         refresh_analysis(conn, progress=_progress)
         conn.commit()
@@ -75,6 +77,7 @@ def _truncate_facts(conn: psycopg.Connection) -> None:
             player_week_scores,
             player_week_stat_lines,
             player_week_counting_stats,
+            player_week_sleeper_context,
             draft_picks,
             espn_market,
             nfl_team_weeks,
@@ -807,3 +810,31 @@ def _insert_nfl_schedule(conn: psycopg.Connection, bundle: SeasonBundle) -> None
         ],
     )
     _progress(f"nfl schedule {bundle.season.year}: {len(weeks)} team-weeks")
+
+
+def _insert_sleeper_context(conn: psycopg.Connection, bundle: SeasonBundle) -> None:
+    """Sleeper stats.json context. ESPN seasons have no equivalent dump."""
+    season = bundle.season
+    if season.platform is not Platform.SLEEPER:
+        _progress(f"sleeper context {season.year}: none ({season.platform.value} has no stats.json)")
+        return
+    rows = sleeper_context_rows(
+        season,
+        through_week=bundle.through_week,
+        players=PlayerIndex(),
+    )
+    columns = list(SLEEPER_CONTEXT_COLUMNS)
+    sql = """
+        INSERT INTO player_week_sleeper_context (
+            year, week, player_id, {columns}
+        )
+        VALUES ({placeholders})
+        ON CONFLICT (year, week, player_id) DO UPDATE SET
+            {updates}
+    """.format(
+        columns=", ".join(columns),
+        placeholders=", ".join("%s" for _ in range(3 + len(columns))),
+        updates=", ".join(f"{name} = EXCLUDED.{name}" for name in columns),
+    )
+    _executemany(conn, sql, [context_insert_tuple(row) for row in rows])
+    _progress(f"sleeper context {season.year}: {len(rows)} rows")

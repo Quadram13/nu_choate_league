@@ -4575,6 +4575,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         row["nfl_opponent"] = nfl_labels.get((row["year"], row["week"]))
     scored_weeks = list(weeks)
     _fill_missing_bye_weeks(weeks, nfl_labels)
+    _attach_sleeper_context(weeks, player_id)
     rings = _player_title_weeks(player_id)
     volatility = _player_volatility_bundle(player_id, seasons, weeks)
     return {
@@ -6275,6 +6276,7 @@ def records_page() -> dict[str, Any]:
         "most_traded": _record_most_traded(),
         "counting_leaders": _record_counting_leaders(),
         "counting_summaries": _record_counting_summaries(),
+        "positional_finish_leaders": _record_positional_finishes(),
     }
 
 
@@ -6779,6 +6781,150 @@ def _rank_counting_boards(
     return boards
 
 
+# Issue #33. Sleeper weekly rank and snaps. ESPN weeks have no row, so the
+# week log shows a dash. Appended here so it stays clear of other page queries.
+_SNAP_FAMILIES = (
+    ("off", "off_snp", "tm_off_snp", "off_snap_share"),
+    ("def", "def_snp", "tm_def_snp", "def_snap_share"),
+    ("st", "st_snp", "tm_st_snp", "st_snap_share"),
+)
+
+POSITIONAL_FINISH_POSITIONS = ("QB", "RB", "WR", "TE")
+
+
+def _attach_sleeper_context(weeks: list[dict[str, Any]], player_id: str) -> None:
+    by_week = _player_sleeper_context(player_id)
+    for row in weeks:
+        row["sleeper_context"] = by_week.get((row["year"], row["week"]))
+
+
+def _player_sleeper_context(player_id: str) -> dict[tuple[int, int], dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+            year,
+            week,
+            gp,
+            gs,
+            off_snp,
+            def_snp,
+            st_snp,
+            tm_off_snp,
+            tm_def_snp,
+            tm_st_snp,
+            pos_rank_ppr,
+            pos_rank_half_ppr,
+            pos_rank_std,
+            off_snap_share,
+            def_snap_share,
+            st_snap_share
+        FROM v_player_week_snap_share
+        WHERE player_id = %(player_id)s
+        ORDER BY year, week
+        """,
+        {"player_id": player_id},
+    )
+    keyed: dict[tuple[int, int], dict[str, Any]] = {}
+    for row in rows:
+        row["snap_note"] = _snap_note(row)
+        row["rank_title"] = _rank_title(row)
+        keyed[(int(row["year"]), int(row["week"]))] = row
+    return keyed
+
+
+def _snap_note(row: dict[str, Any]) -> str | None:
+    """Offensive share when the player took an offensive snap, else defense, else special teams."""
+    for label, snaps_key, team_key, share_key in _SNAP_FAMILIES:
+        snaps = row.get(snaps_key)
+        if snaps is None or int(snaps) <= 0:
+            continue
+        team = row.get(team_key)
+        share = row.get(share_key)
+        if team is None or int(team) <= 0 or share is None:
+            return f"{label} {int(snaps)}"
+        pct = int(round(float(share) * 100))
+        return f"{label} {int(snaps)}/{int(team)} · {pct}%"
+    return None
+
+
+def _rank_title(row: dict[str, Any]) -> str | None:
+    parts: list[str] = []
+    half = row.get("pos_rank_half_ppr")
+    standard = row.get("pos_rank_std")
+    if half is not None:
+        parts.append(f"Half-PPR {int(half)}")
+    if standard is not None:
+        parts.append(f"Standard {int(standard)}")
+    return " · ".join(parts) or None
+
+
+def _record_positional_finishes(limit: int = 12) -> list[dict[str, Any]]:
+    """Highest-scoring PPR positional #1 weeks. Sleeper seasons only.
+
+    The league scores a full point per reception, so the board is pos_rank_ppr.
+    Half-PPR rank is still on the row. Kickers and team defenses are unranked
+    in these dumps (sentinel 999, stored as null), so they have no board.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            c.year,
+            c.week,
+            c.player_id,
+            coalesce(p.display_name, s.player_name, c.player_id) AS player_name,
+            coalesce(s.position, p.position) AS position,
+            c.pos_rank_ppr,
+            c.pos_rank_half_ppr,
+            c.pos_rank_std,
+            s.points,
+            s.rostered,
+            s.manager_id,
+            m.display_name AS manager_name,
+            v.off_snp,
+            v.tm_off_snp,
+            v.off_snap_share,
+            v.def_snp,
+            v.tm_def_snp,
+            v.def_snap_share,
+            v.st_snp,
+            v.tm_st_snp,
+            v.st_snap_share
+        FROM player_week_sleeper_context c
+        JOIN player_week_scores s
+            ON s.year = c.year
+            AND s.week = c.week
+            AND s.player_id = c.player_id
+        LEFT JOIN v_player_week_snap_share v
+            ON v.year = c.year
+            AND v.week = c.week
+            AND v.player_id = c.player_id
+        LEFT JOIN players p ON p.id = c.player_id
+        LEFT JOIN managers m ON m.id = s.manager_id
+        WHERE c.pos_rank_ppr = 1
+        ORDER BY s.points DESC, c.year, c.week, c.player_id
+        """
+    )
+    grouped: dict[str, list[dict[str, Any]]] = {pos: [] for pos in POSITIONAL_FINISH_POSITIONS}
+    for row in rows:
+        position = row.get("position")
+        if position not in grouped or len(grouped[position]) >= limit:
+            continue
+        row["snap_note"] = _snap_note(row)
+        row["rank_title"] = _rank_title(row)
+        grouped[position].append(row)
+    boards: list[dict[str, Any]] = []
+    for position in POSITIONAL_FINISH_POSITIONS:
+        if grouped[position]:
+            boards.append(
+                {
+                    "position": position,
+                    "label": f"Weekly {position}1",
+                    "rows": grouped[position],
+                }
+            )
+    return boards
+
+
 def _record_counting_summaries(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
     """Season and career counting leaders. Does not rebuild the weekly board."""
     season_rows = fetchall(
@@ -6941,5 +7087,3 @@ def _manager_volatility_bundle(manager_id: str) -> dict[str, Any] | None:
     if career is None and not seasons:
         return None
     return {"career": career, "seasons": seasons}
-
-

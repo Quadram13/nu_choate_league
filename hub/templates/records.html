@@ -41,6 +41,7 @@
     <a href="#counting">Counting</a>
     <a href="#counting-season">Season counting</a>
     <a href="#counting-career" data-grain="career">Career counting</a>
+    <a href="#finishes">Positional finishes</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -1034,6 +1035,44 @@
 </table>
 {% endif %}
 </div>
+
+{% if positional_finish_leaders %}
+<h2 id="finishes">Weekly positional finishes</h2>
+<p class="note">Sleeper weeks where a player was the PPR QB1, RB1, WR1, or TE1 across the NFL. The league scores a full point per reception, so this is the PPR rank. Half-PPR is on the row. 2022–2023 have no positional rank. Kickers and team defenses are unranked in the dumps.</p>
+<div class="notable-grid">
+    {% for board in positional_finish_leaders %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num" title="Half-PPR positional rank the same week">Half</th>
+                    <th class="num">PF</th>
+                    <th class="num">Snaps</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a> <span class="team">{{ row.position }}</span></td>
+                    <td>{% if row.manager_id %}{{ person(row.manager_id, row.manager_name) }}{% else %}FA{% endif %}</td>
+                    <td class="num"{% if row.rank_title %} title="{{ row.rank_title }}"{% endif %}>{% if row.pos_rank_half_ppr is not none %}{{ row.pos_rank_half_ppr|int }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.points is not none %}{{ "%.1f"|format(row.points) }}{% endif %}</td>
+                    <td class="num">{% if row.snap_note %}{{ row.snap_note }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if counting_summaries and counting_summaries.season %}
 <h2 id="counting-season">Season counting</h2>
