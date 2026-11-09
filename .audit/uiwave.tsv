@@ -1,0 +1,5 @@
+ts	phase	decision	why	evidence	result
+2026-11-09T08:05:00Z	start	run bc-dfa1dcb4 begins the #45 implement wave under Marcus go 2026-11-09; no prior rows	log created this run	Marcus go message 2026-11-09	open
+2026-11-09T08:08:00Z	frame	wave framed: 13 tickets 5 phases; draft wave PR; parity + perf harnesses as gates	one-way door A1 gets arena rigor; reversible skin work gets standard rigor	docs/ui/wave-plan.md	open
+2026-11-09T08:12:00Z	infra	wave worktree nu_choate_league-wt-uiwave on branch cursor/ui-wave-45-bf5b at 68324dd; uv sync; serve :8100	isolated integration lane; :8000 stays on main for Marcus click-through	worktree + branch	localhost:8100 / and /players return 200
+2026-11-09T08:16:00Z	harness	parity baseline captured: 20 routes, status+bytes+sha256, from :8100 == main 68324dd	every later unit diffs old-vs-new instead of trusting memory	scripts/ui/parity.ps1 + temp uiwave/parity-main/manifest.tsv	baseline green; first run found + fixed PS5.1 progress-spam and empty-hash bugs
