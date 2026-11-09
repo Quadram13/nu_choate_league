@@ -1,0 +1,80 @@
+{%- from "fragments/pager.html" import numeral_row -%}
+{%- macro player(id, name) -%}
+{%- if id and name %}<a href="/players/{{ id }}">{{ name }}</a>{%- else %}{{ name or "—" }}{% endif -%}
+{%- endmacro -%}
+{%- macro pct(value) -%}
+{%- if value is not none %}{{ "%.0f"|format(value * 100) }}%{% endif -%}
+{%- endmacro -%}
+{%- macro avg(value) -%}
+{%- if value is not none %}{{ "%.1f"|format(value) }}{% endif -%}
+{%- endmacro -%}
+<section class="board" id="players-career" data-fragment="/fragments/players-career" data-board="/boards/players-career">
+<h2>Career rankings</h2>
+<p class="note">{{ pager.total }} players. {{ pager.page_size }} per page, by starter points, then VORP, then name. Page {{ pager.page }} of {{ pager.pages }}.</p>
+{% if vol_partial %}
+<p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
+{% endif %}
+{% if pager.pages > 1 %}
+{{ numeral_row(pager.page, pager.pages, "/boards/players-career?page={n}") }}
+{% endif %}
+<table class="sticky-head">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Yrs</th>
+            <th class="num">Starts</th>
+            <th class="num">PF</th>
+            <th class="num">Avg</th>
+            <th class="num" title="VORP on starts. Unowned weeks stay in Left on the wire.">VORP</th>
+            <th class="num" title="Rostered weeks divided by posted lineup weeks in seasons with a stored week">Own</th>
+            <th class="num">Draft</th>
+            <th class="num">Adds</th>
+            <th class="num">Trades</th>
+            <th class="num" title="Distinct managers on rostered weeks">Mgrs</th>
+            <th class="num">Rings</th>
+            <th class="num" title="Starts for the champion in a playoff week on or after playoff_start_week">Title</th>
+            <th class="num" title="Weeks rostered by a season champion, bench included">CWk</th>
+            <th class="num" title="Scored weeks in the volatility sample">Wk</th>
+            <th class="num" title="Mean of scored weeks">Mean</th>
+            <th class="num" title="Sample standard deviation">SD</th>
+            <th class="num" title="Sample SD / mean">CV</th>
+            <th class="num" title="Weeks at least 1.5× the career mean">Boom</th>
+            <th class="num" title="Completed years from birth_date as of today. The catalog age integer is not stored.">Age</th>
+            <th class="num" title="Height from the Sleeper catalog">Ht</th>
+            <th class="num" title="Weight in pounds from the Sleeper catalog">Wt</th>
+            <th class="num" title="Sleeper metadata.rookie_year. Not derived from years_exp.">Rookie</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in pager.rows %}
+        <tr data-pos="{{ row.position or '' }}">
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ row.seasons|int }}</td>
+            <td class="num">{{ (row.starts or 0)|int }}</td>
+            <td class="num" data-value="{{ row.starter_points }}">{% if row.starter_points is not none %}{{ "%.1f"|format(row.starter_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
+            <td class="num" data-value="{{ row.started_vorp }}">{% if row.started_vorp is not none %}{{ "%.1f"|format(row.started_vorp) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}" title="{{ (row.rostered_weeks or 0)|int }} of {{ (row.lineup_weeks or 0)|int }} posted lineup weeks">{{ pct(row.own_pct) }}</td>
+            <td class="num">{{ (row.times_drafted or 0)|int }}</td>
+            <td class="num">{{ (row.times_added or 0)|int }}</td>
+            <td class="num">{{ (row.times_traded or 0)|int }}</td>
+            <td class="num">{{ (row.managers or 0)|int }}</td>
+            <td class="num">{{ (row.rings or 0)|int }}</td>
+            <td class="num">{{ (row.title_starts or 0)|int }}</td>
+            <td class="num">{{ (row.champ_roster_weeks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% if row.vol_partial %}*{% endif %}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
+            <td class="num" data-value="{{ row.age_years if row.age_years is not none else '' }}" {% if row.birth_date %}title="born {{ row.birth_date }}"{% endif %}>{% if row.age_years is not none %}{{ row.age_years }}{% endif %}</td>
+            <td class="num">{{ row.height or "" }}</td>
+            <td class="num" data-value="{{ row.weight_lb if row.weight_lb is not none else '' }}">{% if row.weight_lb is not none %}{{ row.weight_lb }}{% endif %}</td>
+            <td class="num" data-value="{{ row.rookie_year if row.rookie_year is not none else '' }}">{% if row.rookie_year is not none %}{{ row.rookie_year }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</section>

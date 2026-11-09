@@ -366,3 +366,20 @@ def player(request: Request, player_id: str) -> HTMLResponse:
         title=person["player_name"],
         **data,
     )
+
+
+# --- A3 loading: fragment routes (append-only) ---
+from .fragments import board_document, board_fragment, install
+
+install()
+
+
+@app.get("/fragments/{board}", response_class=HTMLResponse)
+def fragment_route(request: Request, board: str) -> HTMLResponse:
+    return board_fragment(request, board)
+
+
+@app.get("/boards/{board}", response_class=HTMLResponse)
+def board_route(request: Request, board: str) -> HTMLResponse:
+    return board_document(request, board)
+# --- end A3 loading ---

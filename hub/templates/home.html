@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "plaque_macros.html" import person_link, plaque_free, highlight_chip %}
-{% from "week_card.html" import week_card_block %}
 {% macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
 {% endmacro %}
@@ -66,44 +65,7 @@
         {% if current and current.vs_median %}
         <p class="note">H2H plus a game vs the weekly median.</p>
         {% endif %}
-        {% if standings %}
-        <div class="standings-wrap">
-        <table class="js-sort sticky-first">
-            <thead>
-                <tr>
-                    <th class="num">#</th>
-                    <th>Manager</th>
-                    <th data-type="num">{% if current.vs_median %}Official{% else %}Record{% endif %}</th>
-                    {% if current.vs_median %}
-                    <th data-type="num">H2H</th>
-                    <th data-type="num">Median</th>
-                    {% endif %}
-                    <th class="num">PF</th>
-                    <th data-type="num">All-play</th>
-                    <th class="num">Luck</th>
-                    <th class="num">vsExp</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in standings %}
-                <tr>
-                    <td class="num">{{ row.rank }}</td>
-                    <td>{{ person(row.manager_id, row.display_name, row.hue) }}</td>
-                    <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record }}</td>
-                    {% if current.vs_median %}
-                    <td data-value="{{ row.h2h_win_pct if row.h2h_win_pct is not none else '' }}">{{ row.h2h or "—" }}</td>
-                    <td data-value="{{ row.median_win_pct if row.median_win_pct is not none else '' }}">{{ row.median or "—" }}</td>
-                    {% endif %}
-                    <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
-                    <td data-value="{{ row.all_play_win_pct if row.all_play_win_pct is not none else '' }}">{{ row.all_play or "—" }}</td>
-                    <td class="num" data-value="{{ row.net_luck if row.net_luck is not none else '' }}">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
-                    <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-        {% endif %}
+        {% include "fragments/home_standings.html" %}
         <p>
             <a href="/seasons/{{ year }}">Full {{ year }}</a>
             · <a href="/seasons/{{ year }}/desk">Desk</a>
@@ -120,55 +82,7 @@
         {% endif %}
     </div>
     <aside class="desk-side">
-        {% if slate %}
-        {% set playoff_week = slate.groups | selectattr("kind", "equalto", "playoff") | first %}
-        <h2><a href="/seasons/{{ slate.year }}/week/{{ slate.week }}">W{{ slate.week }}{% if playoff_week %} (Playoffs){% endif %}</a></h2>
-        {% for group in slate.groups %}
-        {% if group.kind != "playoff" and (slate.groups|length > 1 or group.kind != "regular") %}
-        <h3>{{ group.label }}</h3>
-        {% endif %}
-        {% for game in group.games %}
-        <article class="gc-match compact slate-match">
-            <a class="slate-match-hit" href="/seasons/{{ slate.year }}/week/{{ slate.week }}/{{ game.id }}">
-                <span class="sr-only">{{ game.home.name }} vs {{ game.away.name }}</span>
-            </a>
-            <header class="gc-score">
-                <div class="side{% if game.winner_id and game.winner_id == game.home.id %} won{% elif game.winner_id %} lost{% endif %}">
-                    <div class="who">
-                        {{ person_link(game.home.id, game.home.name) }}
-                        {% if game.home.team %}<span class="team"><a href="/seasons/{{ slate.year }}#m-{{ game.home.id }}" title="{{ game.home.team }}">{{ game.home.team }}</a></span>{% endif %}
-                    </div>
-                    <span class="num">{% if game.home.points is not none %}{{ "%.1f"|format(game.home.points) }}{% endif %}</span>
-                </div>
-                <div class="side{% if game.winner_id and game.winner_id == game.away.id %} won{% elif game.winner_id %} lost{% endif %}">
-                    <div class="who">
-                        {{ person_link(game.away.id, game.away.name) }}
-                        {% if game.away.team %}<span class="team"><a href="/seasons/{{ slate.year }}#m-{{ game.away.id }}" title="{{ game.away.team }}">{{ game.away.team }}</a></span>{% endif %}
-                    </div>
-                    <span class="num">{% if game.away.points is not none %}{{ "%.1f"|format(game.away.points) }}{% endif %}</span>
-                </div>
-            </header>
-        </article>
-        {% endfor %}
-        {% endfor %}
-        {% endif %}
-        {% set slate_state = namespace(open=false) %}
-        {% if slate %}
-        {% for group in slate.groups %}
-        {% for game in group.games %}
-        {% if game.home.points is none or game.away.points is none %}{% set slate_state.open = true %}{% endif %}
-        {% endfor %}
-        {% endfor %}
-        {% endif %}
-        {% if slate and slate_state.open %}
-        <section class="week-card week-live">
-            <p class="kicker">Week recap</p>
-            <h2>{{ year }} W{{ slate.week }}</h2>
-            <p class="stub-copy">Posts when this week is final.</p>
-        </section>
-        {% elif preview %}
-        {{ week_card_block(preview, year, recap=true) }}
-        {% endif %}
+        {% include "fragments/home_slate.html" %}
     </aside>
 </section>
 {% else %}
