@@ -331,6 +331,38 @@
                 </div>
                 {% endfor %}
             </div>
+            {% if loop.first %}<h3 id="universe-replay">Game by game</h3>
+            <p class="note">Same games as the bracket: round, seeds, points, winner, and tiebreak. A blank tiebreak means the points decided it.</p>{% endif %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Round</th>
+                        <th class="num">Seeds</th>
+                        <th>Score</th>
+                        <th>Winner</th>
+                        <th>Tiebreak</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for packed in board.rounds %}
+                    {% for match in packed.matches %}
+                    <tr>
+                        <td>{{ packed.label }} · {{ packed.span }}</td>
+                        <td class="num">{{ match.home_seed }}–{{ match.away_seed }}</td>
+                        <td>
+                            {{ person(match.home_id, match.home_name) }}
+                            {% if match.home_points is not none %}{{ "%.2f"|format(match.home_points) }}{% else %}—{% endif %}
+                            –
+                            {% if match.away_points is not none %}{{ "%.2f"|format(match.away_points) }}{% else %}—{% endif %}
+                            {{ person(match.away_id, match.away_name) }}
+                        </td>
+                        <td>{% if match.winner_id %}{{ person(match.winner_id, match.winner_name) }}{% else %}—{% endif %}</td>
+                        <td>{% if match.tiebreak %}{{ match.tiebreak }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
         </section>
         {% endfor %}
     </div>

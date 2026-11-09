@@ -39,6 +39,7 @@
     <a href="#consistency">Consistency</a>
     <a href="#pythagorean">Pythagorean</a>
     <a href="#playoff">Playoff</a>
+    <a href="#playoff-history">Playoff history</a>
     <a href="#high">Highest weeks</a>
     <a href="#low">Lowest weeks</a>
     <a href="#league-high">League weeks</a>
@@ -54,8 +55,10 @@
     <a href="#counting">Counting</a>
     <a href="#counting-season">Season counting</a>
     <a href="#counting-career" data-grain="career">Career counting</a>
+    <a href="#lineup-counting">Lineup counting</a>
     <a href="#finishes">Positional finishes</a>
     <a href="#stacks">Stacks</a>
+    <a href="#universe-replay">Universe brackets</a>
 </p>
 <p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
 
@@ -73,7 +76,7 @@
 
 {% if awards %}
 <h2 id="awards">Season awards</h2>
-<p class="note">Champion and runner-up wait for a decided title. Regular-season champ and most points stay empty until that regular season is finished.</p>
+<p class="note">Champion and runner-up wait for a decided title. Regular-season champ, most points, and last place stay empty until that regular season is finished. Last place is the worst rank on the official standings.</p>
 <table>
     <thead>
         <tr>
@@ -82,6 +85,7 @@
             <th>Runner-up</th>
             <th>RS champ</th>
             <th>Most PF</th>
+            <th>Last place</th>
         </tr>
     </thead>
     <tbody>
@@ -92,6 +96,7 @@
             <td>{% if row.runner_up_id %}{{ person(row.runner_up_id, row.runner_up) }}{% else %}—{% endif %}</td>
             <td>{% if row.regular_season_champion_id %}{{ person(row.regular_season_champion_id, row.regular_season_champion) }}{% else %}—{% endif %}</td>
             <td>{% if row.most_points_id %}{{ person(row.most_points_id, row.most_points) }}{% else %}—{% endif %}</td>
+            <td>{% if row.last_place_id %}{{ person(row.last_place_id, row.last_place) }}{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -1881,5 +1886,176 @@
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
+
+{% if lineup_counting and lineup_counting.boards %}
+<h2 id="lineup-counting">Lineup counting</h2>
+<p class="note">Most rushing, receiving, and passing yards by one starting lineup in a posted regular-season week. A starter is a lineup slot with started set and a slot other than BN or IR. Yards sum player_week_counting_stats for those players. A starter with no counting row adds zero. The starters cell says how many of those slots had a counting row when the two counts differ. Quarterback rushing yards are in the rushing total. Kickers and defenses stay in the lineup and usually add zero. Playoff and consolation lineups stay off the board, with the other week records. Posted weeks of an in-progress season stay on, because this is a week record. Player career and single-season counting records are the boards earlier on this page. Kicking there is field goals made. Defense is sacks, defensive interceptions, and points or yards allowed per game for a team defense with at least four counting games.</p>
+{% if lineup_counting.outside %}
+{% for row in lineup_counting.outside %}
+<p class="note">Higher {{ row.label|lower }} off this board: {{ row.kind_label }} <a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>, {{ person(row.manager_id, row.manager_name) }}, {{ row.yards|int }}.</p>
+{% endfor %}
+{% endif %}
+<div class="notable-grid">
+    {% for board in lineup_counting.boards %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th class="num">Yds</th>
+                    <th class="num">Starters</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num">{{ row.yards|int }}</td>
+                    <td class="num">{{ row.starters|int }}{% if row.counted_starters != row.starters %} · {{ row.counted_starters|int }} counted{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if playoff_history and playoff_history.seasons %}
+<h2 id="playoff-history">Playoff history</h2>
+<p class="note">Seed is the regular-season rank on the official standings, for managers in that year's playoff field. A series that spans two weeks is one row and the points are the sum. The winners bracket is the title series, the series that sent a team to that title, and the series that sent a team to those semifinals. Other games between playoff teams are placement. An upset is the worse seed winning the series. A season without a champion stays off, so 2026 is absent.</p>
+{% for season in playoff_history.seasons %}
+<h3><a href="/seasons/{{ season.year }}#playoffs">{{ season.year }}</a></h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">Seed</th>
+            <th>Manager</th>
+            <th>Result</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in season.seeds %}
+        <tr data-year="{{ season.year }}">
+            <td class="num">{{ row.seed }}</td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td>{{ row.result }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if season.title %}
+<p>
+    Title
+    <a href="/seasons/{{ season.year }}/week/{{ season.title.week_start }}/{{ season.title.matchup_id }}">{{ season.year }} W{{ season.title.week_start }}</a>{% if season.title.week_end != season.title.week_start %}–<a href="/seasons/{{ season.year }}/week/{{ season.title.week_end }}/{{ season.title.end_matchup_id }}">W{{ season.title.week_end }}</a>{% endif %}:
+    {{ person(season.title.winner_id, season.title.winner_name) }}
+    ({{ season.title.winner_seed }})
+    {{ "%.2f"|format(season.title.winner_points) }}
+    –
+    {{ person(season.title.loser_id, season.title.loser_name) }}
+    ({{ season.title.loser_seed }})
+    {{ "%.2f"|format(season.title.loser_points) }},
+    margin {{ "%.2f"|format(season.title.margin) }}{% if season.title.upset %} · upset{% endif %}.
+</p>
+{% if not season.title.matches_champion %}
+<p class="note">The scored series winner is not the stored champion.</p>
+{% endif %}
+{% endif %}
+<table>
+    <thead>
+        <tr>
+            <th>Round</th>
+            <th>When</th>
+            <th>Matchup</th>
+            <th class="num">Margin</th>
+            <th>Upset</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for game in season.games %}
+        <tr data-year="{{ season.year }}">
+            <td>{{ game.round_label }}</td>
+            <td>
+                <a href="/seasons/{{ season.year }}/week/{{ game.week_start }}/{{ game.matchup_id }}">{{ game.span }}</a>
+            </td>
+            <td>
+                ({{ game.better_seed }}) {{ person(game.better_id, game.better_name) }} {{ "%.2f"|format(game.better_points) }}
+                –
+                ({{ game.worse_seed }}) {{ person(game.worse_id, game.worse_name) }} {{ "%.2f"|format(game.worse_points) }}
+            </td>
+            <td class="num">{{ "%.2f"|format(game.margin) }}</td>
+            <td>{% if game.upset %}yes{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if season.upsets %}
+<p>
+    Upsets:
+    {% for game in season.upsets %}
+    {{ game.round_label }} {{ game.span }},
+    {{ person(game.winner_id, game.winner_name) }} ({{ game.winner_seed }})
+    over {{ person(game.loser_id, game.loser_name) }} ({{ game.loser_seed }}),
+    {{ "%.2f"|format(game.margin) }}{% if not loop.last %};{% else %}.{% endif %}
+    {% endfor %}
+</p>
+{% else %}
+<p class="note">No upsets.</p>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if universe_replay and universe_replay.seasons %}
+<h2 id="universe-replay">Universe brackets</h2>
+<p class="note">Each row is one game from v_universe_games for a finished season. 2026 is not finished, and it has no simulated bracket. Seed is that universe's playoff seed, not the official standings rank. Points are that round's score, summed when the round covers more than one week. A tiebreak names the rule that picked the winner when the points were equal. A blank tiebreak means the points decided it. Both universes are listed for every finished year.{% if not universe_replay.any_champion_differs %} No finished season has a counterfactual champion different from the official champion. The path and the runner-up still change.{% endif %}</p>
+{% for season in universe_replay.seasons %}
+<h3><a href="/seasons/{{ season.year }}#universe-replay">{{ season.year }}</a></h3>
+<p class="note">Official champion {{ person(season.champion_id, season.champion_name) }}. Runner-up {{ person(season.runner_up_id, season.runner_up_name) }}.</p>
+{% for board in season.boards %}
+<h4>{{ board.label }}</h4>
+<p class="note">
+    Champion {{ person(board.champion_id, board.champion_name) }}
+    {% if board.champion_differs %}differs from the official champion{% else %}matches the official champion{% endif %}.
+    Runner-up {{ person(board.runner_up_id, board.runner_up_name) }}
+    {% if board.runner_up_differs %}differs from the official runner-up{% else %}matches the official runner-up{% endif %}.
+</p>
+<table>
+    <thead>
+        <tr>
+            <th>Round</th>
+            <th>When</th>
+            <th class="num">Seeds</th>
+            <th>Score</th>
+            <th>Winner</th>
+            <th>Tiebreak</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for game in board.games %}
+        <tr data-year="{{ season.year }}">
+            <td>{{ game.round_label }}</td>
+            <td>{{ game.span }}</td>
+            <td class="num">{{ game.home_seed }}–{{ game.away_seed }}</td>
+            <td>
+                {{ person(game.home_id, game.home_name) }}
+                {% if game.home_points is not none %}{{ "%.2f"|format(game.home_points) }}{% else %}—{% endif %}
+                –
+                {% if game.away_points is not none %}{{ "%.2f"|format(game.away_points) }}{% else %}—{% endif %}
+                {{ person(game.away_id, game.away_name) }}
+            </td>
+            <td>{% if game.winner_id %}{{ person(game.winner_id, game.winner_name) }}{% else %}—{% endif %}</td>
+            <td>{% if game.tiebreak %}{{ game.tiebreak }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+{% endfor %}
 {% endif %}
 {% endblock %}

@@ -4763,8 +4763,18 @@ def _universe_match(row: dict[str, Any]) -> dict[str, Any]:
         "away_points": row["away_points"],
         "away_seed": int(row["away_seed"]),
         "winner_id": row["winner_id"],
+        "winner_name": _universe_winner_name(row),
         "tiebreak": _tiebreak_label(row.get("tiebreak")),
     }
+
+
+def _universe_winner_name(row: dict[str, Any]) -> str | None:
+    winner_id = row.get("winner_id")
+    if winner_id and winner_id == row.get("home_id"):
+        return row["home_name"]
+    if winner_id and winner_id == row.get("away_id"):
+        return row["away_name"]
+    return None
 
 
 def universe_brackets(year: int) -> list[dict[str, Any]]:
@@ -7239,6 +7249,9 @@ def records_page() -> dict[str, Any]:
         "pythagorean": _record_pythagorean(),
         "clutch_cuts": _clutch_cuts(),
         "stacks": _record_stacks(),
+        "lineup_counting": _record_lineup_counting(),
+        "playoff_history": _record_playoff_history(),
+        "universe_replay": _record_universe_replay(),
     }
 
 
@@ -7672,7 +7685,11 @@ def _record_awards() -> list[dict[str, Any]]:
             CASE WHEN fin.regular_season_complete THEN o.most_points END
                 AS most_points_id,
             CASE WHEN fin.regular_season_complete THEN mp.display_name END
-                AS most_points
+                AS most_points,
+            CASE WHEN fin.regular_season_complete THEN last.manager_id END
+                AS last_place_id,
+            CASE WHEN fin.regular_season_complete THEN last.display_name END
+                AS last_place
         FROM seasons s
         JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
@@ -7680,6 +7697,14 @@ def _record_awards() -> list[dict[str, Any]]:
         LEFT JOIN managers ru ON ru.id = o.runner_up
         LEFT JOIN managers rs ON rs.id = o.regular_season_champion
         LEFT JOIN managers mp ON mp.id = o.most_points
+        LEFT JOIN LATERAL (
+            SELECT st.manager_id, st.display_name
+            FROM v_standings_official st
+            WHERE st.year = s.year
+                AND st.wins + st.losses + st.ties > 0
+            ORDER BY st.rank DESC, st.manager_id
+            LIMIT 1
+        ) last ON TRUE
         ORDER BY s.year
         """
     )
@@ -9309,4 +9334,454 @@ def _record_stacks() -> dict[str, Any]:
         "by_points": _record_stack_seasons("points"),
         "compare": _stack_compare(),
         "coverage": _stack_coverage_bundle(),
+    }
+
+
+# Records book expansion (sql/analysis/99_records_book.sql, issue #42).
+# Career and single-season player counting stay on the #31 boards above.
+# Kicking there is field goals made. Defense is sacks, defensive
+# interceptions, and points or yards allowed per game (DEF, at least four
+# counting games). This block is the starting-lineup week, the seeded
+# playoff series, and the universe bracket replay.
+
+
+_LINEUP_COUNTING_BOARDS: tuple[tuple[str, str], ...] = (
+    ("rush_yd", "Rushing yards"),
+    ("rec_yd", "Receiving yards"),
+    ("pass_yd", "Passing yards"),
+)
+_LINEUP_KIND_LABELS = {
+    "regular": "Regular",
+    "playoff": "Playoff",
+    "consolation": "Consolation",
+}
+_PLAYOFF_ROUND_LABELS = {
+    "wildcard": "Wild card",
+    "semifinal": "Semifinal",
+    "championship": "Championship",
+    "placement": "Placement",
+}
+_PLAYOFF_ROUND_ORDER = {
+    "wildcard": 0,
+    "semifinal": 1,
+    "championship": 2,
+    "placement": 3,
+}
+_PLAYOFF_LOSER_RESULT = {
+    "wildcard": "Lost wild card",
+    "semifinal": "Lost semifinal",
+}
+
+
+def _record_lineup_counting(limit: int = RECORDS_TOP) -> dict[str, Any]:
+    """Most rush, receiving, and passing yards by one starting lineup in a week."""
+    boards: list[dict[str, Any]] = []
+    outside: list[dict[str, Any]] = []
+    for column, label in _LINEUP_COUNTING_BOARDS:
+        rows = _lineup_counting_rows(column, regular=True, limit=limit)
+        if not rows:
+            continue
+        boards.append({"key": column, "label": label, "rows": rows})
+        other = _lineup_counting_rows(column, regular=False, limit=1)
+        if other and other[0]["yards"] > rows[0]["yards"]:
+            other[0]["label"] = label
+            outside.append(other[0])
+    return {"boards": boards, "outside": outside}
+
+
+def _lineup_counting_rows(column: str, *, regular: bool, limit: int) -> list[dict[str, Any]]:
+    allowed = {name for name, _label in _LINEUP_COUNTING_BOARDS}
+    if column not in allowed or not column.isidentifier():
+        return []
+    kind_sql = "kind = 'regular'" if regular else "kind <> 'regular'"
+    rows = fetchall(
+        f"""
+        SELECT
+            year, week, kind, matchup_id, manager_id, manager_name,
+            {column} AS yards, starters, counted_starters
+        FROM v_lineup_week_counting
+        WHERE {kind_sql}
+        ORDER BY {column} DESC, year, week, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    packed: list[dict[str, Any]] = []
+    for row in rows:
+        packed.append(
+            {
+                "year": int(row["year"]),
+                "week": int(row["week"]),
+                "kind": row["kind"],
+                "kind_label": _LINEUP_KIND_LABELS.get(row["kind"], row["kind"]),
+                "matchup_id": row["matchup_id"],
+                "manager_id": row["manager_id"],
+                "manager_name": row["manager_name"],
+                "yards": int(row["yards"]),
+                "starters": int(row["starters"]),
+                "counted_starters": int(row["counted_starters"]),
+            }
+        )
+    return packed
+
+
+def _record_playoff_history() -> dict[str, Any]:
+    """Seed is the official standings rank. A multi-week series is one game."""
+    games = fetchall(
+        """
+        SELECT
+            g.year, g.week, g.matchup_id,
+            g.home_id, g.home_name, g.home_seed, g.home_points,
+            g.away_id, g.away_name, g.away_seed, g.away_points
+        FROM v_playoff_seed_games g
+        JOIN v_finished_seasons fin ON fin.year = g.year AND fin.champion_decided
+        ORDER BY g.year, g.week, g.matchup_id
+        """
+    )
+    outcomes = fetchall(
+        """
+        SELECT
+            o.year,
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name
+        FROM season_outcomes o
+        JOIN v_finished_seasons fin ON fin.year = o.year AND fin.champion_decided
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        ORDER BY o.year
+        """
+    )
+    field = fetchall(
+        """
+        SELECT
+            p.year,
+            p.manager_id,
+            m.display_name AS manager_name,
+            s.rank AS seed
+        FROM season_playoff_managers p
+        JOIN v_standings_official s
+            ON s.year = p.year AND s.manager_id = p.manager_id
+        JOIN managers m ON m.id = p.manager_id
+        JOIN v_finished_seasons fin ON fin.year = p.year AND fin.champion_decided
+        ORDER BY p.year, s.rank, p.manager_id
+        """
+    )
+    by_year_games: dict[int, list[dict[str, Any]]] = {}
+    for game in games:
+        by_year_games.setdefault(int(game["year"]), []).append(game)
+    by_year_field: dict[int, list[dict[str, Any]]] = {}
+    for row in field:
+        by_year_field.setdefault(int(row["year"]), []).append(row)
+    seasons: list[dict[str, Any]] = []
+    for outcome in outcomes:
+        year = int(outcome["year"])
+        series = _playoff_series(by_year_games.get(year, []))
+        title = _classify_playoff_series(
+            series,
+            outcome.get("champion_id"),
+            outcome.get("runner_up_id"),
+        )
+        results = _playoff_results(
+            by_year_field.get(year, []),
+            series,
+            outcome.get("champion_id"),
+            outcome.get("runner_up_id"),
+        )
+        for item in series:
+            item["round_label"] = _PLAYOFF_ROUND_LABELS.get(item["round_key"], item["round_key"])
+            item["span"] = _series_span(item["week_start"], item["week_end"])
+        series.sort(
+            key=lambda item: (
+                _PLAYOFF_ROUND_ORDER.get(item["round_key"], 9),
+                item["week_start"],
+                item["better_seed"],
+                item["worse_seed"],
+            )
+        )
+        if title is not None:
+            title["matches_champion"] = title["winner_id"] == outcome.get("champion_id")
+        seasons.append(
+            {
+                "year": year,
+                "champion_id": outcome.get("champion_id"),
+                "champion_name": outcome.get("champion_name"),
+                "runner_up_id": outcome.get("runner_up_id"),
+                "runner_up_name": outcome.get("runner_up_name"),
+                "seeds": [
+                    {
+                        "seed": int(row["seed"]),
+                        "manager_id": row["manager_id"],
+                        "manager_name": row["manager_name"],
+                        "result": results[row["manager_id"]],
+                    }
+                    for row in by_year_field.get(year, [])
+                ],
+                "title": title,
+                "games": series,
+                "upsets": [item for item in series if item["upset"]],
+            }
+        )
+    return {"seasons": seasons}
+
+
+def _playoff_series(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for game in games:
+        key = tuple(sorted((str(game["home_id"]), str(game["away_id"]))))
+        grouped.setdefault(key, []).append(game)
+    series: list[dict[str, Any]] = []
+    for rows in grouped.values():
+        rows.sort(key=lambda row: (int(row["week"]), str(row["matchup_id"])))
+        chunk = [rows[0]]
+        for row in rows[1:]:
+            week = int(row["week"])
+            previous = int(chunk[-1]["week"])
+            if week == previous or week == previous + 1:
+                chunk.append(row)
+            else:
+                series.append(_pack_playoff_series(chunk))
+                chunk = [row]
+        series.append(_pack_playoff_series(chunk))
+    return series
+
+
+def _pack_playoff_series(chunk: list[dict[str, Any]]) -> dict[str, Any]:
+    chunk = sorted(chunk, key=lambda row: (int(row["week"]), str(row["matchup_id"])))
+    points: dict[str, float] = {}
+    names: dict[str, str] = {}
+    seeds: dict[str, int] = {}
+    for row in chunk:
+        for side in ("home", "away"):
+            manager_id = str(row[f"{side}_id"])
+            points[manager_id] = points.get(manager_id, 0.0) + float(row[f"{side}_points"] or 0)
+            names[manager_id] = row[f"{side}_name"]
+            seeds[manager_id] = int(row[f"{side}_seed"])
+    ordered = sorted(points, key=lambda manager_id: (seeds[manager_id], manager_id))
+    better_id, worse_id = ordered[0], ordered[1]
+    better_points = round(points[better_id], 2)
+    worse_points = round(points[worse_id], 2)
+    if better_points > worse_points:
+        winner_id, loser_id = better_id, worse_id
+    elif worse_points > better_points:
+        winner_id, loser_id = worse_id, better_id
+    else:
+        winner_id, loser_id = None, None
+    if winner_id == better_id:
+        winner_name, winner_seed, winner_points = names[better_id], seeds[better_id], better_points
+        loser_name, loser_seed, loser_points = names[worse_id], seeds[worse_id], worse_points
+    elif winner_id == worse_id:
+        winner_name, winner_seed, winner_points = names[worse_id], seeds[worse_id], worse_points
+        loser_name, loser_seed, loser_points = names[better_id], seeds[better_id], better_points
+    else:
+        winner_name = loser_name = None
+        winner_seed = loser_seed = None
+        winner_points = loser_points = None
+    return {
+        "year": int(chunk[0]["year"]),
+        "week_start": int(chunk[0]["week"]),
+        "week_end": int(chunk[-1]["week"]),
+        "matchup_id": chunk[0]["matchup_id"],
+        "end_matchup_id": chunk[-1]["matchup_id"],
+        "better_id": better_id,
+        "better_name": names[better_id],
+        "better_seed": seeds[better_id],
+        "better_points": better_points,
+        "worse_id": worse_id,
+        "worse_name": names[worse_id],
+        "worse_seed": seeds[worse_id],
+        "worse_points": worse_points,
+        "winner_id": winner_id,
+        "winner_name": winner_name,
+        "winner_seed": winner_seed,
+        "winner_points": winner_points,
+        "loser_id": loser_id,
+        "loser_name": loser_name,
+        "loser_seed": loser_seed,
+        "loser_points": loser_points,
+        "upset": bool(winner_id and seeds[winner_id] > seeds[loser_id]),
+        "margin": round(abs(better_points - worse_points), 2),
+        "round_key": None,
+    }
+
+
+def _classify_playoff_series(
+    series: list[dict[str, Any]],
+    champion_id: str | None,
+    runner_up_id: str | None,
+) -> dict[str, Any] | None:
+    for item in series:
+        item["round_key"] = None
+    title: dict[str, Any] | None = None
+    if champion_id and runner_up_id:
+        pair = {champion_id, runner_up_id}
+        candidates = [
+            item
+            for item in series
+            if {item["better_id"], item["worse_id"]} == pair
+        ]
+        if candidates:
+            title = max(candidates, key=lambda item: (item["week_end"], item["week_start"]))
+            title["round_key"] = "championship"
+    semis: list[dict[str, Any]] = []
+    if title is not None:
+        # A champion who also won the wild card has two earlier series.
+        # The semifinal is the later of those. The earlier one is a wild card.
+        feeding = [
+            item
+            for item in series
+            if item is not title
+            and item["winner_id"] in {champion_id, runner_up_id}
+            and item["week_end"] < title["week_start"]
+        ]
+        if feeding:
+            semi_week = max(item["week_end"] for item in feeding)
+            semis = [item for item in feeding if item["week_end"] == semi_week]
+            for item in semis:
+                item["round_key"] = "semifinal"
+    semi_players: set[str] = set()
+    for item in semis:
+        semi_players.add(item["better_id"])
+        semi_players.add(item["worse_id"])
+    semi_start = min((item["week_start"] for item in semis), default=None)
+    for item in series:
+        if item["round_key"]:
+            continue
+        if (
+            semi_start is not None
+            and item["winner_id"] in semi_players
+            and item["week_end"] < semi_start
+        ):
+            item["round_key"] = "wildcard"
+        else:
+            item["round_key"] = "placement"
+    return title
+
+
+def _playoff_results(
+    field: list[dict[str, Any]],
+    series: list[dict[str, Any]],
+    champion_id: str | None,
+    runner_up_id: str | None,
+) -> dict[str, str]:
+    result = {row["manager_id"]: "No winners-bracket game" for row in field}
+    for item in series:
+        label = _PLAYOFF_LOSER_RESULT.get(item["round_key"] or "")
+        loser_id = item.get("loser_id")
+        if label and loser_id in result:
+            result[loser_id] = label
+    if champion_id in result:
+        result[champion_id] = "Champion"
+    if runner_up_id in result:
+        result[runner_up_id] = "Runner-up"
+    return result
+
+
+def _series_span(start: int, end: int) -> str:
+    if start == end:
+        return f"W{start}"
+    return f"W{start}\u2013W{end}"
+
+
+def _record_universe_replay() -> dict[str, Any]:
+    """Full v_universe_games replay for every finished season, both universes."""
+    years = fetchall(
+        """
+        SELECT year
+        FROM v_finished_seasons
+        WHERE champion_decided
+        ORDER BY year
+        """
+    )
+    seasons: list[dict[str, Any]] = []
+    any_champion_differs = False
+    for row in years:
+        packed = _universe_replay_year(int(row["year"]))
+        if packed is None:
+            continue
+        if packed["any_champion_differs"]:
+            any_champion_differs = True
+        seasons.append(packed)
+    return {"seasons": seasons, "any_champion_differs": any_champion_differs}
+
+
+def _universe_replay_year(year: int) -> dict[str, Any] | None:
+    official = fetchone(
+        """
+        SELECT
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name
+        FROM season_outcomes o
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        WHERE o.year = %(year)s
+        """,
+        {"year": year},
+    )
+    if official is None or not official.get("champion_id"):
+        return None
+    outcomes = fetchall(
+        """
+        SELECT
+            o.universe,
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name,
+            o.matches_official
+        FROM v_universe_outcomes o
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        WHERE o.year = %(year)s
+        """,
+        {"year": year},
+    )
+    by_universe = {row["universe"]: row for row in outcomes}
+    boards: list[dict[str, Any]] = []
+    any_champion_differs = False
+    for board in universe_brackets(year):
+        outcome = by_universe.get(board["key"], {})
+        champion_id = outcome.get("champion_id")
+        runner_up_id = outcome.get("runner_up_id")
+        differs = champion_id != official["champion_id"]
+        if differs:
+            any_champion_differs = True
+        games: list[dict[str, Any]] = []
+        for packed_round in board["rounds"]:
+            for match in packed_round["matches"]:
+                games.append(
+                    {
+                        "round_label": packed_round["label"],
+                        "span": packed_round["span"],
+                        "week": packed_round["week"],
+                        **match,
+                    }
+                )
+        boards.append(
+            {
+                "key": board["key"],
+                "label": board["label"],
+                "champion_id": champion_id,
+                "champion_name": outcome.get("champion_name"),
+                "runner_up_id": runner_up_id,
+                "runner_up_name": outcome.get("runner_up_name"),
+                "champion_differs": differs,
+                "runner_up_differs": runner_up_id != official["runner_up_id"],
+                "matches_official": bool(outcome.get("matches_official")),
+                "games": games,
+            }
+        )
+    if not boards:
+        return None
+    return {
+        "year": year,
+        "champion_id": official["champion_id"],
+        "champion_name": official["champion_name"],
+        "runner_up_id": official["runner_up_id"],
+        "runner_up_name": official["runner_up_name"],
+        "boards": boards,
+        "any_champion_differs": any_champion_differs,
     }
