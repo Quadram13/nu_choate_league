@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
+from datetime import date, datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from .catalog import load_yaml
 from .models import DumpPlayer, Platform, Player
@@ -68,6 +69,156 @@ def load_sleeper_catalog() -> dict[str, dict[str, Any]]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must be an object")
     return {key: value for key, value in payload.items() if isinstance(value, dict)}
+
+
+# Catalog height is either total inches ("74") or feet and inches (6 feet 2).
+_FEET_INCHES = re.compile(r"""^(\d+)'(\d{1,2})"?$""")
+
+
+class CatalogIdentity(NamedTuple):
+    """Fields copied off one Sleeper catalog record.
+
+    Static facts stay historically safe. Snapshot fields are whatever the
+    catalog says right now; the load stamps catalog_as_of beside them.
+    The catalog's integer `age` is intentionally absent.
+    """
+
+    birth_date: date | None
+    height_in: int | None
+    weight_lb: int | None
+    high_school: str | None
+    rookie_year: int | None
+    nfl_status: str | None
+    injury_status: str | None
+    injury_body_part: str | None
+    injury_notes: str | None
+    depth_chart_position: str | None
+    depth_chart_order: int | None
+
+
+def sleeper_catalog_path() -> Path:
+    return data_dir() / "sleeper" / "players" / "nfl.json"
+
+
+def sleeper_catalog_as_of(path: Path | None = None) -> date:
+    """Local calendar date of nfl.json's mtime.
+
+    The catalog JSON has no refresh field. Snapshot columns mean this date,
+    which is the file modification date, not a league week.
+    """
+    catalog_path = path or sleeper_catalog_path()
+    return datetime.fromtimestamp(catalog_path.stat().st_mtime).date()
+
+
+def format_height(inches: int | None) -> str | None:
+    if inches is None:
+        return None
+    feet, rest = divmod(int(inches), 12)
+    return f"{feet}'{rest}\""
+
+
+def parse_height_in(value: object) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        total = int(text)
+    else:
+        match = _FEET_INCHES.fullmatch(text)
+        if match is None:
+            return None
+        inches = int(match.group(2))
+        if inches >= 12:
+            return None
+        total = int(match.group(1)) * 12 + inches
+    if total < 60 or total > 90:
+        return None
+    return total
+
+
+def parse_weight_lb(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        pounds = value
+    else:
+        text = str(value).strip()
+        if not text.isdigit():
+            return None
+        pounds = int(text)
+    if pounds <= 0 or pounds > 500:
+        return None
+    return pounds
+
+
+def parse_birth_date(value: object) -> date | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.year < 1920 or parsed.year > 2100:
+        return None
+    return parsed
+
+
+def parse_rookie_year(value: object) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if len(text) != 4 or not text.isdigit():
+        return None
+    year = int(text)
+    if year < 1920 or year > 2100:
+        return None
+    return year
+
+
+def _catalog_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _catalog_int(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text.isdigit():
+        return None
+    return int(text)
+
+
+def catalog_identity(record: dict[str, Any]) -> CatalogIdentity:
+    """Static bio plus the current snapshot fields this load keeps.
+
+    practice_participation is ignored. This catalog fills it for one player,
+    so storing it would look like a practice report the file does not have.
+    injury_start_date and birth city/state/country are empty on every row.
+    metadata injury_override_* is not a timeline and is left out.
+    """
+    metadata = record.get("metadata")
+    rookie_raw = metadata.get("rookie_year") if isinstance(metadata, dict) else None
+    return CatalogIdentity(
+        birth_date=parse_birth_date(record.get("birth_date")),
+        height_in=parse_height_in(record.get("height")),
+        weight_lb=parse_weight_lb(record.get("weight")),
+        high_school=_catalog_text(record.get("high_school")),
+        rookie_year=parse_rookie_year(rookie_raw),
+        nfl_status=_catalog_text(record.get("status")),
+        injury_status=_catalog_text(record.get("injury_status")),
+        injury_body_part=_catalog_text(record.get("injury_body_part")),
+        injury_notes=_catalog_text(record.get("injury_notes")),
+        depth_chart_position=_catalog_text(record.get("depth_chart_position")),
+        depth_chart_order=_catalog_int(record.get("depth_chart_order")),
+    )
 
 
 def load_dst_map(path: Path | None = None) -> dict[int, str]:

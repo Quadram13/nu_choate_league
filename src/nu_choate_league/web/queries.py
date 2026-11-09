@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 
 from ..db import database_url
 from ..ingest.score import COUNTING_STAT_FIELDS
+from ..players import format_height
 from . import brackets
 from .names import flavor_team, manager_hue
 
@@ -97,11 +98,15 @@ SCORING_LABELS = {
     "yds_allow_200_299": "200–299 yards allowed",
     "pts_allow": "Points allowed",
     # ESPN scoringItems stat ids. Sleeper weights above are named keys.
+    # Ids the 2022–2023 arrays omit are named too. A stat id missing from
+    # this map renders as "id N" and is still listed.
     "0": "Pass attempts",
     "1": "Pass completions",
     "2": "Incomplete pass",
     "3": "Pass yards",
     "4": "Pass TD",
+    "17": "300–399 pass-yd game",
+    "18": "400+ pass-yd game",
     "19": "Pass 2-pt",
     "20": "INT thrown",
     "21": "Completion pct",
@@ -109,17 +114,23 @@ SCORING_LABELS = {
     "24": "Rush yards",
     "25": "Rush TD",
     "26": "Rush 2-pt",
+    "37": "100–199 rush-yd game",
+    "38": "200+ rush-yd game",
     "42": "Rec yards",
     "43": "Rec TD",
     "44": "Rec 2-pt",
     "53": "Reception",
+    "56": "100–199 rec-yd game",
+    "57": "200+ rec-yd game",
     "63": "Fumble recovered for TD",
+    "68": "Fumble",
     "72": "Fumble lost",
     "74": "FG 50+",
     "77": "FG 40–49",
     "80": "FG 0–39",
     "85": "FG miss",
     "86": "XP made",
+    "88": "XP miss",
     "89": "0 PA",
     "90": "1–6 PA",
     "91": "7–13 PA",
@@ -134,12 +145,15 @@ SCORING_LABELS = {
     "102": "Punt return TD",
     "103": "INT return TD",
     "104": "Fumble return TD",
+    "121": "18–21 PA",
+    "122": "22–27 PA",
     "123": "28–34 PA",
     "124": "35–45 PA",
     "125": "46+ PA",
     "128": "0–99 yards allowed",
     "129": "100–199 yards allowed",
     "130": "200–299 yards allowed",
+    "131": "300–349 yards allowed",
     "132": "350–399 yards allowed",
     "133": "400–449 yards allowed",
     "134": "450–499 yards allowed",
@@ -181,6 +195,7 @@ _ESPN_KICK_ORDER = {
     201: 4,
     85: 5,
     86: 6,
+    88: 7,
 }
 
 # Points-allowed tiers are not contiguous ids (89–92, then 123–125).
@@ -243,67 +258,104 @@ def _espn_sort_key(stat_id: int) -> tuple[int, int, int, int]:
     return (_ESPN_GROUP_ORDER[group], section, inner, stat_id)
 
 
-def _espn_points(item: dict[str, Any]) -> str | None:
-    raw = item.get("points")
-    overrides = item.get("pointsOverrides") or {}
+def _format_stored_points(value: Any) -> str:
+    if value is None or value == "":
+        return "—"
+    return _scoring_value(value)
+
+
+def _override_pairs(overrides: dict[Any, Any]) -> list[tuple[str, Any]]:
+    def sort_key(key: Any) -> tuple[int, int | str]:
+        try:
+            return (0, int(key))
+        except (TypeError, ValueError):
+            return (1, str(key))
+
+    return [(str(key), overrides[key]) for key in sorted(overrides, key=sort_key)]
+
+
+def _format_overrides(overrides: Any) -> str:
+    if overrides is None or overrides in ("", {}):
+        return "—"
     if not isinstance(overrides, dict):
-        overrides = {}
-    paired = [
-        (str(key), value)
-        for key, value in overrides.items()
-        if not _blank_points(value)
-    ]
-    base_blank = _blank_points(raw)
-    if base_blank and not paired:
-        return None
-    if not base_blank and all(value == raw for _, value in paired):
-        return _scoring_value(raw)
-    if base_blank and len(paired) == 1:
-        return _scoring_value(paired[0][1])
+        return str(overrides)
+    pairs = _override_pairs(overrides)
+    if not pairs:
+        return "—"
     parts: list[str] = []
-    if not base_blank:
-        parts.append(_scoring_value(raw))
-    for key, value in paired:
-        slot = ESPN_SLOT_LABELS.get(key, key)
+    for key, value in pairs:
+        slot = ESPN_SLOT_LABELS.get(key, f"slot {key}")
         parts.append(f"{slot} {_scoring_value(value)}")
     return " · ".join(parts)
 
 
+def _espn_stat_label(stat_id: int) -> tuple[str, bool]:
+    label = SCORING_LABELS.get(str(stat_id))
+    if label is None:
+        return f"id {stat_id}", True
+    return label, False
+
+
+def _espn_item_row(index: int, item: Any) -> dict[str, Any]:
+    """One scoringItems entry. Nothing is dropped, including a 0-point row."""
+    if not isinstance(item, dict):
+        return {
+            "key": "",
+            "stat_id": "—",
+            "label": "id ?",
+            "points": "—",
+            "overrides": "—",
+            "value": "—",
+            "group": "Other",
+            "unmapped": True,
+            "_sort": (99, 9, index, index),
+        }
+    if "points" in item:
+        points = _format_stored_points(item.get("points"))
+    else:
+        points = "—"
+    if item.get("isReverseItem"):
+        points = f"{points} reverse"
+    overrides = _format_overrides(item.get("pointsOverrides"))
+    raw_id = item.get("statId", item.get("id"))
+    try:
+        stat_id = int(raw_id)
+    except (TypeError, ValueError):
+        shown = "—" if raw_id is None else str(raw_id)
+        return {
+            "key": shown,
+            "stat_id": shown,
+            "label": "id ?" if raw_id is None else f"id {raw_id}",
+            "points": points,
+            "overrides": overrides,
+            "value": points,
+            "group": "Other",
+            "unmapped": True,
+            "_sort": (99, 9, index, index),
+        }
+    label, unmapped = _espn_stat_label(stat_id)
+    return {
+        "key": str(stat_id),
+        "stat_id": stat_id,
+        "label": label,
+        "points": points,
+        "overrides": overrides,
+        "value": points,
+        "group": _espn_group(stat_id),
+        "unmapped": unmapped,
+        "_sort": _espn_sort_key(stat_id),
+    }
+
+
 def _espn_scoring_rows(items: list[Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        raw_id = item.get("statId", item.get("id"))
-        try:
-            stat_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        points = _espn_points(item)
-        if points is None:
-            continue
-        key = str(stat_id)
-        rows.append(
-            {
-                "key": key,
-                "label": _scoring_label(key),
-                "value": points,
-                "group": _espn_group(stat_id),
-                "_sort": _espn_sort_key(stat_id),
-            }
-        )
+    rows = [_espn_item_row(index, item) for index, item in enumerate(items)]
     rows.sort(key=lambda row: row["_sort"])
     for row in rows:
         del row["_sort"]
     return rows
 
 
-def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
-    items = settings.get("scoringItems") if isinstance(settings, dict) else None
-    if isinstance(items, list) and items:
-        return _espn_scoring_rows(items)
-    if isinstance(settings, list):
-        return _espn_scoring_rows(settings)
+def _flat_scoring_rows(settings: Any) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if isinstance(settings, dict):
         for key, value in sorted(settings.items(), key=lambda item: str(item[0])):
@@ -311,6 +363,435 @@ def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
                 continue
             rows.append({"key": key, "label": _scoring_label(key), "value": _scoring_value(value)})
     return rows
+
+
+def _espn_sheet_view(items: list[Any]) -> dict[str, Any]:
+    rows = _espn_scoring_rows(items)
+    return {
+        "rows": rows,
+        "espn_sheet": True,
+        "item_count": len(items),
+        "skipped": len(items) - len(rows),
+        "unmapped": sum(1 for row in rows if row.get("unmapped")),
+    }
+
+
+def _scoring_view(settings: Any) -> dict[str, Any]:
+    if isinstance(settings, dict) and isinstance(settings.get("scoringItems"), list):
+        return _espn_sheet_view(settings["scoringItems"])
+    if isinstance(settings, list):
+        return _espn_sheet_view(settings)
+    return {
+        "rows": _flat_scoring_rows(settings),
+        "espn_sheet": False,
+        "item_count": None,
+        "skipped": None,
+        "unmapped": None,
+    }
+
+
+def _espn_items_by_stat(settings: Any) -> dict[int, list[dict[str, Any]]]:
+    items: list[Any] | None = None
+    if isinstance(settings, dict) and isinstance(settings.get("scoringItems"), list):
+        items = settings["scoringItems"]
+    elif isinstance(settings, list):
+        items = settings
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    if not items:
+        return grouped
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            stat_id = int(item.get("statId", item.get("id")))
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(stat_id, []).append(item)
+    return grouped
+
+
+def _espn_applied_weight(item: dict[str, Any]) -> str:
+    """Weight that scores. A lone D/ST override is that weight; points stays on the sheet."""
+    raw = item.get("points")
+    overrides = item.get("pointsOverrides")
+    stored = _override_pairs(overrides) if isinstance(overrides, dict) else []
+    pairs = [(key, value) for key, value in stored if not _blank_points(value)]
+    base_blank = _blank_points(raw)
+    if base_blank and not pairs:
+        return _format_stored_points(raw)
+    if not base_blank and (not pairs or all(value == raw for _, value in pairs)):
+        return _scoring_value(raw)
+    if base_blank and len(pairs) == 1:
+        return _scoring_value(pairs[0][1])
+    parts: list[str] = []
+    if not base_blank:
+        parts.append(_scoring_value(raw))
+    for key, value in pairs:
+        slot = ESPN_SLOT_LABELS.get(key, f"slot {key}")
+        parts.append(f"{slot} {_scoring_value(value)}")
+    return " · ".join(parts)
+
+
+def _espn_stat_weight(settings: Any, stat_id: int) -> str | None:
+    items = _espn_items_by_stat(settings).get(stat_id)
+    if not items:
+        return None
+    return " · ".join(_espn_applied_weight(item) for item in items)
+
+
+_PLATFORM_NAME = {"espn": "ESPN", "sleeper": "Sleeper"}
+
+# category, tier, espn stat id or None, sleeper key or None, mapping note.
+# None means that platform has no band with this name. A present id or key
+# that the season omits renders as "not stored", which is not a stored 0.
+_RULE_DIFF: tuple[tuple[str, str, int | None, str | None, str], ...] = (
+    ("Pass TD", "each", 4, "pass_td", "ESPN stat 4. Sleeper pass_td."),
+    (
+        "INT thrown",
+        "each",
+        20,
+        "pass_int",
+        "ESPN stat 20. Sleeper pass_int. D/ST INT is separate: ESPN stat 95, Sleeper int.",
+    ),
+    (
+        "Rush yd bonus",
+        "100–199",
+        37,
+        "bonus_rush_yd_100",
+        "ESPN stat 37. Sleeper bonus_rush_yd_100.",
+    ),
+    (
+        "Rush yd bonus",
+        "200+",
+        38,
+        "bonus_rush_yd_200",
+        "ESPN stat 38. Sleeper bonus_rush_yd_200.",
+    ),
+    (
+        "Rec yd bonus",
+        "100–199",
+        56,
+        "bonus_rec_yd_100",
+        "ESPN stat 56. Sleeper bonus_rec_yd_100.",
+    ),
+    (
+        "Rec yd bonus",
+        "200+",
+        57,
+        "bonus_rec_yd_200",
+        "ESPN stat 57. Sleeper bonus_rec_yd_200.",
+    ),
+    (
+        "Rush+rec yd bonus",
+        "100–199",
+        None,
+        "bonus_rush_rec_yd_100",
+        "Sleeper bonus_rush_rec_yd_100. ESPN has no combined rush and receiving bonus stat.",
+    ),
+    (
+        "Rush+rec yd bonus",
+        "200+",
+        None,
+        "bonus_rush_rec_yd_200",
+        "Sleeper bonus_rush_rec_yd_200. ESPN has no combined rush and receiving bonus stat.",
+    ),
+    (
+        "Pass yd bonus",
+        "300–399",
+        17,
+        "bonus_pass_yd_300",
+        "ESPN stat 17. Sleeper bonus_pass_yd_300.",
+    ),
+    (
+        "Pass yd bonus",
+        "400+",
+        18,
+        "bonus_pass_yd_400",
+        "ESPN stat 18. Sleeper bonus_pass_yd_400.",
+    ),
+    (
+        "Reception",
+        "each",
+        53,
+        "rec",
+        "ESPN stat 53. Sleeper rec. The ESPN item's pointsOverrides are empty, so every position scores the same.",
+    ),
+    (
+        "Reception bonus",
+        "RB",
+        None,
+        "bonus_rec_rb",
+        "Sleeper bonus_rec_rb. ESPN has no position reception bonus.",
+    ),
+    (
+        "Reception bonus",
+        "WR",
+        None,
+        "bonus_rec_wr",
+        "Sleeper bonus_rec_wr. ESPN has no position reception bonus.",
+    ),
+    (
+        "Reception bonus",
+        "TE",
+        None,
+        "bonus_rec_te",
+        "Sleeper bonus_rec_te. ESPN has no position reception bonus.",
+    ),
+    ("Fumble lost", "each", 72, "fum_lost", "ESPN stat 72. Sleeper fum_lost."),
+    ("Fumble", "not lost", 68, "fum", "ESPN stat 68. Sleeper fum."),
+    (
+        "FG",
+        "0–19",
+        None,
+        "fgm_0_19",
+        "Sleeper fgm_0_19. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "20–29",
+        None,
+        "fgm_20_29",
+        "Sleeper fgm_20_29. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "30–39",
+        None,
+        "fgm_30_39",
+        "Sleeper fgm_30_39. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "0–39",
+        80,
+        None,
+        "ESPN stat 80. Sleeper splits this into 0–19, 20–29, and 30–39.",
+    ),
+    ("FG", "40–49", 77, "fgm_40_49", "ESPN stat 77. Sleeper fgm_40_49."),
+    (
+        "FG",
+        "50–59",
+        198,
+        None,
+        "ESPN stat 198. Sleeper scores every make from 50 on fgm_50p.",
+    ),
+    (
+        "FG",
+        "60+",
+        201,
+        None,
+        "ESPN stat 201. Sleeper folds 60+ into fgm_50p.",
+    ),
+    (
+        "FG",
+        "50+",
+        None,
+        "fgm_50p",
+        "Sleeper fgm_50p. ESPN splits stat 198 (50–59) and stat 201 (60+).",
+    ),
+    ("FG miss", "each", 85, "fgmiss", "ESPN stat 85. Sleeper fgmiss."),
+    ("XP made", "each", 86, "xpm", "ESPN stat 86. Sleeper xpm."),
+    ("XP miss", "each", 88, "xpmiss", "ESPN stat 88. Sleeper xpmiss."),
+    (
+        "Points allowed",
+        "0",
+        89,
+        "pts_allow_0",
+        "ESPN stat 89, D/ST slot override. Sleeper pts_allow_0.",
+    ),
+    (
+        "Points allowed",
+        "1–6",
+        90,
+        "pts_allow_1_6",
+        "ESPN stat 90, D/ST slot override. Sleeper pts_allow_1_6.",
+    ),
+    (
+        "Points allowed",
+        "7–13",
+        91,
+        "pts_allow_7_13",
+        "ESPN stat 91, D/ST slot override. Sleeper pts_allow_7_13.",
+    ),
+    (
+        "Points allowed",
+        "14–17",
+        92,
+        None,
+        "ESPN stat 92, D/ST slot override. Sleeper's next band is 14–20.",
+    ),
+    (
+        "Points allowed",
+        "14–20",
+        None,
+        "pts_allow_14_20",
+        "Sleeper pts_allow_14_20. ESPN's 14–17 band is stat 92.",
+    ),
+    (
+        "Points allowed",
+        "18–21",
+        121,
+        None,
+        "ESPN stat 121. Sleeper has no 18–21 band.",
+    ),
+    (
+        "Points allowed",
+        "21–27",
+        None,
+        "pts_allow_21_27",
+        "Sleeper pts_allow_21_27. ESPN's 22–27 band is stat 122.",
+    ),
+    (
+        "Points allowed",
+        "22–27",
+        122,
+        None,
+        "ESPN stat 122. Sleeper has no 22–27 band.",
+    ),
+    (
+        "Points allowed",
+        "28–34",
+        123,
+        "pts_allow_28_34",
+        "ESPN stat 123, D/ST slot override. Sleeper pts_allow_28_34.",
+    ),
+    (
+        "Points allowed",
+        "35–45",
+        124,
+        None,
+        "ESPN stat 124, D/ST slot override. Sleeper uses one 35+ band.",
+    ),
+    (
+        "Points allowed",
+        "35+",
+        None,
+        "pts_allow_35p",
+        "Sleeper pts_allow_35p. ESPN splits stat 124 (35–45) and stat 125 (46+).",
+    ),
+    (
+        "Points allowed",
+        "46+",
+        125,
+        None,
+        "ESPN stat 125, D/ST slot override. Sleeper has no 46+ band.",
+    ),
+    (
+        "Yards allowed",
+        "0–99",
+        128,
+        None,
+        "ESPN stat 128, D/ST slot override. Sleeper's first band is 0–100.",
+    ),
+    (
+        "Yards allowed",
+        "0–100",
+        None,
+        "yds_allow_0_100",
+        "Sleeper yds_allow_0_100. ESPN's first band (stat 128) is under 100 yards.",
+    ),
+    (
+        "Yards allowed",
+        "100–199",
+        129,
+        "yds_allow_100_199",
+        "ESPN stat 129, D/ST slot override. Sleeper yds_allow_100_199.",
+    ),
+    (
+        "Yards allowed",
+        "200–299",
+        130,
+        "yds_allow_200_299",
+        "ESPN stat 130, D/ST slot override. Sleeper yds_allow_200_299.",
+    ),
+    (
+        "Yards allowed",
+        "300–349",
+        131,
+        "yds_allow_300_349",
+        "ESPN stat 131. Sleeper yds_allow_300_349.",
+    ),
+    (
+        "Yards allowed",
+        "350–399",
+        132,
+        "yds_allow_350_399",
+        "ESPN stat 132, D/ST slot override. Sleeper yds_allow_350_399.",
+    ),
+    (
+        "Yards allowed",
+        "400–449",
+        133,
+        "yds_allow_400_449",
+        "ESPN stat 133, D/ST slot override. Sleeper yds_allow_400_449.",
+    ),
+    (
+        "Yards allowed",
+        "450–499",
+        134,
+        "yds_allow_450_499",
+        "ESPN stat 134, D/ST slot override. Sleeper yds_allow_450_499.",
+    ),
+    (
+        "Yards allowed",
+        "500–549",
+        135,
+        "yds_allow_500_549",
+        "ESPN stat 135, D/ST slot override. Sleeper yds_allow_500_549.",
+    ),
+    (
+        "Yards allowed",
+        "550+",
+        136,
+        "yds_allow_550p",
+        "ESPN stat 136, D/ST slot override. Sleeper yds_allow_550p.",
+    ),
+)
+
+
+def _rule_cell(season: dict[str, Any], espn_stat: int | None, sleeper_key: str | None) -> str:
+    platform = str(season.get("platform") or "")
+    settings = season.get("scoring_settings")
+    if platform == "espn":
+        if espn_stat is None:
+            return "no tier"
+        weight = _espn_stat_weight(settings, espn_stat)
+        return "not stored" if weight is None else weight
+    if platform == "sleeper":
+        if sleeper_key is None:
+            return "no tier"
+        if not isinstance(settings, dict) or sleeper_key not in settings:
+            return "not stored"
+        return _scoring_value(settings[sleeper_key])
+    return "unmapped"
+
+
+def scoring_rule_diff() -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT year, platform, scoring_settings
+        FROM seasons
+        ORDER BY year
+        """
+    )
+    columns = [
+        {
+            "year": int(season["year"]),
+            "platform": _PLATFORM_NAME.get(str(season["platform"]), str(season["platform"])),
+        }
+        for season in seasons
+    ]
+    rows = []
+    for category, tier, espn_stat, sleeper_key, note in _RULE_DIFF:
+        rows.append(
+            {
+                "category": category,
+                "tier": tier,
+                "note": note,
+                "cells": [_rule_cell(season, espn_stat, sleeper_key) for season in seasons],
+            }
+        )
+    return {"columns": columns, "rows": rows}
 
 
 RECORDS_TOP = 10
@@ -565,6 +1046,18 @@ def standings(year: int) -> list[dict[str, Any]]:
             ap.win_pct AS all_play_win_pct,
             lk.net_luck,
             lk.wins_vs_expected,
+            vol.cv AS vol_cv,
+            vol.stddev_points AS vol_stddev,
+            vol.weeks_scored AS vol_weeks,
+            cl.one_score_games,
+            cl.one_score_wins,
+            cl.one_score_losses,
+            cl.one_score_ties,
+            cl.one_score_win_pct,
+            cl.one_score_margin,
+            py.pythagorean_wins,
+            py.wins_vs_pythagorean,
+            py.exponent AS pythagorean_exponent,
             mg.management_pct,
             mg.left_on_bench,
             ch.first_chair,
@@ -605,6 +1098,12 @@ def standings(year: int) -> list[dict[str, Any]]:
             ON ap.year = o.year AND ap.manager_id = o.manager_id
         LEFT JOIN v_luck_season lk
             ON lk.year = o.year AND lk.manager_id = o.manager_id
+        LEFT JOIN v_manager_volatility_season vol
+            ON vol.year = o.year AND vol.manager_id = o.manager_id
+        LEFT JOIN v_clutch_season cl
+            ON cl.year = o.year AND cl.manager_id = o.manager_id
+        LEFT JOIN v_pythagorean_season py
+            ON py.year = o.year AND py.manager_id = o.manager_id
         LEFT JOIN v_management_season mg
             ON mg.year = o.year AND mg.manager_id = o.manager_id
         LEFT JOIN v_chair_season ch
@@ -621,6 +1120,7 @@ def standings(year: int) -> list[dict[str, Any]]:
         row["all_play"] = _maybe_record(
             row["all_play_wins"], row["all_play_losses"], row["all_play_ties"]
         )
+        row["one_score"] = _margin_record(row, "one_score")
         row["hue"] = manager_hue(row["manager_id"])
     return rows
 
@@ -924,6 +1424,7 @@ def season_page(year: int) -> dict[str, Any] | None:
         "draft": draft,
         "lineups": lineups,
         "scoring": _season_scoring(year),
+        "scoring_env": _scoring_environment_year(year),
         "power": _power_board(year),
         "heat": _week_rank_heat(year),
         "race": _points_race_chart(year),
@@ -945,6 +1446,7 @@ def season_page(year: int) -> dict[str, Any] | None:
             skip_empty=True,
         ),
         "highlights": _season_highlight_chips(year, draft=draft, wire=wire, trades=trades),
+        "stacks": _season_stacks(year),
     }
 
 
@@ -1608,6 +2110,8 @@ def _season_wire(year: int) -> dict[str, Any]:
         "dodges": dodges,
         "managers": managers,
         "value_per_priority": _wire_value_per_priority(year),
+        "unclaimed": _fa_week_leaders(year=year, limit=5),
+        "fa_leaders": _fa_season_leaders(year=year, limit=5),
     }
 
 
@@ -3339,8 +3843,12 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "finishes": _member_finishes(manager_id),
         "h2h": h2h,
         "draft": _member_draft(manager_id),
+        "draft_board": _member_draft_board(manager_id),
         "wire": _member_wire(manager_id),
         "trades": _member_trades(manager_id),
+        "trade_partners": _member_trade_partners(manager_id),
+        "waiver_roi": _member_waiver_roi(manager_id),
+        "roster_shape": _member_roster_shape(manager_id),
         "lineups": _member_lineups(manager_id),
         "luck": fetchone(
             """
@@ -3375,6 +3883,7 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "labels": MARK_LABELS,
         "meta": MARK_META,
         "volatility": _manager_volatility_bundle(manager_id),
+        "clutch": _manager_clutch_bundle(manager_id),
     }
 
 
@@ -3636,6 +4145,129 @@ def _member_draft(manager_id: str) -> dict[str, Any]:
     rest = ranked[5:]
     misses = list(reversed(rest[-5:])) if rest else []
     return {"totals": totals, "hits": hits, "misses": misses}
+
+
+def _member_draft_board(manager_id: str) -> dict[str, Any]:
+    """Per-season v_draft_manager rows plus the career sum in v_draft_career."""
+    seasons = fetchall(
+        """
+        SELECT
+            year,
+            picks,
+            hits,
+            hits::double precision / nullif(picks, 0)::double precision AS hit_rate,
+            ros_vorp,
+            vs_round,
+            vs_vorp
+        FROM v_draft_manager
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT seasons, picks, hits, hit_rate, ros_vorp, vs_round, vs_vorp
+        FROM v_draft_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    return {"seasons": seasons, "career": career}
+
+
+def _member_trade_partners(manager_id: str) -> list[dict[str, Any]]:
+    """Series rows oriented so this manager's net VORP is positive when they won."""
+    return fetchall(
+        """
+        SELECT
+            CASE WHEN left_id = %(manager_id)s THEN right_id ELSE left_id END AS opponent_id,
+            CASE WHEN left_id = %(manager_id)s THEN right_name ELSE left_name END AS opponent_name,
+            deals,
+            CASE WHEN left_id = %(manager_id)s THEN left_wins ELSE right_wins END AS wins,
+            CASE WHEN left_id = %(manager_id)s THEN right_wins ELSE left_wins END AS losses,
+            pushes,
+            CASE WHEN left_id = %(manager_id)s THEN net_left_vorp ELSE net_right_vorp END AS net_vorp,
+            series_winner_id,
+            series_winner_name
+        FROM v_trade_pairs
+        WHERE left_id = %(manager_id)s OR right_id = %(manager_id)s
+        ORDER BY deals DESC, opponent_name
+        """,
+        {"manager_id": manager_id},
+    )
+
+
+def _member_waiver_roi(manager_id: str) -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT
+            year, claims, priority_units, ros_vorp, ros_starter,
+            vorp_per_priority, avg_seq
+        FROM v_waiver_priority_season
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT claims, priority_units, ros_vorp, ros_starter, vorp_per_priority, seasons
+        FROM v_waiver_priority_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    claims = fetchall(
+        """
+        SELECT
+            year, week, transaction_id, player_id, player_name, position,
+            priority, priority_units, seq, ros_vorp, vorp_per_priority
+        FROM v_waiver_priority_adds
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year, week, priority, player_name
+        """,
+        {"manager_id": manager_id},
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "claims": claims,
+        "coverage": _waiver_cost_coverage(),
+    }
+
+
+def _member_roster_shape(manager_id: str) -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_season
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT *
+        FROM v_roster_shape_career
+        WHERE manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    league = fetchone(
+        "SELECT coalesce(sum(ir_slots), 0) AS ir_slots FROM v_roster_shape_career"
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "league_ir_slots": int((league or {}).get("ir_slots") or 0),
+        "show_other": _shape_has_other(seasons),
+    }
+
+
+def _shape_has_other(rows: list[dict[str, Any]]) -> bool:
+    return any(float(row.get("other_points") or 0) for row in rows)
 
 
 def _member_wire(manager_id: str) -> dict[str, Any]:
@@ -4131,8 +4763,18 @@ def _universe_match(row: dict[str, Any]) -> dict[str, Any]:
         "away_points": row["away_points"],
         "away_seed": int(row["away_seed"]),
         "winner_id": row["winner_id"],
+        "winner_name": _universe_winner_name(row),
         "tiebreak": _tiebreak_label(row.get("tiebreak")),
     }
+
+
+def _universe_winner_name(row: dict[str, Any]) -> str | None:
+    winner_id = row.get("winner_id")
+    if winner_id and winner_id == row.get("home_id"):
+        return row["home_name"]
+    if winner_id and winner_id == row.get("away_id"):
+        return row["away_name"]
+    return None
 
 
 def universe_brackets(year: int) -> list[dict[str, Any]]:
@@ -4442,93 +5084,181 @@ def players_index() -> dict[str, Any]:
             i.starts, i.bench_weeks, i.starter_points, i.rostered_weeks, i.fa_weeks,
             i.started_vorp, i.own_pct, i.lineup_weeks, i.times_drafted, i.times_added,
             i.times_traded,
-            coalesce(r.rings, 0) AS rings
+            coalesce(r.rings, 0) AS rings,
+            coalesce(r.title_starts, 0) AS title_starts,
+            coalesce(r.champ_roster_weeks, 0) AS champ_roster_weeks,
+            coalesce(jm.managers, 0) AS managers,
+            p.birth_date,
+            p.height_in,
+            p.weight_lb,
+            p.rookie_year,
+            CASE
+                WHEN p.birth_date IS NULL THEN NULL
+                ELSE EXTRACT(YEAR FROM age(p.birth_date))::integer
+            END AS age_years
         FROM v_player_index i
-        LEFT JOIN (
-            SELECT pw.player_id, count(DISTINCT pw.year) AS rings
-            FROM v_player_weeks pw
-            JOIN season_outcomes o ON o.year = pw.year AND o.champion = pw.manager_id
-            WHERE pw.started
-            GROUP BY pw.player_id
-        ) r ON r.player_id = i.player_id
+        LEFT JOIN players p ON p.id = i.player_id
+        LEFT JOIN v_player_rings r ON r.player_id = i.player_id
+        LEFT JOIN v_player_managers jm ON jm.player_id = i.player_id
         ORDER BY i.starter_points DESC, i.started_vorp DESC, i.player_name
         """
     )
     seasons = fetchall(
         """
         SELECT
-            year, player_id, player_name, position, rostered_weeks, starts,
-            fa_weeks, points, started_points, vorp, started_vorp, own_pct, manager_id,
-            owner_name, owned_weeks, lineup_weeks
-        FROM v_player_season
-        ORDER BY year DESC, started_points DESC, started_vorp DESC, player_name
+            s.year, s.player_id, s.player_name, s.position, s.rostered_weeks, s.starts,
+            s.fa_weeks, s.points, s.started_points, s.vorp, s.started_vorp, s.own_pct,
+            s.manager_id, s.owner_name, s.owned_weeks, s.lineup_weeks,
+            coalesce(jm.managers, 0) AS managers
+        FROM v_player_season s
+        LEFT JOIN v_player_managers_season jm
+            ON jm.year = s.year AND jm.player_id = s.player_id
+        ORDER BY s.year DESC, s.started_points DESC, s.started_vorp DESC, s.player_name
         """
     )
     for row in career:
         row["avg"] = _per_start(row.get("starter_points"), row.get("starts"))
+        row["height"] = format_height(row.get("height_in"))
     for row in seasons:
         row["avg"] = _per_start(row.get("started_points"), row.get("starts"))
     _attach_index_volatility(career, seasons)
     wire = _fa_vorp_board()
+    gap = wire["gap"]
+    gap["index_rows"] = len(career)
+    gap["season_rows"] = len(seasons)
+    gap["index_with"] = gap["index_rows"] + int(gap["excluded_players"])
+    gap["season_with"] = gap["season_rows"] + int(gap["excluded_seasons"])
     return {
         "career": career,
         "seasons": seasons,
         "wire_leaders": wire["leaders"],
+        "wire_career": wire["career"],
         "wire_unowned": wire["unowned"],
+        "wire_gap": gap,
         "counting": _players_counting_index(),
     }
 
 
-def _fa_vorp_board(*, leader_limit: int = 15, unowned_points: float = 15) -> dict[str, list[dict[str, Any]]]:
-    """Season FA VORP while unowned, plus never-rostered producers the career index drops."""
-    base = """
+def _fa_vorp_board(*, leader_limit: int = 15) -> dict[str, Any]:
+    """Season and career FA VORP, plus never-rostered seasons the index drops."""
+    return {
+        "leaders": _fa_season_leaders(limit=leader_limit),
+        "career": _fa_career_leaders(limit=leader_limit),
+        "unowned": _fa_season_leaders(limit=leader_limit, never_rostered=True, order="fa_points"),
+        "gap": _fa_index_gap(),
+    }
+
+
+def _fa_week_leaders(*, year: int | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    """Highest stored scores on posted weeks nobody rostered."""
+    return fetchall(
+        """
         SELECT
-            v.year,
-            v.player_id,
-            v.player_name,
-            v.position,
-            v.fa_weeks,
-            v.rostered_weeks,
-            v.fa_vorp,
-            fa.fa_points,
-            fa.best_week
-        FROM v_vorp_season v
-        JOIN (
-            SELECT
-                year,
-                player_id,
-                sum(points) AS fa_points,
-                max(points) AS best_week
-            FROM v_pool_weeks p
-            WHERE NOT p.rostered
-                AND EXISTS (
-                    SELECT 1
-                    FROM v_posted_weeks pw
-                    WHERE pw.year = p.year AND pw.week = p.week
-                )
-            GROUP BY p.year, p.player_id
-        ) fa ON fa.year = v.year AND fa.player_id = v.player_id
-    """
-    leaders = fetchall(
-        base
-        + """
-        WHERE v.fa_weeks > 0
-        ORDER BY v.fa_vorp DESC, fa.fa_points DESC, v.player_name
+            year, week, player_id, player_name, position,
+            points, vorp, replacement, replacement_player_id,
+            replacement_player_name, n_starters
+        FROM v_fa_weeks
+        WHERE (%(year)s::integer IS NULL OR year = %(year)s)
+        ORDER BY points DESC, vorp DESC, year, week, player_name
         LIMIT %(limit)s
         """,
-        {"limit": leader_limit},
+        {"year": year, "limit": limit},
     )
-    unowned = fetchall(
-        base
-        + """
-        WHERE v.rostered_weeks = 0
-            AND fa.best_week >= %(unowned_points)s
-            AND v.fa_vorp > 0
-        ORDER BY v.fa_vorp DESC, fa.best_week DESC, v.player_name
+
+
+def _fa_best_week_by_season() -> list[dict[str, Any]]:
+    """The highest unowned week in each season."""
+    return fetchall(
+        """
+        SELECT DISTINCT ON (year)
+            year, week, player_id, player_name, position, points, vorp
+        FROM v_fa_weeks
+        ORDER BY year DESC, points DESC, vorp DESC, week, player_name
+        """
+    )
+
+
+def _fa_season_leaders(
+    *,
+    year: int | None = None,
+    limit: int = 15,
+    never_rostered: bool = False,
+    order: str = "fa_vorp",
+) -> list[dict[str, Any]]:
+    """Most FA VORP in a season, or never-rostered seasons by unowned points."""
+    if order not in {"fa_vorp", "fa_points"}:
+        raise ValueError(order)
+    return fetchall(
+        f"""
+        SELECT
+            year, player_id, player_name, position,
+            fa_weeks, rostered_weeks, stored_weeks,
+            fa_points, stored_vorp, missing_vorp, fa_vorp,
+            best_week, best_points, best_vorp, never_rostered
+        FROM v_fa_season
+        WHERE (%(year)s::integer IS NULL OR year = %(year)s)
+            AND (%(never_rostered)s::boolean IS NOT TRUE OR never_rostered)
+        ORDER BY {order} DESC, fa_points DESC, year, player_name
+        LIMIT %(limit)s
         """,
-        {"unowned_points": unowned_points},
+        {"year": year, "limit": limit, "never_rostered": never_rostered},
     )
-    return {"leaders": leaders, "unowned": unowned}
+
+
+def _fa_career_leaders(*, limit: int = 15) -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT
+            player_id, player_name, position, seasons, first_year, last_year,
+            fa_weeks, rostered_weeks, fa_points, fa_vorp, best_points, never_rostered
+        FROM v_fa_career
+        ORDER BY fa_vorp DESC, fa_points DESC, player_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+
+
+def _fa_index_gap() -> dict[str, Any]:
+    """Players and seasons the starter index drops for zero rostered weeks."""
+    row = fetchone(
+        """
+        WITH seasons AS (
+            SELECT player_id, rostered_weeks, points
+            FROM v_vorp_season
+        ),
+        players AS (
+            SELECT
+                player_id,
+                sum(rostered_weeks) AS rostered_weeks,
+                sum(points) AS points
+            FROM seasons
+            GROUP BY player_id
+        )
+        SELECT
+            count(*) FILTER (WHERE rostered_weeks = 0) AS excluded_seasons,
+            count(*) FILTER (
+                WHERE rostered_weeks = 0 AND points <> 0
+            ) AS excluded_seasons_scored,
+            (
+                SELECT count(*)
+                FROM players
+                WHERE rostered_weeks = 0
+            ) AS excluded_players,
+            (
+                SELECT count(*)
+                FROM players
+                WHERE rostered_weeks = 0 AND points <> 0
+            ) AS excluded_players_scored
+        FROM seasons
+        """
+    )
+    return row or {
+        "excluded_seasons": 0,
+        "excluded_seasons_scored": 0,
+        "excluded_players": 0,
+        "excluded_players_scored": 0,
+    }
 
 
 def _per_start(points: Any, starts: Any) -> float | None:
@@ -4782,12 +5512,13 @@ def player_page(player_id: str) -> dict[str, Any] | None:
     _attach_sleeper_context(weeks, player_id)
     rings = _player_title_seasons(player_id)
     title_weeks = _player_title_weeks(player_id)
+    ring_row = _player_ring_row(player_id)
     volatility = _player_volatility_bundle(player_id, seasons, weeks)
     return {
         "player": identity,
         "seasons": seasons,
         "weeks": weeks,
-        "stints": _ownership_stints(scored_weeks),
+        "stints": _player_ownership_stints(player_id, scored_weeks),
         "draft": draft,
         "owners": owners,
         "bio": bio,
@@ -4795,8 +5526,12 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "rings": rings,
         "title_weeks": title_weeks,
         "ring_points": sum(float(row["points"] or 0) for row in title_weeks),
+        "champ_roster_weeks": int(ring_row["champ_roster_weeks"] or 0),
+        "title_starts": int(ring_row["title_starts"] or 0),
+        "title_points": float(ring_row["title_points"] or 0),
         "lines": lines,
         "counting": _player_counting(player_id),
+        "splits": _player_splits(player_id),
         "volatility": volatility,
     }
 
@@ -6164,14 +6899,39 @@ def _member_platform_split(manager_id: str) -> list[dict[str, Any]]:
 
 
 def _player_bio(player_id: str) -> dict[str, Any] | None:
-    return fetchone(
+    row = fetchone(
         """
-        SELECT nfl_team, college, years_exp, jersey_number, position, display_name
+        SELECT
+            nfl_team,
+            college,
+            years_exp,
+            jersey_number,
+            position,
+            display_name,
+            birth_date,
+            height_in,
+            weight_lb,
+            high_school,
+            rookie_year,
+            catalog_as_of,
+            nfl_status,
+            injury_status,
+            injury_body_part,
+            injury_notes,
+            depth_chart_position,
+            depth_chart_order,
+            CASE
+                WHEN birth_date IS NULL THEN NULL
+                ELSE EXTRACT(YEAR FROM age(birth_date))::integer
+            END AS age_years
         FROM players
         WHERE id = %(player_id)s
         """,
         {"player_id": player_id},
     )
+    if row is not None:
+        row["height"] = format_height(row.get("height_in"))
+    return row
 
 
 def _player_chairs(player_id: str) -> dict[str, Any]:
@@ -6380,129 +7140,11 @@ def _record_counting_leaders(limit: int = 10) -> list[dict[str, Any]]:
     return boards
 
 
-def _position_key(position: str) -> tuple[int, str]:
-    return (SLOT_ORDER.get(position, 100), position)
-
-
-def _replacement_landscape(year: int) -> dict[str, Any] | None:
-    averages = fetchall(
-        """
-        SELECT
-            position,
-            avg(replacement) AS replacement,
-            count(*) AS weeks,
-            avg(n_starters) AS starters
-        FROM v_replacement_weeks
-        GROUP BY position
-        """
-    )
-    if not averages:
-        return None
-    current_rows = fetchall(
-        """
-        SELECT DISTINCT ON (r.position)
-            r.position,
-            r.week,
-            r.replacement,
-            r.replacement_player_id AS player_id,
-            coalesce(p.display_name, r.replacement_player_id) AS player_name
-        FROM v_replacement_weeks r
-        LEFT JOIN players p ON p.id = r.replacement_player_id
-        WHERE r.year = %(year)s
-        ORDER BY r.position, r.week DESC
-        """,
-        {"year": year},
-    )
-    current = {row["position"]: row for row in current_rows}
-    rows = []
-    for row in sorted(averages, key=lambda item: _position_key(str(item["position"]))):
-        latest = current.get(row["position"]) or {}
-        rows.append(
-            {
-                "position": row["position"],
-                "replacement": float(row["replacement"]),
-                "weeks": int(row["weeks"]),
-                "starters": float(row["starters"]),
-                "week": int(latest["week"]) if latest.get("week") is not None else None,
-                "points": float(latest["replacement"]) if latest.get("replacement") is not None else None,
-                "player_id": latest.get("player_id"),
-                "player_name": latest.get("player_name"),
-            }
-        )
-    week_counts = {row["weeks"] for row in rows}
-    return {
-        "rows": rows,
-        "weeks": week_counts.pop() if len(week_counts) == 1 else None,
-    }
-
-
-def _week_spread(year: int) -> dict[str, Any] | None:
-    rows = fetchall(
-        """
-        SELECT
-            w.week,
-            min(w.points) AS low,
-            max(w.points) AS high,
-            avg(w.points) AS avg,
-            percentile_cont(0.5) WITHIN GROUP (ORDER BY w.points) AS median,
-            stddev_samp(w.points) AS spread
-        FROM week_scores w
-        JOIN v_posted_weeks pw ON pw.year = w.year AND pw.week = w.week
-        WHERE w.year = %(year)s
-            AND w.paired
-            AND EXISTS (
-                SELECT 1
-                FROM matchups m
-                WHERE m.year = w.year
-                    AND m.week = w.week
-                    AND m.kind = 'regular'
-                    AND (m.home_points <> 0 OR m.away_points <> 0)
-            )
-        GROUP BY w.week
-        ORDER BY w.week
-        """,
-        {"year": year},
-    )
-    weeks = []
-    for row in rows:
-        spread = row["spread"]
-        weeks.append(
-            {
-                "week": int(row["week"]),
-                "low": float(row["low"]),
-                "high": float(row["high"]),
-                "avg": float(row["avg"]),
-                "median": float(row["median"]),
-                "spread": float(spread) if spread is not None else None,
-            }
-        )
-    if not weeks:
-        return None
-    measured = [row["spread"] for row in weeks if row["spread"] is not None]
-    tight_value = min(measured) if measured else None
-    wild_value = max(measured) if measured else None
-    flat = tight_value is not None and tight_value == wild_value
-    for row in weeks:
-        row["mark"] = None
-        if flat or row["spread"] is None:
-            continue
-        if row["spread"] == tight_value:
-            row["mark"] = "tightest"
-        elif row["spread"] == wild_value:
-            row["mark"] = "wildest"
-    return {
-        "weeks": weeks,
-        "flat": flat,
-        "tightest": [] if flat else [row for row in weeks if row["mark"] == "tightest"],
-        "wildest": [] if flat else [row for row in weeks if row["mark"] == "wildest"],
-    }
-
-
 def scoring_sheet(year: int) -> dict[str, Any] | None:
     current = season_row(year)
     if current is None:
         return None
-    rows = _scoring_rows(current.get("scoring_settings"))
+    view = _scoring_view(current.get("scoring_settings"))
     spent = []
     if current.get("faab_budget"):
         spent = fetchall(
@@ -6532,13 +7174,20 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
         for row in spent:
             row["remaining"] = budget - int(row["spent"] or 0)
             row["budget"] = budget
+    environment = _scoring_environment_year(year)
     return {
         "current": current,
         "seasons": list_seasons(),
-        "rows": rows,
+        "rows": view["rows"],
+        "espn_sheet": view["espn_sheet"],
+        "item_count": view["item_count"],
+        "skipped": view["skipped"],
+        "unmapped": view["unmapped"],
+        "rule_diff": scoring_rule_diff(),
         "faab": spent,
-        "replacement": _replacement_landscape(year),
-        "spread": _week_spread(year),
+        "environment": environment,
+        "replacement": _replacement_board(year),
+        "spread": _spread_section(environment),
     }
 
 
@@ -6555,6 +7204,9 @@ def records_page() -> dict[str, Any]:
         "drafts": _record_drafts(),
         "wire_adds": _record_wire_adds(),
         "wire_misses": _record_wire_misses(),
+        "wire_unclaimed": _fa_week_leaders(limit=10),
+        "wire_unclaimed_seasons": _fa_best_week_by_season(),
+        "wire_fa_leaders": _fa_season_leaders(limit=10),
         "bench_weeks": _record_bench_weeks(),
         "bench_seasons": _record_bench_seasons(),
         "win_streaks": longest_streaks("win"),
@@ -6580,12 +7232,27 @@ def records_page() -> dict[str, Any]:
         "wire_eras": _wire_eras(),
         "coaches": management_career(),
         "draft_capital": _record_draft_capital(),
+        "trade_partners": _record_trade_partners(),
+        "waiver_roi": _record_waiver_roi(),
+        "roster_shape": _record_roster_shape(),
         "awards": _record_awards(),
         "journeymen": _record_journeymen(),
         "most_traded": _record_most_traded(),
+        "rings": _record_rings(),
         "counting_leaders": _record_counting_leaders(),
         "counting_summaries": _record_counting_summaries(),
         "positional_finish_leaders": _record_positional_finishes(),
+        "league_week_records": _record_league_weeks(),
+        "scoring_seasons": _scoring_environment_table(),
+        "consistency": _record_consistency(),
+        "one_score": _record_one_score_career(),
+        "blowout_record": _record_blowout_career(),
+        "pythagorean": _record_pythagorean(),
+        "clutch_cuts": _clutch_cuts(),
+        "stacks": _record_stacks(),
+        "lineup_counting": _record_lineup_counting(),
+        "playoff_history": _record_playoff_history(),
+        "universe_replay": _record_universe_replay(),
     }
 
 
@@ -6888,19 +7555,119 @@ def _record_draft_capital() -> list[dict[str, Any]]:
         """
         SELECT
             d.manager_id,
-            max(d.manager_name) AS manager_name,
-            sum(d.picks) AS picks,
-            sum(d.vs_vorp) AS vs_vorp,
-            sum(d.vs_round) AS vs_round,
-            sum(d.hits) AS hits,
-            sum(d.ros_vorp) AS ros_vorp,
+            d.manager_name,
+            d.seasons,
+            d.picks,
+            d.hits,
+            d.hit_rate,
+            d.vs_vorp,
+            d.vs_round,
+            d.ros_vorp,
             c.titles
-        FROM v_draft_manager d
+        FROM v_draft_career d
         LEFT JOIN v_career c ON c.manager_id = d.manager_id
-        GROUP BY d.manager_id, c.titles
-        ORDER BY sum(d.vs_vorp) DESC NULLS LAST, max(d.manager_name), d.manager_id
+        ORDER BY d.vs_vorp DESC NULLS LAST, d.manager_name, d.manager_id
         """
     )
+
+
+def _waiver_cost_coverage() -> list[dict[str, Any]]:
+    return fetchall(
+        """
+        SELECT *
+        FROM v_waiver_cost_coverage
+        ORDER BY year
+        """
+    )
+
+
+def _pair_symmetry(rows: list[dict[str, Any]]) -> float:
+    """Largest |net_left + net_right|. The view defines the right as the negation."""
+    worst = 0.0
+    for row in rows:
+        gap = abs(float(row["net_left_vorp"] or 0) + float(row["net_right_vorp"] or 0))
+        if gap > worst:
+            worst = gap
+    if worst < 1e-9:
+        return 0.0
+    return worst
+
+
+def _record_trade_partners() -> dict[str, Any]:
+    pairs = fetchall(
+        """
+        SELECT *
+        FROM v_trade_pairs
+        ORDER BY deals DESC, abs(net_left_vorp) DESC, left_name, right_name
+        """
+    )
+    most = max((int(row["deals"]) for row in pairs), default=0)
+    busiest: list[dict[str, Any]] = []
+    for row in pairs:
+        if int(row["deals"]) != most:
+            continue
+        trades = fetchall(
+            """
+            SELECT
+                transaction_id, year, week,
+                left_id, left_name, left_received, left_vorp,
+                right_id, right_name, right_received, right_vorp,
+                left_vorp_edge, winner_id, winner_name
+            FROM v_trade_grades
+            WHERE left_id = %(left_id)s AND right_id = %(right_id)s
+            ORDER BY year, week, transaction_id
+            """,
+            {"left_id": row["left_id"], "right_id": row["right_id"]},
+        )
+        busiest.append({"pair": row, "trades": trades})
+    return {
+        "pairs": pairs,
+        "symmetry_gap": _pair_symmetry(pairs),
+        "busiest": busiest,
+    }
+
+
+def _record_waiver_roi() -> dict[str, Any]:
+    return {
+        "seasons": fetchall(
+            """
+            SELECT *
+            FROM v_waiver_priority_season
+            ORDER BY year, vorp_per_priority DESC NULLS LAST, manager_name
+            """
+        ),
+        "career": fetchall(
+            """
+            SELECT *
+            FROM v_waiver_priority_career
+            ORDER BY vorp_per_priority DESC NULLS LAST, manager_name
+            """
+        ),
+        "coverage": _waiver_cost_coverage(),
+    }
+
+
+def _record_roster_shape() -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_season
+        ORDER BY year, manager_name, manager_id
+        """
+    )
+    career = fetchall(
+        """
+        SELECT *
+        FROM v_roster_shape_career
+        ORDER BY manager_name, manager_id
+        """
+    )
+    return {
+        "seasons": seasons,
+        "career": career,
+        "league_ir_slots": sum(int(row["ir_slots"] or 0) for row in career),
+        "show_other": _shape_has_other(seasons) or _shape_has_other(career),
+    }
 
 
 def _record_awards() -> list[dict[str, Any]]:
@@ -6919,7 +7686,11 @@ def _record_awards() -> list[dict[str, Any]]:
             CASE WHEN fin.regular_season_complete THEN o.most_points END
                 AS most_points_id,
             CASE WHEN fin.regular_season_complete THEN mp.display_name END
-                AS most_points
+                AS most_points,
+            CASE WHEN fin.regular_season_complete THEN last.manager_id END
+                AS last_place_id,
+            CASE WHEN fin.regular_season_complete THEN last.display_name END
+                AS last_place
         FROM seasons s
         JOIN v_finished_seasons fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
@@ -6927,6 +7698,14 @@ def _record_awards() -> list[dict[str, Any]]:
         LEFT JOIN managers ru ON ru.id = o.runner_up
         LEFT JOIN managers rs ON rs.id = o.regular_season_champion
         LEFT JOIN managers mp ON mp.id = o.most_points
+        LEFT JOIN LATERAL (
+            SELECT st.manager_id, st.display_name
+            FROM v_standings_official st
+            WHERE st.year = s.year
+                AND st.wins + st.losses + st.ties > 0
+            ORDER BY st.rank DESC, st.manager_id
+            LIMIT 1
+        ) last ON TRUE
         ORDER BY s.year
         """
     )
@@ -6935,17 +7714,10 @@ def _record_awards() -> list[dict[str, Any]]:
 def _record_journeymen() -> list[dict[str, Any]]:
     return fetchall(
         """
-        SELECT
-            o.player_id,
-            coalesce(p.display_name, o.player_id) AS player_name,
-            p.position,
-            count(DISTINCT o.manager_id) AS managers
-        FROM v_ownership_season o
-        LEFT JOIN players p ON p.id = o.player_id
-        WHERE o.manager_id IS NOT NULL
-        GROUP BY o.player_id, p.display_name, p.position
-        HAVING count(DISTINCT o.manager_id) >= 3
-        ORDER BY count(DISTINCT o.manager_id) DESC, player_name, o.player_id
+        SELECT player_id, player_name, position, managers
+        FROM v_player_managers
+        WHERE managers >= 3
+        ORDER BY managers DESC, player_name, player_id
         """
     )
 
@@ -6966,7 +7738,27 @@ def _record_most_traded(limit: int = 10) -> dict[str, Any]:
         {"limit": limit},
     )
     total = fetchone("SELECT count(*) AS moves FROM v_trades")
-    return {"rows": rows, "moves": int((total or {}).get("moves") or 0)}
+    parties = fetchone(
+        """
+        SELECT
+            count(*) AS trades,
+            count(*) FILTER (WHERE managers = 2) AS two_manager
+        FROM (
+            SELECT t.id, count(DISTINCT mv.manager_id) AS managers
+            FROM transactions t
+            JOIN transaction_moves mv ON mv.transaction_id = t.id
+            WHERE t.type = 'trade'
+                AND t.status = 'complete'
+            GROUP BY t.id
+        ) s
+        """
+    )
+    return {
+        "rows": rows,
+        "moves": int((total or {}).get("moves") or 0),
+        "trades": int((parties or {}).get("trades") or 0),
+        "two_manager": int((parties or {}).get("two_manager") or 0),
+    }
 
 
 def _wire_eras() -> list[dict[str, Any]]:
@@ -7041,6 +7833,60 @@ def _exclude_nfl_team_totals(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
         for row in rows
         if not str(row.get("player_id") or "").startswith("TEAM_")
     ]
+
+
+# Issue #37. Phase and half rows are v_player_season_splits. Opponent and
+# home/away rows are the 2022-2023 schedule views. The page prints the
+# current-club caveat next to those tables.
+def _player_splits(player_id: str) -> dict[str, Any]:
+    rows = fetchall(
+        """
+        SELECT *
+        FROM v_player_season_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC,
+            CASE split_family WHEN 'phase' THEN 0 ELSE 1 END,
+            CASE split_value
+                WHEN 'regular' THEN 0
+                WHEN 'playoff' THEN 1
+                WHEN 'first' THEN 2
+                WHEN 'second' THEN 3
+                ELSE 4
+            END
+        """,
+        {"player_id": player_id},
+    )
+    opponents = fetchall(
+        """
+        SELECT year, nfl_team, opponent, games, points, points_per_game
+        FROM v_player_opponent_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC, games DESC, points DESC, opponent
+        """,
+        {"player_id": player_id},
+    )
+    sites = fetchall(
+        """
+        SELECT year, nfl_team, site, games, points, points_per_game
+        FROM v_player_site_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC, CASE site WHEN 'home' THEN 0 ELSE 1 END
+        """,
+        {"player_id": player_id},
+    )
+    bounds = fetchall(
+        """
+        SELECT year, regular_weeks, midpoint, playoff_start_week
+        FROM v_season_split_bounds
+        ORDER BY year
+        """
+    )
+    return {
+        "rows": rows,
+        "opponents": opponents,
+        "sites": sites,
+        "bounds": bounds,
+    }
 
 
 def _player_counting(player_id: str) -> dict[str, Any]:
@@ -7463,6 +8309,1534 @@ def _manager_volatility_bundle(manager_id: str) -> dict[str, Any] | None:
         """,
         {"manager_id": manager_id},
     )
+    weeks = fetchall(
+        """
+        SELECT year, week, points, season_mean, deviation, is_boom, is_bust, partial_season
+        FROM v_manager_week_deviation
+        WHERE manager_id = %(manager_id)s
+        ORDER BY year, week
+        """,
+        {"manager_id": manager_id},
+    )
     if career is None and not seasons:
         return None
-    return {"career": career, "seasons": seasons}
+    return {"career": career, "seasons": seasons, "weeks": weeks}
+
+
+# Ownership journey (sql/analysis/61_ownership_journey.sql, issue #35).
+# Stints partition rostered weeks. A missing week starts a new run.
+# Acquisition is the draft or the latest complete add on or before the run.
+
+
+_ACQUISITION_LABELS = {
+    "draft": "Draft",
+    "waiver": "Waiver",
+    "free_agent": "Free agent",
+    "trade": "Trade",
+}
+
+
+def _player_ring_row(player_id: str) -> dict[str, Any]:
+    row = fetchone(
+        """
+        SELECT rings, champ_roster_weeks, title_starts, title_points
+        FROM v_player_rings
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    if row is None:
+        return {
+            "rings": 0,
+            "champ_roster_weeks": 0,
+            "title_starts": 0,
+            "title_points": 0,
+        }
+    return row
+
+
+def _player_ownership_stints(player_id: str, weeks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rostered runs from v_ownership_stints, plus FA runs from stored unowned weeks."""
+    rostered = fetchall(
+        """
+        SELECT
+            manager_id, manager_name, from_year, from_week, to_year, to_week,
+            weeks, tenure_starts, tenure_points, acquisition_type, transaction_id
+        FROM v_ownership_stints
+        WHERE player_id = %(player_id)s
+        ORDER BY from_year, from_week, manager_id
+        """,
+        {"player_id": player_id},
+    )
+    rows: list[dict[str, Any]] = []
+    for row in rostered:
+        start = int(row["from_week"])
+        end = int(row["to_week"])
+        year = int(row["from_year"])
+        to_year = int(row["to_year"])
+        kind = row["acquisition_type"]
+        rows.append(
+            {
+                "year": year,
+                "to_year": to_year,
+                "start_week": start,
+                "end_week": end,
+                "span": _stint_span(year, start, to_year, end),
+                "manager_id": row["manager_id"],
+                "manager_name": row["manager_name"],
+                "weeks": int(row["weeks"]),
+                "starts": int(row["tenure_starts"] or 0),
+                "points": float(row["tenure_points"] or 0),
+                "acquisition": kind,
+                "acquisition_label": _ACQUISITION_LABELS.get(kind or "", ""),
+                "href": _acquisition_href(year, kind, row["transaction_id"]),
+            }
+        )
+    for stint in _ownership_stints(weeks):
+        if stint.get("manager_id"):
+            continue
+        stint["to_year"] = stint["year"]
+        stint["acquisition"] = None
+        stint["acquisition_label"] = ""
+        stint["href"] = None
+        rows.append(stint)
+    rows.sort(
+        key=lambda item: (
+            int(item["year"]),
+            int(item["start_week"]),
+            item.get("manager_id") or "",
+        )
+    )
+    return rows
+
+
+def _stint_span(year: int, start: int, to_year: int, end: int) -> str:
+    if year == to_year:
+        if start == end:
+            return f"W{start}"
+        return f"W{start}\u2013W{end}"
+    return f"{year} W{start}\u2013{to_year} W{end}"
+
+
+def _acquisition_href(year: int, kind: str | None, transaction_id: str | None) -> str | None:
+    if kind == "draft":
+        return f"/seasons/{year}/draft"
+    if kind in {"waiver", "free_agent", "trade"} and transaction_id:
+        return _move_href(year, kind, transaction_id)
+    return None
+
+
+def _record_rings() -> dict[str, Any]:
+    rows = fetchall(
+        """
+        SELECT
+            player_id, player_name, position, rings,
+            champ_roster_weeks, title_starts, title_points
+        FROM v_player_rings
+        WHERE champ_roster_weeks > 0
+            OR title_starts > 0
+            OR rings > 0
+        ORDER BY champ_roster_weeks DESC, title_starts DESC, title_points DESC, player_name, player_id
+        """
+    )
+    for row in rows:
+        row["title_points"] = float(row["title_points"] or 0)
+    totals = fetchone(
+        """
+        SELECT
+            count(*) FILTER (WHERE title_starts > 0) AS title_players,
+            coalesce(sum(title_starts), 0) AS title_starts,
+            coalesce(sum(title_points), 0) AS title_points,
+            count(*) FILTER (WHERE champ_roster_weeks > 0) AS champ_players,
+            coalesce(sum(champ_roster_weeks), 0) AS champ_weeks,
+            count(*) FILTER (WHERE rings > 0) AS ring_players,
+            coalesce(sum(rings), 0) AS ring_seasons
+        FROM v_player_rings
+        """
+    ) or {}
+    return {
+        "rows": rows,
+        "title_players": int(totals.get("title_players") or 0),
+        "title_starts": int(totals.get("title_starts") or 0),
+        "title_points": float(totals.get("title_points") or 0),
+        "champ_players": int(totals.get("champ_players") or 0),
+        "champ_weeks": int(totals.get("champ_weeks") or 0),
+        "ring_players": int(totals.get("ring_players") or 0),
+        "ring_seasons": int(totals.get("ring_seasons") or 0),
+    }
+
+
+# League scoring environment (sql/analysis/98_scoring_environment.sql).
+# Appended so sibling tickets can keep editing the queries above.
+# Manager-weeks are posted regular-season totals. Replacement weeks keep
+# every posted week, playoffs included, and name the Nth player.
+
+
+SCORING_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+_DECILE_FIELDS = (
+    ("p10", "10th"),
+    ("p20", "20th"),
+    ("p30", "30th"),
+    ("p40", "40th"),
+    ("median_points", "50th"),
+    ("p60", "60th"),
+    ("p70", "70th"),
+    ("p80", "80th"),
+    ("p90", "90th"),
+)
+
+_LEAGUE_WEEK_SQL = """
+SELECT
+    year,
+    week,
+    managers,
+    league_total,
+    mean_points,
+    median_points,
+    low_points,
+    high_points,
+    spread,
+    point_span
+FROM v_scoring_league_weeks
+"""
+
+
+def _f(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def _pack_league_week(row: dict[str, Any]) -> dict[str, Any]:
+    mean = _f(row["mean_points"])
+    return {
+        "year": int(row["year"]),
+        "week": int(row["week"]),
+        "managers": int(row["managers"]),
+        "total": _f(row["league_total"]),
+        "mean": mean,
+        "avg": mean,
+        "median": _f(row["median_points"]),
+        "low": _f(row["low_points"]),
+        "high": _f(row["high_points"]),
+        "spread": _f(row["spread"]),
+        "span": _f(row["point_span"]),
+        "marks": [],
+    }
+
+
+def _extreme(
+    weeks: list[dict[str, Any]],
+    key: str,
+    *,
+    high: bool,
+) -> tuple[list[dict[str, Any]], bool]:
+    values = [row[key] for row in weeks if row[key] is not None]
+    if not values:
+        return [], False
+    target = max(values) if high else min(values)
+    rows = [row for row in weeks if row[key] == target]
+    flat = len(rows) == len(weeks) and len(weeks) > 1
+    return rows, flat
+
+
+def _same_number(rows: list[dict[str, Any]], key: str) -> float | None:
+    values = [row[key] for row in rows if row[key] is not None]
+    if not values or any(value != values[0] for value in values):
+        return None
+    return values[0]
+
+
+def _annotate_league_weeks(weeks: list[dict[str, Any]]) -> dict[str, Any]:
+    for row in weeks:
+        row["marks"] = []
+    tight_rows, flat_spread = _extreme(weeks, "spread", high=False)
+    wild_rows, _wild_flat = _extreme(weeks, "spread", high=True)
+    boom_rows, flat_total = _extreme(weeks, "total", high=True)
+    mean_rows, flat_mean = _extreme(weeks, "mean", high=True)
+    same_ends = {row["week"] for row in tight_rows} == {row["week"] for row in wild_rows}
+    matches = {row["week"] for row in boom_rows} == {row["week"] for row in mean_rows}
+    if not flat_spread:
+        for row in tight_rows:
+            row["marks"].append("tightest")
+        if not same_ends:
+            for row in wild_rows:
+                row["marks"].append("wildest")
+    if not flat_total:
+        for row in boom_rows:
+            row["marks"].append("boom")
+    if not flat_mean and not matches:
+        for row in mean_rows:
+            row["marks"].append("mean")
+    return {
+        "tightest": tight_rows,
+        "wildest": [] if flat_spread or same_ends else wild_rows,
+        "boom": boom_rows,
+        "boom_mean": mean_rows,
+        "boom_matches_mean": matches,
+        "flat_spread": flat_spread,
+        "flat_total": flat_total,
+        "flat_mean": flat_mean,
+        "tight_spread": _same_number(tight_rows, "spread"),
+        "tight_span": _same_number(tight_rows, "span"),
+        "boom_total": _same_number(boom_rows, "total"),
+        "boom_mean_value": _same_number(boom_rows, "mean"),
+    }
+
+
+def _load_league_weeks() -> list[dict[str, Any]]:
+    rows = fetchall(_LEAGUE_WEEK_SQL + " ORDER BY year, week")
+    return [_pack_league_week(row) for row in rows]
+
+
+def _pack_season(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "year": int(row["year"]),
+        "weeks": int(row["weeks"]),
+        "manager_weeks": int(row["manager_weeks"]),
+        "managers": int(row["managers"]),
+        "avg": _f(row["avg_points"]),
+        "median": _f(row["median_points"]),
+        "stddev": _f(row["stddev_points"]),
+        "min": _f(row["min_points"]),
+        "max": _f(row["max_points"]),
+        "total_pf": _f(row["total_pf"]),
+        "partial": bool(row["partial_season"]),
+        "deciles": [
+            {"label": label, "value": _f(row[column])}
+            for column, label in _DECILE_FIELDS
+        ],
+        "shares": {},
+        "other": None,
+    }
+
+
+def _scoring_bundle() -> tuple[list[dict[str, Any]], bool, dict[int, list[dict[str, Any]]]]:
+    seasons = [
+        _pack_season(row)
+        for row in fetchall(
+            """
+            SELECT
+                year, weeks, manager_weeks, managers,
+                avg_points, median_points, stddev_points,
+                min_points, max_points, total_pf,
+                p10, p20, p30, p40, p60, p70, p80, p90,
+                partial_season
+            FROM v_scoring_season
+            ORDER BY year
+            """
+        )
+    ]
+    by_year = {season["year"]: season for season in seasons}
+    show_other = False
+    for row in fetchall(
+        """
+        SELECT year, position, points, starts, share
+        FROM v_scoring_position_share
+        """
+    ):
+        season = by_year.get(int(row["year"]))
+        if season is None:
+            continue
+        cell = {
+            "points": _f(row["points"]),
+            "starts": int(row["starts"]),
+            "share": _f(row["share"]),
+        }
+        position = str(row["position"])
+        if position in SCORING_POSITIONS:
+            season["shares"][position] = cell
+            continue
+        show_other = True
+        other = season["other"]
+        if other is None:
+            season["other"] = dict(cell)
+            continue
+        other["points"] = (other["points"] or 0) + (cell["points"] or 0)
+        other["share"] = (other["share"] or 0) + (cell["share"] or 0)
+        other["starts"] = int(other["starts"]) + int(cell["starts"])
+    for season in seasons:
+        started = sum((cell["points"] or 0) for cell in season["shares"].values())
+        if season["other"] is not None:
+            started += season["other"]["points"] or 0
+        season["started_points"] = started
+        season["pf_gap"] = (season["total_pf"] or 0) - started
+    weeks_by_year: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for week in _load_league_weeks():
+        weeks_by_year[week["year"]].append(week)
+    for season in seasons:
+        season.update(_annotate_league_weeks(weeks_by_year.get(season["year"], [])))
+    return seasons, show_other, weeks_by_year
+
+
+def _scoring_environment_table() -> dict[str, Any]:
+    seasons, show_other, _weeks = _scoring_bundle()
+    return {
+        "seasons": seasons,
+        "show_other": show_other,
+        "positions": list(SCORING_POSITIONS),
+    }
+
+
+def _scoring_environment_year(year: int) -> dict[str, Any] | None:
+    seasons, show_other, weeks_by_year = _scoring_bundle()
+    current = next((season for season in seasons if season["year"] == year), None)
+    if current is None:
+        return None
+    return {
+        "season": current,
+        "seasons": seasons,
+        "show_other": show_other,
+        "positions": list(SCORING_POSITIONS),
+        "weeks": weeks_by_year.get(year, []),
+        "tightest": current["tightest"],
+        "wildest": current["wildest"],
+        "boom": current["boom"],
+        "boom_mean": current["boom_mean"],
+        "boom_matches_mean": current["boom_matches_mean"],
+        "flat_spread": current["flat_spread"],
+        "flat_total": current["flat_total"],
+        "flat_mean": current["flat_mean"],
+    }
+
+
+def _spread_section(environment: dict[str, Any] | None) -> dict[str, Any] | None:
+    if environment is None or not environment["weeks"]:
+        return None
+    flat = environment["flat_spread"]
+    return {
+        "weeks": environment["weeks"],
+        "flat": flat,
+        "tightest": [] if flat else environment["tightest"],
+        "wildest": [] if flat else environment["wildest"],
+        "boom": [] if environment["flat_total"] else environment["boom"],
+        "boom_matches_mean": environment["boom_matches_mean"],
+    }
+
+
+def _record_league_weeks(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    boards = {
+        "high_total": "total_high_rank, year, week",
+        "low_total": "total_low_rank, year, week",
+        "high_mean": "mean_high_rank, year, week",
+        "low_mean": "mean_low_rank, year, week",
+    }
+    packed: dict[str, list[dict[str, Any]]] = {}
+    for key, order in boards.items():
+        rows = fetchall(
+            f"""
+            SELECT
+                year, week, managers, league_total, mean_points,
+                median_points, low_points, high_points, spread, point_span
+            FROM v_scoring_league_week_ranks
+            ORDER BY {order}
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+        packed[key] = [_pack_league_week(row) for row in rows]
+    return packed
+
+
+def _replacement_board(year: int) -> dict[str, Any] | None:
+    baseline_rows = fetchall(
+        """
+        SELECT position, replacement, weeks, starters
+        FROM v_replacement_baseline
+        """
+    )
+    if not baseline_rows:
+        return None
+    season_rows = fetchall(
+        """
+        SELECT position, replacement, weeks, starters
+        FROM v_replacement_season
+        WHERE year = %(year)s
+        """,
+        {"year": year},
+    )
+    week_rows = fetchall(
+        """
+        SELECT
+            n.week,
+            n.position,
+            n.n_starters,
+            n.replacement,
+            n.replacement_player_id,
+            n.replacement_player_name,
+            (g.week IS NOT NULL) AS regular_week
+        FROM v_replacement_named n
+        LEFT JOIN v_scoring_league_weeks g
+            ON g.year = n.year
+            AND g.week = n.week
+        WHERE n.year = %(year)s
+        ORDER BY n.week, n.position
+        """,
+        {"year": year},
+    )
+    baseline = {row["position"]: row for row in baseline_rows}
+    season = {row["position"]: row for row in season_rows}
+    positions = [pos for pos in SCORING_POSITIONS if pos in baseline or pos in season]
+    positions.extend(sorted((set(baseline) | set(season)) - set(positions)))
+    rows = []
+    for position in positions:
+        season_row = season.get(position) or {}
+        base_row = baseline.get(position) or {}
+        rows.append(
+            {
+                "position": position,
+                "replacement": _f(season_row.get("replacement")),
+                "weeks": int(season_row["weeks"]) if season_row.get("weeks") is not None else None,
+                "starters": _f(season_row.get("starters")),
+                "baseline": _f(base_row.get("replacement")),
+                "baseline_weeks": int(base_row["weeks"]) if base_row.get("weeks") is not None else None,
+            }
+        )
+    by_week: dict[int, dict[str, Any]] = {}
+    for row in week_rows:
+        week = int(row["week"])
+        bucket = by_week.get(week)
+        if bucket is None:
+            bucket = {
+                "week": week,
+                "regular": bool(row["regular_week"]),
+                "cells": {},
+            }
+            by_week[week] = bucket
+        bucket["cells"][row["position"]] = {
+            "points": _f(row["replacement"]),
+            "starters": int(row["n_starters"]),
+            "player_id": row["replacement_player_id"],
+            "player": row["replacement_player_name"],
+        }
+    weeks = [by_week[week] for week in sorted(by_week)]
+    posted = {row["weeks"] for row in rows if row["weeks"] is not None}
+    baseline_weeks = {row["baseline_weeks"] for row in rows if row["baseline_weeks"] is not None}
+    return {
+        "rows": rows,
+        "positions": positions,
+        "weeks": weeks,
+        "posted_weeks": posted.pop() if len(posted) == 1 else None,
+        "playoff_weeks": sum(1 for week in weeks if not week["regular"]),
+        "baseline_weeks": baseline_weeks.pop() if len(baseline_weeks) == 1 else None,
+    }
+
+
+def _margin_record(row: dict[str, Any], band: str) -> str | None:
+    games = row.get(f"{band}_games")
+    if not games:
+        return None
+    return _record(
+        int(row[f"{band}_wins"] or 0),
+        int(row[f"{band}_losses"] or 0),
+        int(row[f"{band}_ties"] or 0),
+    )
+
+
+def _stamp_h2h(row: dict[str, Any]) -> None:
+    if row.get("wins") is None and row.get("losses") is None and row.get("ties") is None:
+        row["h2h"] = None
+        return
+    row["h2h"] = _record(int(row["wins"] or 0), int(row["losses"] or 0), int(row["ties"] or 0))
+
+
+def _clutch_cuts() -> dict[str, Any] | None:
+    return fetchone(
+        """
+        SELECT one_score_margin, blowout_margin, pythagorean_exponent
+        FROM v_clutch_cuts
+        """
+    )
+
+
+def _manager_clutch_bundle(manager_id: str) -> dict[str, Any] | None:
+    seasons = fetchall(
+        """
+        SELECT
+            c.year, c.games, c.partial_season,
+            c.one_score_games, c.one_score_wins, c.one_score_losses, c.one_score_ties,
+            c.one_score_win_pct,
+            c.blowout_games, c.blowout_wins, c.blowout_losses, c.blowout_ties,
+            c.blowout_win_pct,
+            c.one_score_margin, c.blowout_margin,
+            p.wins, p.losses, p.ties, p.points_for, p.points_against,
+            p.actual_wins, p.exponent, p.pythagorean_wins, p.wins_vs_pythagorean,
+            p.wins_vs_expected, p.lens_gap
+        FROM v_clutch_season c
+        LEFT JOIN v_pythagorean_season p
+            ON p.year = c.year AND p.manager_id = c.manager_id
+        WHERE c.manager_id = %(manager_id)s
+        ORDER BY c.year
+        """,
+        {"manager_id": manager_id},
+    )
+    career = fetchone(
+        """
+        SELECT
+            c.seasons, c.games, c.includes_partial,
+            c.one_score_games, c.one_score_wins, c.one_score_losses, c.one_score_ties,
+            c.one_score_win_pct,
+            c.blowout_games, c.blowout_wins, c.blowout_losses, c.blowout_ties,
+            c.blowout_win_pct,
+            c.one_score_margin, c.blowout_margin,
+            p.wins, p.losses, p.ties, p.points_for, p.points_against,
+            p.actual_wins, p.exponent, p.pythagorean_wins, p.wins_vs_pythagorean,
+            p.wins_vs_expected, p.lens_gap
+        FROM v_clutch_career c
+        LEFT JOIN v_pythagorean_career p ON p.manager_id = c.manager_id
+        WHERE c.manager_id = %(manager_id)s
+        """,
+        {"manager_id": manager_id},
+    )
+    if not seasons and career is None:
+        return None
+    for row in seasons:
+        row["one_score"] = _margin_record(row, "one_score")
+        row["blowout"] = _margin_record(row, "blowout")
+        _stamp_h2h(row)
+    if career is not None:
+        career["one_score"] = _margin_record(career, "one_score")
+        career["blowout"] = _margin_record(career, "blowout")
+        _stamp_h2h(career)
+    return {"seasons": seasons, "career": career}
+
+
+def _record_consistency(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    steady = fetchall(
+        f"""
+        SELECT year, manager_id, display_name, weeks_scored, stddev_points, cv, mean_points
+        FROM v_manager_volatility_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND weeks_scored >= 8
+            AND cv IS NOT NULL
+        ORDER BY cv ASC, stddev_points ASC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    wild = fetchall(
+        f"""
+        SELECT year, manager_id, display_name, weeks_scored, stddev_points, cv, mean_points
+        FROM v_manager_volatility_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND weeks_scored >= 8
+            AND cv IS NOT NULL
+        ORDER BY cv DESC, stddev_points DESC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    return {"steady": steady, "wild": wild}
+
+
+def _record_one_score_career(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    best = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            one_score_games, one_score_wins, one_score_losses, one_score_ties,
+            one_score_win_pct
+        FROM v_clutch_career
+        WHERE one_score_games > 0
+        ORDER BY one_score_win_pct DESC, one_score_wins DESC, one_score_games DESC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    worst = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            one_score_games, one_score_wins, one_score_losses, one_score_ties,
+            one_score_win_pct
+        FROM v_clutch_career
+        WHERE one_score_games > 0
+        ORDER BY one_score_win_pct ASC, one_score_wins ASC, one_score_games ASC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in best + worst:
+        row["one_score"] = _margin_record(row, "one_score")
+    return {"best": best, "worst": worst}
+
+
+def _record_blowout_career(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    best = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            blowout_games, blowout_wins, blowout_losses, blowout_ties,
+            blowout_win_pct
+        FROM v_clutch_career
+        WHERE blowout_games > 0
+        ORDER BY blowout_win_pct DESC, blowout_wins DESC, blowout_games DESC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    worst = fetchall(
+        """
+        SELECT
+            manager_id, display_name, seasons, includes_partial,
+            blowout_games, blowout_wins, blowout_losses, blowout_ties,
+            blowout_win_pct
+        FROM v_clutch_career
+        WHERE blowout_games > 0
+        ORDER BY blowout_win_pct ASC, blowout_wins ASC, blowout_games ASC, display_name
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in best + worst:
+        row["blowout"] = _margin_record(row, "blowout")
+    return {"best": best, "worst": worst}
+
+
+def _record_pythagorean(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    columns = """
+        year, manager_id, display_name, wins, losses, ties,
+        pythagorean_wins, wins_vs_pythagorean, wins_vs_expected, lens_gap, exponent
+    """
+    over = fetchall(
+        f"""
+        SELECT {columns}
+        FROM v_pythagorean_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND wins_vs_pythagorean IS NOT NULL
+        ORDER BY wins_vs_pythagorean DESC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    under = fetchall(
+        f"""
+        SELECT {columns}
+        FROM v_pythagorean_season
+        WHERE year IN ({_COMPLETE_SEASON})
+            AND wins_vs_pythagorean IS NOT NULL
+        ORDER BY wins_vs_pythagorean ASC, year, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    for row in over + under:
+        _stamp_h2h(row)
+    return {"over": over, "under": under}
+
+
+# Lineup stacks (sql/analysis/62_lineup_stacks.sql, issue #38).
+# A stack is one started QB plus at least one started WR/TE/RB on the same
+# matchup side, sharing the catalog club. Two catchers are one stack.
+# Combined points count the quarterback once. Regular season is the
+# published grain. The comparison describes that selected group.
+
+
+_STACK_WEEK_SQL = """
+    SELECT
+        year, week, kind, matchup_id, side, manager_id, manager_name,
+        nfl_team, qb_player_id, qb_name, qb_points, catcher_count,
+        catcher_points, combined_points, catcher_names
+    FROM v_lineup_stacks
+"""
+
+_COVERAGE_COUNT_KEYS = (
+    "starter_rows",
+    "starter_with_club",
+    "skill_rows",
+    "skill_with_club",
+    "qb_rows",
+    "qb_with_club",
+    "catcher_rows",
+    "catcher_with_club",
+    "posted_starter_rows",
+    "posted_starter_with_club",
+    "regular_skill_rows",
+    "regular_skill_with_club",
+    "regular_qb_rows",
+    "regular_qb_with_club",
+    "regular_catcher_rows",
+    "regular_catcher_with_club",
+    "other_rows",
+)
+
+_STACK_KIND = {
+    "regular": "Regular season",
+    "playoff": "Playoff",
+    "consolation": "Consolation",
+}
+
+
+def _stack_rate(part: int, whole: int) -> float | None:
+    if not whole:
+        return None
+    return part / whole
+
+
+def _stack_catalog() -> dict[str, Any]:
+    row = fetchone(
+        """
+        SELECT
+            count(*)::integer AS players,
+            count(*) FILTER (
+                WHERE NULLIF(btrim(nfl_team), '') IS NOT NULL
+            )::integer AS with_club,
+            max(catalog_as_of) AS catalog_as_of
+        FROM players
+        """
+    ) or {"players": 0, "with_club": 0, "catalog_as_of": None}
+    as_of = row.get("catalog_as_of")
+    if hasattr(as_of, "isoformat"):
+        as_of = as_of.isoformat()
+    return {
+        "players": int(row.get("players") or 0),
+        "with_club": int(row.get("with_club") or 0),
+        "catalog_as_of": as_of,
+    }
+
+
+def _shape_coverage_row(row: dict[str, Any]) -> dict[str, Any]:
+    packed = {key: int(row.get(key) or 0) for key in _COVERAGE_COUNT_KEYS}
+    packed["year"] = int(row["year"])
+    packed["platform"] = row["platform"]
+    packed["starter_club_rate"] = _stack_rate(packed["starter_with_club"], packed["starter_rows"])
+    packed["catcher_club_rate"] = _stack_rate(packed["catcher_with_club"], packed["catcher_rows"])
+    packed["regular_skill_club_rate"] = _stack_rate(
+        packed["regular_skill_with_club"], packed["regular_skill_rows"]
+    )
+    packed["regular_qb_club_rate"] = _stack_rate(
+        packed["regular_qb_with_club"], packed["regular_qb_rows"]
+    )
+    packed["regular_catcher_club_rate"] = _stack_rate(
+        packed["regular_catcher_with_club"], packed["regular_catcher_rows"]
+    )
+    packed["unposted_starter_rows"] = packed["starter_rows"] - packed["posted_starter_rows"]
+    return packed
+
+
+def _sum_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    packed = {key: sum(int(row[key]) for row in rows) for key in _COVERAGE_COUNT_KEYS}
+    years = [int(row["year"]) for row in rows]
+    packed["first_year"] = min(years) if years else None
+    packed["last_year"] = max(years) if years else None
+    packed["starter_club_rate"] = _stack_rate(packed["starter_with_club"], packed["starter_rows"])
+    packed["catcher_club_rate"] = _stack_rate(packed["catcher_with_club"], packed["catcher_rows"])
+    packed["regular_catcher_club_rate"] = _stack_rate(
+        packed["regular_catcher_with_club"], packed["regular_catcher_rows"]
+    )
+    packed["regular_skill_club_rate"] = _stack_rate(
+        packed["regular_skill_with_club"], packed["regular_skill_rows"]
+    )
+    return packed
+
+
+def _era_label(platform: str, packed: dict[str, Any]) -> str:
+    name = {"espn": "ESPN", "sleeper": "Sleeper"}.get(platform, platform)
+    first, last = packed.get("first_year"), packed.get("last_year")
+    if first is None:
+        return name
+    if first == last:
+        return f"{name} {first}"
+    return f"{name} {first}–{last}"
+
+
+def _stack_coverage_bundle() -> dict[str, Any]:
+    rows = [
+        _shape_coverage_row(row)
+        for row in fetchall(
+            """
+            SELECT *
+            FROM v_stack_coverage
+            ORDER BY year
+            """
+        )
+    ]
+    eras: list[dict[str, Any]] = []
+    for platform in ("espn", "sleeper"):
+        subset = [row for row in rows if row["platform"] == platform]
+        if not subset:
+            continue
+        packed = _sum_coverage(subset)
+        packed["platform"] = platform
+        packed["label"] = _era_label(platform, packed)
+        eras.append(packed)
+    ranked = [row for row in rows if row["regular_catcher_rows"]]
+    thin = min(ranked, key=lambda row: row["regular_catcher_club_rate"] or 0) if ranked else None
+    others = fetchall(
+        """
+        SELECT coalesce(p.position, '(blank)') AS position, count(*)::integer AS rows
+        FROM lineup_slots ls
+        JOIN matchups mu ON mu.id = ls.matchup_id
+        LEFT JOIN players p ON p.id = ls.player_id
+        WHERE ls.started
+            AND ls.slot NOT IN ('BN', 'IR')
+            AND (
+                p.position IS NULL
+                OR p.position NOT IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
+            )
+        GROUP BY 1
+        ORDER BY rows DESC, position
+        """
+    )
+    return {
+        "years": rows,
+        "eras": eras,
+        "thin": thin,
+        "other_positions": others,
+        "other_rows": sum(int(row["rows"]) for row in others),
+        "catalog": _stack_catalog(),
+    }
+
+
+def _attach_stack_catchers(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not rows:
+        return rows
+    pairs = fetchall(
+        """
+        SELECT
+            matchup_id, side, qb_player_id, catcher_player_id, catcher_name,
+            catcher_position, catcher_points
+        FROM v_lineup_stack_pairs
+        WHERE matchup_id = ANY(%(ids)s)
+        ORDER BY catcher_points DESC, catcher_player_id
+        """,
+        {"ids": list({row["matchup_id"] for row in rows})},
+    )
+    grouped: dict[tuple[Any, Any, Any], list[dict[str, Any]]] = defaultdict(list)
+    for pair in pairs:
+        grouped[(pair["matchup_id"], pair["side"], pair["qb_player_id"])].append(
+            {
+                "player_id": pair["catcher_player_id"],
+                "player_name": pair["catcher_name"],
+                "position": pair["catcher_position"],
+                "points": float(pair["catcher_points"]),
+            }
+        )
+    for row in rows:
+        row["catchers"] = grouped.get(
+            (row["matchup_id"], row["side"], row["qb_player_id"]),
+            [],
+        )
+        row["kind_label"] = _STACK_KIND.get(row.get("kind") or "", row.get("kind"))
+        for key in ("qb_points", "catcher_points", "combined_points"):
+            if row.get(key) is not None:
+                row[key] = float(row[key])
+        if row.get("catcher_count") is not None:
+            row["catcher_count"] = int(row["catcher_count"])
+    return rows
+
+
+def _stack_weeks(where: str, params: dict[str, Any] | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    bound = dict(params or {})
+    limit_sql = ""
+    if limit is not None:
+        bound["limit"] = limit
+        limit_sql = "LIMIT %(limit)s"
+    rows = fetchall(
+        f"""
+        {_STACK_WEEK_SQL}
+        WHERE {where}
+        ORDER BY combined_points DESC, year, week, manager_id, qb_player_id
+        {limit_sql}
+        """,
+        bound,
+    )
+    return _attach_stack_catchers(rows)
+
+
+def _shape_manager_stacks(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for row in rows:
+        row["stack_weeks"] = int(row["stack_weeks"] or 0)
+        row["multi_catcher_weeks"] = int(row["multi_catcher_weeks"] or 0)
+        row["combined_points"] = float(row["combined_points"] or 0)
+        row["points_for"] = float(row["points_for"] or 0)
+        share = row.get("stack_share")
+        row["stack_share"] = None if share is None else float(share)
+        best = row.get("best_combined")
+        row["best_combined"] = None if best is None else float(best)
+        count = row.get("best_catcher_count")
+        row["best_catcher_count"] = None if count is None else int(count)
+    return rows
+
+
+def _season_stacks(year: int) -> dict[str, Any]:
+    managers = _shape_manager_stacks(
+        fetchall(
+            """
+            SELECT
+                year, manager_id, manager_name, team_name, stack_weeks,
+                combined_points, points_for, stack_share, multi_catcher_weeks,
+                best_week, best_matchup_id, best_combined, best_qb_player_id,
+                best_qb_name, best_catcher_names, best_catcher_count, best_nfl_team
+            FROM v_manager_season_stacks
+            WHERE year = %(year)s
+            ORDER BY stack_weeks DESC, combined_points DESC, manager_name, manager_id
+            """,
+            {"year": year},
+        )
+    )
+    coverage_row = fetchone(
+        """
+        SELECT *
+        FROM v_stack_coverage
+        WHERE year = %(year)s
+        """,
+        {"year": year},
+    )
+    return {
+        "managers": managers,
+        "weeks": _stack_weeks("year = %(year)s AND kind = 'regular'", {"year": year}, limit=8),
+        "coverage": _shape_coverage_row(coverage_row) if coverage_row else None,
+        "catalog": _stack_catalog(),
+        "stack_weeks": sum(row["stack_weeks"] for row in managers),
+        "multi_catcher_weeks": sum(row["multi_catcher_weeks"] for row in managers),
+        "managers_with_stack": sum(1 for row in managers if row["stack_weeks"]),
+    }
+
+
+def _compare_cell(table: dict[tuple[str, str, str], dict[str, Any]], grain: str, population: str, role: str) -> dict[str, Any]:
+    return table.get(
+        (grain, population, role),
+        {"starts": 0, "points": 0.0, "avg_points": None},
+    )
+
+
+def _stack_compare() -> dict[str, Any]:
+    table: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in fetchall(
+        """
+        SELECT grain, population, role, starts, points, avg_points
+        FROM v_stack_scoring_compare
+        """
+    ):
+        avg = row["avg_points"]
+        table[(row["grain"], row["population"], row["role"])] = {
+            "starts": int(row["starts"] or 0),
+            "points": float(row["points"] or 0),
+            "avg_points": None if avg is None else float(avg),
+        }
+    cell = _compare_cell
+    stacked_qb = cell(table, "starter", "stacked", "QB")
+    all_qb = cell(table, "starter", "all", "QB")
+    club_qb = cell(table, "starter", "clubbed", "QB")
+    stacked_catcher = cell(table, "starter", "stacked", "catcher")
+    all_catcher = cell(table, "starter", "all", "catcher")
+    club_catcher = cell(table, "starter", "clubbed", "catcher")
+    stacked_skill = cell(table, "starter", "stacked", "skill")
+    all_skill = cell(table, "starter", "all", "skill")
+    pair = cell(table, "pair", "stacked", "pair")
+    counts = fetchone(
+        """
+        SELECT
+            count(*)::integer AS stacks,
+            count(*) FILTER (WHERE catcher_count >= 2)::integer AS multi_catcher
+        FROM v_lineup_stacks
+        WHERE kind = 'regular'
+        """
+    ) or {"stacks": 0, "multi_catcher": 0}
+    rows = [
+        ("Stacked quarterbacks", stacked_qb),
+        ("All quarterback starts", all_qb),
+        ("Quarterback starts with a club", club_qb),
+        ("Stacked WR, TE, and RB", stacked_catcher),
+        ("All WR, TE, and RB starts", all_catcher),
+        ("WR, TE, and RB starts with a club", club_catcher),
+        ("Stacked legs, blended", stacked_skill),
+        ("All QB, WR, TE, and RB starts, blended", all_skill),
+    ]
+    return {
+        "rows": [{"label": label, **values} for label, values in rows],
+        "mix_stacked_qb": _stack_rate(stacked_qb["starts"], stacked_skill["starts"]),
+        "mix_all_qb": _stack_rate(all_qb["starts"], all_skill["starts"]),
+        "stacks": int(counts.get("stacks") or 0),
+        "multi_catcher": int(counts.get("multi_catcher") or 0),
+        "pairs": pair["starts"],
+        "pair_avg": pair["avg_points"],
+    }
+
+
+def _record_stack_seasons(order: str, limit: int = RECORDS_TOP) -> list[dict[str, Any]]:
+    order_sql = {
+        "weeks": "stack_weeks DESC, combined_points DESC, year, manager_name",
+        "points": "combined_points DESC, stack_weeks DESC, year, manager_name",
+    }[order]
+    return _shape_manager_stacks(
+        fetchall(
+            f"""
+            SELECT
+                year, manager_id, manager_name, team_name, stack_weeks,
+                combined_points, points_for, stack_share, multi_catcher_weeks,
+                best_week, best_matchup_id, best_combined, best_qb_player_id,
+                best_qb_name, best_catcher_names, best_catcher_count, best_nfl_team
+            FROM v_manager_season_stacks
+            WHERE stack_weeks > 0
+                AND year IN ({_COMPLETE_SEASON})
+            ORDER BY {order_sql}
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+    )
+
+
+def _record_stacks() -> dict[str, Any]:
+    outside = _stack_weeks("kind <> 'regular'", limit=1)
+    return {
+        "weeks": _stack_weeks("kind = 'regular'", limit=RECORDS_TOP),
+        "outside": outside[0] if outside else None,
+        "by_weeks": _record_stack_seasons("weeks"),
+        "by_points": _record_stack_seasons("points"),
+        "compare": _stack_compare(),
+        "coverage": _stack_coverage_bundle(),
+    }
+
+
+# Records book expansion (sql/analysis/99_records_book.sql, issue #42).
+# Career and single-season player counting stay on the #31 boards above.
+# Kicking there is field goals made. Defense is sacks, defensive
+# interceptions, and points or yards allowed per game (DEF, at least four
+# counting games). This block is the starting-lineup week, the seeded
+# playoff series, and the universe bracket replay.
+
+
+_LINEUP_COUNTING_BOARDS: tuple[tuple[str, str], ...] = (
+    ("rush_yd", "Rushing yards"),
+    ("rec_yd", "Receiving yards"),
+    ("pass_yd", "Passing yards"),
+)
+_LINEUP_KIND_LABELS = {
+    "regular": "Regular",
+    "playoff": "Playoff",
+    "consolation": "Consolation",
+}
+_PLAYOFF_ROUND_LABELS = {
+    "wildcard": "Wild card",
+    "semifinal": "Semifinal",
+    "championship": "Championship",
+    "placement": "Placement",
+}
+_PLAYOFF_ROUND_ORDER = {
+    "wildcard": 0,
+    "semifinal": 1,
+    "championship": 2,
+    "placement": 3,
+}
+_PLAYOFF_LOSER_RESULT = {
+    "wildcard": "Lost wild card",
+    "semifinal": "Lost semifinal",
+}
+
+
+def _record_lineup_counting(limit: int = RECORDS_TOP) -> dict[str, Any]:
+    """Most rush, receiving, and passing yards by one starting lineup in a week."""
+    boards: list[dict[str, Any]] = []
+    outside: list[dict[str, Any]] = []
+    for column, label in _LINEUP_COUNTING_BOARDS:
+        rows = _lineup_counting_rows(column, regular=True, limit=limit)
+        if not rows:
+            continue
+        boards.append({"key": column, "label": label, "rows": rows})
+        other = _lineup_counting_rows(column, regular=False, limit=1)
+        if other and other[0]["yards"] > rows[0]["yards"]:
+            other[0]["label"] = label
+            outside.append(other[0])
+    return {"boards": boards, "outside": outside}
+
+
+def _lineup_counting_rows(column: str, *, regular: bool, limit: int) -> list[dict[str, Any]]:
+    allowed = {name for name, _label in _LINEUP_COUNTING_BOARDS}
+    if column not in allowed or not column.isidentifier():
+        return []
+    kind_sql = "kind = 'regular'" if regular else "kind <> 'regular'"
+    rows = fetchall(
+        f"""
+        SELECT
+            year, week, kind, matchup_id, manager_id, manager_name,
+            {column} AS yards, starters, counted_starters
+        FROM v_lineup_week_counting
+        WHERE {kind_sql}
+        ORDER BY {column} DESC, year, week, manager_id
+        LIMIT %(limit)s
+        """,
+        {"limit": limit},
+    )
+    packed: list[dict[str, Any]] = []
+    for row in rows:
+        packed.append(
+            {
+                "year": int(row["year"]),
+                "week": int(row["week"]),
+                "kind": row["kind"],
+                "kind_label": _LINEUP_KIND_LABELS.get(row["kind"], row["kind"]),
+                "matchup_id": row["matchup_id"],
+                "manager_id": row["manager_id"],
+                "manager_name": row["manager_name"],
+                "yards": int(row["yards"]),
+                "starters": int(row["starters"]),
+                "counted_starters": int(row["counted_starters"]),
+            }
+        )
+    return packed
+
+
+def _record_playoff_history() -> dict[str, Any]:
+    """Seed is the official standings rank. A multi-week series is one game."""
+    games = fetchall(
+        """
+        SELECT
+            g.year, g.week, g.matchup_id,
+            g.home_id, g.home_name, g.home_seed, g.home_points,
+            g.away_id, g.away_name, g.away_seed, g.away_points
+        FROM v_playoff_seed_games g
+        JOIN v_finished_seasons fin ON fin.year = g.year AND fin.champion_decided
+        ORDER BY g.year, g.week, g.matchup_id
+        """
+    )
+    outcomes = fetchall(
+        """
+        SELECT
+            o.year,
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name
+        FROM season_outcomes o
+        JOIN v_finished_seasons fin ON fin.year = o.year AND fin.champion_decided
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        ORDER BY o.year
+        """
+    )
+    field = fetchall(
+        """
+        SELECT
+            p.year,
+            p.manager_id,
+            m.display_name AS manager_name,
+            s.rank AS seed
+        FROM season_playoff_managers p
+        JOIN v_standings_official s
+            ON s.year = p.year AND s.manager_id = p.manager_id
+        JOIN managers m ON m.id = p.manager_id
+        JOIN v_finished_seasons fin ON fin.year = p.year AND fin.champion_decided
+        ORDER BY p.year, s.rank, p.manager_id
+        """
+    )
+    by_year_games: dict[int, list[dict[str, Any]]] = {}
+    for game in games:
+        by_year_games.setdefault(int(game["year"]), []).append(game)
+    by_year_field: dict[int, list[dict[str, Any]]] = {}
+    for row in field:
+        by_year_field.setdefault(int(row["year"]), []).append(row)
+    seasons: list[dict[str, Any]] = []
+    for outcome in outcomes:
+        year = int(outcome["year"])
+        series = _playoff_series(by_year_games.get(year, []))
+        title = _classify_playoff_series(
+            series,
+            outcome.get("champion_id"),
+            outcome.get("runner_up_id"),
+        )
+        results = _playoff_results(
+            by_year_field.get(year, []),
+            series,
+            outcome.get("champion_id"),
+            outcome.get("runner_up_id"),
+        )
+        for item in series:
+            item["round_label"] = _PLAYOFF_ROUND_LABELS.get(item["round_key"], item["round_key"])
+            item["span"] = _series_span(item["week_start"], item["week_end"])
+        series.sort(
+            key=lambda item: (
+                _PLAYOFF_ROUND_ORDER.get(item["round_key"], 9),
+                item["week_start"],
+                item["better_seed"],
+                item["worse_seed"],
+            )
+        )
+        if title is not None:
+            title["matches_champion"] = title["winner_id"] == outcome.get("champion_id")
+        seasons.append(
+            {
+                "year": year,
+                "champion_id": outcome.get("champion_id"),
+                "champion_name": outcome.get("champion_name"),
+                "runner_up_id": outcome.get("runner_up_id"),
+                "runner_up_name": outcome.get("runner_up_name"),
+                "seeds": [
+                    {
+                        "seed": int(row["seed"]),
+                        "manager_id": row["manager_id"],
+                        "manager_name": row["manager_name"],
+                        "result": results[row["manager_id"]],
+                    }
+                    for row in by_year_field.get(year, [])
+                ],
+                "title": title,
+                "games": series,
+                "upsets": [item for item in series if item["upset"]],
+            }
+        )
+    return {"seasons": seasons}
+
+
+def _playoff_series(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for game in games:
+        key = tuple(sorted((str(game["home_id"]), str(game["away_id"]))))
+        grouped.setdefault(key, []).append(game)
+    series: list[dict[str, Any]] = []
+    for rows in grouped.values():
+        rows.sort(key=lambda row: (int(row["week"]), str(row["matchup_id"])))
+        chunk = [rows[0]]
+        for row in rows[1:]:
+            week = int(row["week"])
+            previous = int(chunk[-1]["week"])
+            if week == previous or week == previous + 1:
+                chunk.append(row)
+            else:
+                series.append(_pack_playoff_series(chunk))
+                chunk = [row]
+        series.append(_pack_playoff_series(chunk))
+    return series
+
+
+def _pack_playoff_series(chunk: list[dict[str, Any]]) -> dict[str, Any]:
+    chunk = sorted(chunk, key=lambda row: (int(row["week"]), str(row["matchup_id"])))
+    points: dict[str, float] = {}
+    names: dict[str, str] = {}
+    seeds: dict[str, int] = {}
+    for row in chunk:
+        for side in ("home", "away"):
+            manager_id = str(row[f"{side}_id"])
+            points[manager_id] = points.get(manager_id, 0.0) + float(row[f"{side}_points"] or 0)
+            names[manager_id] = row[f"{side}_name"]
+            seeds[manager_id] = int(row[f"{side}_seed"])
+    ordered = sorted(points, key=lambda manager_id: (seeds[manager_id], manager_id))
+    better_id, worse_id = ordered[0], ordered[1]
+    better_points = round(points[better_id], 2)
+    worse_points = round(points[worse_id], 2)
+    if better_points > worse_points:
+        winner_id, loser_id = better_id, worse_id
+    elif worse_points > better_points:
+        winner_id, loser_id = worse_id, better_id
+    else:
+        winner_id, loser_id = None, None
+    if winner_id == better_id:
+        winner_name, winner_seed, winner_points = names[better_id], seeds[better_id], better_points
+        loser_name, loser_seed, loser_points = names[worse_id], seeds[worse_id], worse_points
+    elif winner_id == worse_id:
+        winner_name, winner_seed, winner_points = names[worse_id], seeds[worse_id], worse_points
+        loser_name, loser_seed, loser_points = names[better_id], seeds[better_id], better_points
+    else:
+        winner_name = loser_name = None
+        winner_seed = loser_seed = None
+        winner_points = loser_points = None
+    return {
+        "year": int(chunk[0]["year"]),
+        "week_start": int(chunk[0]["week"]),
+        "week_end": int(chunk[-1]["week"]),
+        "matchup_id": chunk[0]["matchup_id"],
+        "end_matchup_id": chunk[-1]["matchup_id"],
+        "better_id": better_id,
+        "better_name": names[better_id],
+        "better_seed": seeds[better_id],
+        "better_points": better_points,
+        "worse_id": worse_id,
+        "worse_name": names[worse_id],
+        "worse_seed": seeds[worse_id],
+        "worse_points": worse_points,
+        "winner_id": winner_id,
+        "winner_name": winner_name,
+        "winner_seed": winner_seed,
+        "winner_points": winner_points,
+        "loser_id": loser_id,
+        "loser_name": loser_name,
+        "loser_seed": loser_seed,
+        "loser_points": loser_points,
+        "upset": bool(winner_id and seeds[winner_id] > seeds[loser_id]),
+        "margin": round(abs(better_points - worse_points), 2),
+        "round_key": None,
+    }
+
+
+def _classify_playoff_series(
+    series: list[dict[str, Any]],
+    champion_id: str | None,
+    runner_up_id: str | None,
+) -> dict[str, Any] | None:
+    for item in series:
+        item["round_key"] = None
+    title: dict[str, Any] | None = None
+    if champion_id and runner_up_id:
+        pair = {champion_id, runner_up_id}
+        candidates = [
+            item
+            for item in series
+            if {item["better_id"], item["worse_id"]} == pair
+        ]
+        if candidates:
+            title = max(candidates, key=lambda item: (item["week_end"], item["week_start"]))
+            title["round_key"] = "championship"
+    semis: list[dict[str, Any]] = []
+    if title is not None:
+        # A champion who also won the wild card has two earlier series.
+        # The semifinal is the later of those. The earlier one is a wild card.
+        feeding = [
+            item
+            for item in series
+            if item is not title
+            and item["winner_id"] in {champion_id, runner_up_id}
+            and item["week_end"] < title["week_start"]
+        ]
+        if feeding:
+            semi_week = max(item["week_end"] for item in feeding)
+            semis = [item for item in feeding if item["week_end"] == semi_week]
+            for item in semis:
+                item["round_key"] = "semifinal"
+    semi_players: set[str] = set()
+    for item in semis:
+        semi_players.add(item["better_id"])
+        semi_players.add(item["worse_id"])
+    semi_start = min((item["week_start"] for item in semis), default=None)
+    for item in series:
+        if item["round_key"]:
+            continue
+        if (
+            semi_start is not None
+            and item["winner_id"] in semi_players
+            and item["week_end"] < semi_start
+        ):
+            item["round_key"] = "wildcard"
+        else:
+            item["round_key"] = "placement"
+    return title
+
+
+def _playoff_results(
+    field: list[dict[str, Any]],
+    series: list[dict[str, Any]],
+    champion_id: str | None,
+    runner_up_id: str | None,
+) -> dict[str, str]:
+    result = {row["manager_id"]: "No winners-bracket game" for row in field}
+    for item in series:
+        label = _PLAYOFF_LOSER_RESULT.get(item["round_key"] or "")
+        loser_id = item.get("loser_id")
+        if label and loser_id in result:
+            result[loser_id] = label
+    if champion_id in result:
+        result[champion_id] = "Champion"
+    if runner_up_id in result:
+        result[runner_up_id] = "Runner-up"
+    return result
+
+
+def _series_span(start: int, end: int) -> str:
+    if start == end:
+        return f"W{start}"
+    return f"W{start}\u2013W{end}"
+
+
+def _record_universe_replay() -> dict[str, Any]:
+    """Full v_universe_games replay for every finished season, both universes."""
+    years = fetchall(
+        """
+        SELECT year
+        FROM v_finished_seasons
+        WHERE champion_decided
+        ORDER BY year
+        """
+    )
+    seasons: list[dict[str, Any]] = []
+    any_champion_differs = False
+    for row in years:
+        packed = _universe_replay_year(int(row["year"]))
+        if packed is None:
+            continue
+        if packed["any_champion_differs"]:
+            any_champion_differs = True
+        seasons.append(packed)
+    return {"seasons": seasons, "any_champion_differs": any_champion_differs}
+
+
+def _universe_replay_year(year: int) -> dict[str, Any] | None:
+    official = fetchone(
+        """
+        SELECT
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name
+        FROM season_outcomes o
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        WHERE o.year = %(year)s
+        """,
+        {"year": year},
+    )
+    if official is None or not official.get("champion_id"):
+        return None
+    outcomes = fetchall(
+        """
+        SELECT
+            o.universe,
+            o.champion AS champion_id,
+            ch.display_name AS champion_name,
+            o.runner_up AS runner_up_id,
+            ru.display_name AS runner_up_name,
+            o.matches_official
+        FROM v_universe_outcomes o
+        LEFT JOIN managers ch ON ch.id = o.champion
+        LEFT JOIN managers ru ON ru.id = o.runner_up
+        WHERE o.year = %(year)s
+        """,
+        {"year": year},
+    )
+    by_universe = {row["universe"]: row for row in outcomes}
+    boards: list[dict[str, Any]] = []
+    any_champion_differs = False
+    for board in universe_brackets(year):
+        outcome = by_universe.get(board["key"], {})
+        champion_id = outcome.get("champion_id")
+        runner_up_id = outcome.get("runner_up_id")
+        differs = champion_id != official["champion_id"]
+        if differs:
+            any_champion_differs = True
+        games: list[dict[str, Any]] = []
+        for packed_round in board["rounds"]:
+            for match in packed_round["matches"]:
+                games.append(
+                    {
+                        "round_label": packed_round["label"],
+                        "span": packed_round["span"],
+                        "week": packed_round["week"],
+                        **match,
+                    }
+                )
+        boards.append(
+            {
+                "key": board["key"],
+                "label": board["label"],
+                "champion_id": champion_id,
+                "champion_name": outcome.get("champion_name"),
+                "runner_up_id": runner_up_id,
+                "runner_up_name": outcome.get("runner_up_name"),
+                "champion_differs": differs,
+                "runner_up_differs": runner_up_id != official["runner_up_id"],
+                "matches_official": bool(outcome.get("matches_official")),
+                "games": games,
+            }
+        )
+    if not boards:
+        return None
+    return {
+        "year": year,
+        "champion_id": official["champion_id"],
+        "champion_name": official["champion_name"],
+        "runner_up_id": official["runner_up_id"],
+        "runner_up_name": official["runner_up_name"],
+        "boards": boards,
+        "any_champion_differs": any_champion_differs,
+    }
