@@ -98,11 +98,15 @@ SCORING_LABELS = {
     "yds_allow_200_299": "200–299 yards allowed",
     "pts_allow": "Points allowed",
     # ESPN scoringItems stat ids. Sleeper weights above are named keys.
+    # Ids the 2022–2023 arrays omit are named too. A stat id missing from
+    # this map renders as "id N" and is still listed.
     "0": "Pass attempts",
     "1": "Pass completions",
     "2": "Incomplete pass",
     "3": "Pass yards",
     "4": "Pass TD",
+    "17": "300–399 pass-yd game",
+    "18": "400+ pass-yd game",
     "19": "Pass 2-pt",
     "20": "INT thrown",
     "21": "Completion pct",
@@ -110,17 +114,23 @@ SCORING_LABELS = {
     "24": "Rush yards",
     "25": "Rush TD",
     "26": "Rush 2-pt",
+    "37": "100–199 rush-yd game",
+    "38": "200+ rush-yd game",
     "42": "Rec yards",
     "43": "Rec TD",
     "44": "Rec 2-pt",
     "53": "Reception",
+    "56": "100–199 rec-yd game",
+    "57": "200+ rec-yd game",
     "63": "Fumble recovered for TD",
+    "68": "Fumble",
     "72": "Fumble lost",
     "74": "FG 50+",
     "77": "FG 40–49",
     "80": "FG 0–39",
     "85": "FG miss",
     "86": "XP made",
+    "88": "XP miss",
     "89": "0 PA",
     "90": "1–6 PA",
     "91": "7–13 PA",
@@ -135,12 +145,15 @@ SCORING_LABELS = {
     "102": "Punt return TD",
     "103": "INT return TD",
     "104": "Fumble return TD",
+    "121": "18–21 PA",
+    "122": "22–27 PA",
     "123": "28–34 PA",
     "124": "35–45 PA",
     "125": "46+ PA",
     "128": "0–99 yards allowed",
     "129": "100–199 yards allowed",
     "130": "200–299 yards allowed",
+    "131": "300–349 yards allowed",
     "132": "350–399 yards allowed",
     "133": "400–449 yards allowed",
     "134": "450–499 yards allowed",
@@ -182,6 +195,7 @@ _ESPN_KICK_ORDER = {
     201: 4,
     85: 5,
     86: 6,
+    88: 7,
 }
 
 # Points-allowed tiers are not contiguous ids (89–92, then 123–125).
@@ -244,67 +258,104 @@ def _espn_sort_key(stat_id: int) -> tuple[int, int, int, int]:
     return (_ESPN_GROUP_ORDER[group], section, inner, stat_id)
 
 
-def _espn_points(item: dict[str, Any]) -> str | None:
-    raw = item.get("points")
-    overrides = item.get("pointsOverrides") or {}
+def _format_stored_points(value: Any) -> str:
+    if value is None or value == "":
+        return "—"
+    return _scoring_value(value)
+
+
+def _override_pairs(overrides: dict[Any, Any]) -> list[tuple[str, Any]]:
+    def sort_key(key: Any) -> tuple[int, int | str]:
+        try:
+            return (0, int(key))
+        except (TypeError, ValueError):
+            return (1, str(key))
+
+    return [(str(key), overrides[key]) for key in sorted(overrides, key=sort_key)]
+
+
+def _format_overrides(overrides: Any) -> str:
+    if overrides is None or overrides in ("", {}):
+        return "—"
     if not isinstance(overrides, dict):
-        overrides = {}
-    paired = [
-        (str(key), value)
-        for key, value in overrides.items()
-        if not _blank_points(value)
-    ]
-    base_blank = _blank_points(raw)
-    if base_blank and not paired:
-        return None
-    if not base_blank and all(value == raw for _, value in paired):
-        return _scoring_value(raw)
-    if base_blank and len(paired) == 1:
-        return _scoring_value(paired[0][1])
+        return str(overrides)
+    pairs = _override_pairs(overrides)
+    if not pairs:
+        return "—"
     parts: list[str] = []
-    if not base_blank:
-        parts.append(_scoring_value(raw))
-    for key, value in paired:
-        slot = ESPN_SLOT_LABELS.get(key, key)
+    for key, value in pairs:
+        slot = ESPN_SLOT_LABELS.get(key, f"slot {key}")
         parts.append(f"{slot} {_scoring_value(value)}")
     return " · ".join(parts)
 
 
+def _espn_stat_label(stat_id: int) -> tuple[str, bool]:
+    label = SCORING_LABELS.get(str(stat_id))
+    if label is None:
+        return f"id {stat_id}", True
+    return label, False
+
+
+def _espn_item_row(index: int, item: Any) -> dict[str, Any]:
+    """One scoringItems entry. Nothing is dropped, including a 0-point row."""
+    if not isinstance(item, dict):
+        return {
+            "key": "",
+            "stat_id": "—",
+            "label": "id ?",
+            "points": "—",
+            "overrides": "—",
+            "value": "—",
+            "group": "Other",
+            "unmapped": True,
+            "_sort": (99, 9, index, index),
+        }
+    if "points" in item:
+        points = _format_stored_points(item.get("points"))
+    else:
+        points = "—"
+    if item.get("isReverseItem"):
+        points = f"{points} reverse"
+    overrides = _format_overrides(item.get("pointsOverrides"))
+    raw_id = item.get("statId", item.get("id"))
+    try:
+        stat_id = int(raw_id)
+    except (TypeError, ValueError):
+        shown = "—" if raw_id is None else str(raw_id)
+        return {
+            "key": shown,
+            "stat_id": shown,
+            "label": "id ?" if raw_id is None else f"id {raw_id}",
+            "points": points,
+            "overrides": overrides,
+            "value": points,
+            "group": "Other",
+            "unmapped": True,
+            "_sort": (99, 9, index, index),
+        }
+    label, unmapped = _espn_stat_label(stat_id)
+    return {
+        "key": str(stat_id),
+        "stat_id": stat_id,
+        "label": label,
+        "points": points,
+        "overrides": overrides,
+        "value": points,
+        "group": _espn_group(stat_id),
+        "unmapped": unmapped,
+        "_sort": _espn_sort_key(stat_id),
+    }
+
+
 def _espn_scoring_rows(items: list[Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        raw_id = item.get("statId", item.get("id"))
-        try:
-            stat_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        points = _espn_points(item)
-        if points is None:
-            continue
-        key = str(stat_id)
-        rows.append(
-            {
-                "key": key,
-                "label": _scoring_label(key),
-                "value": points,
-                "group": _espn_group(stat_id),
-                "_sort": _espn_sort_key(stat_id),
-            }
-        )
+    rows = [_espn_item_row(index, item) for index, item in enumerate(items)]
     rows.sort(key=lambda row: row["_sort"])
     for row in rows:
         del row["_sort"]
     return rows
 
 
-def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
-    items = settings.get("scoringItems") if isinstance(settings, dict) else None
-    if isinstance(items, list) and items:
-        return _espn_scoring_rows(items)
-    if isinstance(settings, list):
-        return _espn_scoring_rows(settings)
+def _flat_scoring_rows(settings: Any) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if isinstance(settings, dict):
         for key, value in sorted(settings.items(), key=lambda item: str(item[0])):
@@ -312,6 +363,435 @@ def _scoring_rows(settings: Any) -> list[dict[str, Any]]:
                 continue
             rows.append({"key": key, "label": _scoring_label(key), "value": _scoring_value(value)})
     return rows
+
+
+def _espn_sheet_view(items: list[Any]) -> dict[str, Any]:
+    rows = _espn_scoring_rows(items)
+    return {
+        "rows": rows,
+        "espn_sheet": True,
+        "item_count": len(items),
+        "skipped": len(items) - len(rows),
+        "unmapped": sum(1 for row in rows if row.get("unmapped")),
+    }
+
+
+def _scoring_view(settings: Any) -> dict[str, Any]:
+    if isinstance(settings, dict) and isinstance(settings.get("scoringItems"), list):
+        return _espn_sheet_view(settings["scoringItems"])
+    if isinstance(settings, list):
+        return _espn_sheet_view(settings)
+    return {
+        "rows": _flat_scoring_rows(settings),
+        "espn_sheet": False,
+        "item_count": None,
+        "skipped": None,
+        "unmapped": None,
+    }
+
+
+def _espn_items_by_stat(settings: Any) -> dict[int, list[dict[str, Any]]]:
+    items: list[Any] | None = None
+    if isinstance(settings, dict) and isinstance(settings.get("scoringItems"), list):
+        items = settings["scoringItems"]
+    elif isinstance(settings, list):
+        items = settings
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    if not items:
+        return grouped
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            stat_id = int(item.get("statId", item.get("id")))
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(stat_id, []).append(item)
+    return grouped
+
+
+def _espn_applied_weight(item: dict[str, Any]) -> str:
+    """Weight that scores. A lone D/ST override is that weight; points stays on the sheet."""
+    raw = item.get("points")
+    overrides = item.get("pointsOverrides")
+    stored = _override_pairs(overrides) if isinstance(overrides, dict) else []
+    pairs = [(key, value) for key, value in stored if not _blank_points(value)]
+    base_blank = _blank_points(raw)
+    if base_blank and not pairs:
+        return _format_stored_points(raw)
+    if not base_blank and (not pairs or all(value == raw for _, value in pairs)):
+        return _scoring_value(raw)
+    if base_blank and len(pairs) == 1:
+        return _scoring_value(pairs[0][1])
+    parts: list[str] = []
+    if not base_blank:
+        parts.append(_scoring_value(raw))
+    for key, value in pairs:
+        slot = ESPN_SLOT_LABELS.get(key, f"slot {key}")
+        parts.append(f"{slot} {_scoring_value(value)}")
+    return " · ".join(parts)
+
+
+def _espn_stat_weight(settings: Any, stat_id: int) -> str | None:
+    items = _espn_items_by_stat(settings).get(stat_id)
+    if not items:
+        return None
+    return " · ".join(_espn_applied_weight(item) for item in items)
+
+
+_PLATFORM_NAME = {"espn": "ESPN", "sleeper": "Sleeper"}
+
+# category, tier, espn stat id or None, sleeper key or None, mapping note.
+# None means that platform has no band with this name. A present id or key
+# that the season omits renders as "not stored", which is not a stored 0.
+_RULE_DIFF: tuple[tuple[str, str, int | None, str | None, str], ...] = (
+    ("Pass TD", "each", 4, "pass_td", "ESPN stat 4. Sleeper pass_td."),
+    (
+        "INT thrown",
+        "each",
+        20,
+        "pass_int",
+        "ESPN stat 20. Sleeper pass_int. D/ST INT is separate: ESPN stat 95, Sleeper int.",
+    ),
+    (
+        "Rush yd bonus",
+        "100–199",
+        37,
+        "bonus_rush_yd_100",
+        "ESPN stat 37. Sleeper bonus_rush_yd_100.",
+    ),
+    (
+        "Rush yd bonus",
+        "200+",
+        38,
+        "bonus_rush_yd_200",
+        "ESPN stat 38. Sleeper bonus_rush_yd_200.",
+    ),
+    (
+        "Rec yd bonus",
+        "100–199",
+        56,
+        "bonus_rec_yd_100",
+        "ESPN stat 56. Sleeper bonus_rec_yd_100.",
+    ),
+    (
+        "Rec yd bonus",
+        "200+",
+        57,
+        "bonus_rec_yd_200",
+        "ESPN stat 57. Sleeper bonus_rec_yd_200.",
+    ),
+    (
+        "Rush+rec yd bonus",
+        "100–199",
+        None,
+        "bonus_rush_rec_yd_100",
+        "Sleeper bonus_rush_rec_yd_100. ESPN has no combined rush and receiving bonus stat.",
+    ),
+    (
+        "Rush+rec yd bonus",
+        "200+",
+        None,
+        "bonus_rush_rec_yd_200",
+        "Sleeper bonus_rush_rec_yd_200. ESPN has no combined rush and receiving bonus stat.",
+    ),
+    (
+        "Pass yd bonus",
+        "300–399",
+        17,
+        "bonus_pass_yd_300",
+        "ESPN stat 17. Sleeper bonus_pass_yd_300.",
+    ),
+    (
+        "Pass yd bonus",
+        "400+",
+        18,
+        "bonus_pass_yd_400",
+        "ESPN stat 18. Sleeper bonus_pass_yd_400.",
+    ),
+    (
+        "Reception",
+        "each",
+        53,
+        "rec",
+        "ESPN stat 53. Sleeper rec. The ESPN item's pointsOverrides are empty, so every position scores the same.",
+    ),
+    (
+        "Reception bonus",
+        "RB",
+        None,
+        "bonus_rec_rb",
+        "Sleeper bonus_rec_rb. ESPN has no position reception bonus.",
+    ),
+    (
+        "Reception bonus",
+        "WR",
+        None,
+        "bonus_rec_wr",
+        "Sleeper bonus_rec_wr. ESPN has no position reception bonus.",
+    ),
+    (
+        "Reception bonus",
+        "TE",
+        None,
+        "bonus_rec_te",
+        "Sleeper bonus_rec_te. ESPN has no position reception bonus.",
+    ),
+    ("Fumble lost", "each", 72, "fum_lost", "ESPN stat 72. Sleeper fum_lost."),
+    ("Fumble", "not lost", 68, "fum", "ESPN stat 68. Sleeper fum."),
+    (
+        "FG",
+        "0–19",
+        None,
+        "fgm_0_19",
+        "Sleeper fgm_0_19. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "20–29",
+        None,
+        "fgm_20_29",
+        "Sleeper fgm_20_29. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "30–39",
+        None,
+        "fgm_30_39",
+        "Sleeper fgm_30_39. ESPN scores 0–39 as one tier (stat 80).",
+    ),
+    (
+        "FG",
+        "0–39",
+        80,
+        None,
+        "ESPN stat 80. Sleeper splits this into 0–19, 20–29, and 30–39.",
+    ),
+    ("FG", "40–49", 77, "fgm_40_49", "ESPN stat 77. Sleeper fgm_40_49."),
+    (
+        "FG",
+        "50–59",
+        198,
+        None,
+        "ESPN stat 198. Sleeper scores every make from 50 on fgm_50p.",
+    ),
+    (
+        "FG",
+        "60+",
+        201,
+        None,
+        "ESPN stat 201. Sleeper folds 60+ into fgm_50p.",
+    ),
+    (
+        "FG",
+        "50+",
+        None,
+        "fgm_50p",
+        "Sleeper fgm_50p. ESPN splits stat 198 (50–59) and stat 201 (60+).",
+    ),
+    ("FG miss", "each", 85, "fgmiss", "ESPN stat 85. Sleeper fgmiss."),
+    ("XP made", "each", 86, "xpm", "ESPN stat 86. Sleeper xpm."),
+    ("XP miss", "each", 88, "xpmiss", "ESPN stat 88. Sleeper xpmiss."),
+    (
+        "Points allowed",
+        "0",
+        89,
+        "pts_allow_0",
+        "ESPN stat 89, D/ST slot override. Sleeper pts_allow_0.",
+    ),
+    (
+        "Points allowed",
+        "1–6",
+        90,
+        "pts_allow_1_6",
+        "ESPN stat 90, D/ST slot override. Sleeper pts_allow_1_6.",
+    ),
+    (
+        "Points allowed",
+        "7–13",
+        91,
+        "pts_allow_7_13",
+        "ESPN stat 91, D/ST slot override. Sleeper pts_allow_7_13.",
+    ),
+    (
+        "Points allowed",
+        "14–17",
+        92,
+        None,
+        "ESPN stat 92, D/ST slot override. Sleeper's next band is 14–20.",
+    ),
+    (
+        "Points allowed",
+        "14–20",
+        None,
+        "pts_allow_14_20",
+        "Sleeper pts_allow_14_20. ESPN's 14–17 band is stat 92.",
+    ),
+    (
+        "Points allowed",
+        "18–21",
+        121,
+        None,
+        "ESPN stat 121. Sleeper has no 18–21 band.",
+    ),
+    (
+        "Points allowed",
+        "21–27",
+        None,
+        "pts_allow_21_27",
+        "Sleeper pts_allow_21_27. ESPN's 22–27 band is stat 122.",
+    ),
+    (
+        "Points allowed",
+        "22–27",
+        122,
+        None,
+        "ESPN stat 122. Sleeper has no 22–27 band.",
+    ),
+    (
+        "Points allowed",
+        "28–34",
+        123,
+        "pts_allow_28_34",
+        "ESPN stat 123, D/ST slot override. Sleeper pts_allow_28_34.",
+    ),
+    (
+        "Points allowed",
+        "35–45",
+        124,
+        None,
+        "ESPN stat 124, D/ST slot override. Sleeper uses one 35+ band.",
+    ),
+    (
+        "Points allowed",
+        "35+",
+        None,
+        "pts_allow_35p",
+        "Sleeper pts_allow_35p. ESPN splits stat 124 (35–45) and stat 125 (46+).",
+    ),
+    (
+        "Points allowed",
+        "46+",
+        125,
+        None,
+        "ESPN stat 125, D/ST slot override. Sleeper has no 46+ band.",
+    ),
+    (
+        "Yards allowed",
+        "0–99",
+        128,
+        None,
+        "ESPN stat 128, D/ST slot override. Sleeper's first band is 0–100.",
+    ),
+    (
+        "Yards allowed",
+        "0–100",
+        None,
+        "yds_allow_0_100",
+        "Sleeper yds_allow_0_100. ESPN's first band (stat 128) is under 100 yards.",
+    ),
+    (
+        "Yards allowed",
+        "100–199",
+        129,
+        "yds_allow_100_199",
+        "ESPN stat 129, D/ST slot override. Sleeper yds_allow_100_199.",
+    ),
+    (
+        "Yards allowed",
+        "200–299",
+        130,
+        "yds_allow_200_299",
+        "ESPN stat 130, D/ST slot override. Sleeper yds_allow_200_299.",
+    ),
+    (
+        "Yards allowed",
+        "300–349",
+        131,
+        "yds_allow_300_349",
+        "ESPN stat 131. Sleeper yds_allow_300_349.",
+    ),
+    (
+        "Yards allowed",
+        "350–399",
+        132,
+        "yds_allow_350_399",
+        "ESPN stat 132, D/ST slot override. Sleeper yds_allow_350_399.",
+    ),
+    (
+        "Yards allowed",
+        "400–449",
+        133,
+        "yds_allow_400_449",
+        "ESPN stat 133, D/ST slot override. Sleeper yds_allow_400_449.",
+    ),
+    (
+        "Yards allowed",
+        "450–499",
+        134,
+        "yds_allow_450_499",
+        "ESPN stat 134, D/ST slot override. Sleeper yds_allow_450_499.",
+    ),
+    (
+        "Yards allowed",
+        "500–549",
+        135,
+        "yds_allow_500_549",
+        "ESPN stat 135, D/ST slot override. Sleeper yds_allow_500_549.",
+    ),
+    (
+        "Yards allowed",
+        "550+",
+        136,
+        "yds_allow_550p",
+        "ESPN stat 136, D/ST slot override. Sleeper yds_allow_550p.",
+    ),
+)
+
+
+def _rule_cell(season: dict[str, Any], espn_stat: int | None, sleeper_key: str | None) -> str:
+    platform = str(season.get("platform") or "")
+    settings = season.get("scoring_settings")
+    if platform == "espn":
+        if espn_stat is None:
+            return "no tier"
+        weight = _espn_stat_weight(settings, espn_stat)
+        return "not stored" if weight is None else weight
+    if platform == "sleeper":
+        if sleeper_key is None:
+            return "no tier"
+        if not isinstance(settings, dict) or sleeper_key not in settings:
+            return "not stored"
+        return _scoring_value(settings[sleeper_key])
+    return "unmapped"
+
+
+def scoring_rule_diff() -> dict[str, Any]:
+    seasons = fetchall(
+        """
+        SELECT year, platform, scoring_settings
+        FROM seasons
+        ORDER BY year
+        """
+    )
+    columns = [
+        {
+            "year": int(season["year"]),
+            "platform": _PLATFORM_NAME.get(str(season["platform"]), str(season["platform"])),
+        }
+        for season in seasons
+    ]
+    rows = []
+    for category, tier, espn_stat, sleeper_key, note in _RULE_DIFF:
+        rows.append(
+            {
+                "category": category,
+                "tier": tier,
+                "note": note,
+                "cells": [_rule_cell(season, espn_stat, sleeper_key) for season in seasons],
+            }
+        )
+    return {"columns": columns, "rows": rows}
 
 
 RECORDS_TOP = 10
@@ -6426,7 +6906,7 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
     current = season_row(year)
     if current is None:
         return None
-    rows = _scoring_rows(current.get("scoring_settings"))
+    view = _scoring_view(current.get("scoring_settings"))
     spent = []
     if current.get("faab_budget"):
         spent = fetchall(
@@ -6460,7 +6940,12 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
     return {
         "current": current,
         "seasons": list_seasons(),
-        "rows": rows,
+        "rows": view["rows"],
+        "espn_sheet": view["espn_sheet"],
+        "item_count": view["item_count"],
+        "skipped": view["skipped"],
+        "unmapped": view["unmapped"],
+        "rule_diff": scoring_rule_diff(),
         "faab": spent,
         "environment": environment,
         "replacement": _replacement_board(year),

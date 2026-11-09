@@ -26,6 +26,7 @@
     {% if environment %}<a href="#share">Positions</a>{% endif %}
     {% if replacement %}<a href="#scarcity">Scarcity</a>{% endif %}
     <a href="#sheet">Sheet</a>
+    <a href="#rules">Rule diff</a>
 </p>
 
 {% if environment and environment.season %}
@@ -162,31 +163,82 @@
 {% endif %}
 
 <h2 id="sheet">Scoring sheet</h2>
+{% if espn_sheet %}
+<p class="note">{{ item_count }} scoring items. {{ skipped }} skipped.{% if unmapped %} {{ unmapped }} unmapped, shown as id N.{% else %} 0 unmapped.{% endif %} Points and pointsOverrides are the stored fields.</p>
+{% else %}
 <p class="note">League settings from the dump. Zero-weight stats omitted.</p>
+{% endif %}
 {% if rows %}
 <table>
     <thead>
         <tr>
+            {% if espn_sheet %}
+            <th class="num">Stat id</th>
+            <th>Stat</th>
+            <th class="num">Points</th>
+            <th>pointsOverrides</th>
+            {% else %}
             <th>Stat</th>
             <th class="num">Value</th>
+            {% endif %}
         </tr>
     </thead>
     <tbody>
         {% for row in rows %}
         {% if row.group and (loop.first or row.group != rows[loop.index0 - 1].group) %}
         <tr class="sheet-group">
-            <td colspan="2">{{ row.group }}</td>
+            <td colspan="{{ 4 if espn_sheet else 2 }}">{{ row.group }}</td>
         </tr>
         {% endif %}
         <tr>
+            {% if espn_sheet %}
+            <td class="num">{{ row.stat_id }}</td>
+            <td>{{ row.label }}</td>
+            <td class="num">{{ row.points }}</td>
+            <td>{{ row.overrides }}</td>
+            {% else %}
             <td>{{ row.label }}</td>
             <td class="num">{{ row.value }}</td>
+            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
 </table>
-{% else %}
+{% elif not espn_sheet %}
 <p class="note">No scoring settings stored for this season. Reload after a dump.</p>
+{% endif %}
+
+<h2 id="rules">Rule diff</h2>
+<p class="note">Major weights from 2022 on, read from each season's stored settings. Tiers that do not share a breakpoint stay on their own rows. no tier: that platform has no band with this name. not stored: the platform has the stat and this league's settings omit it. ESPN leaves unused scoringItems out of the array. Sleeper stores an explicit 0. An ESPN D/ST band with points 0 shows the D/ST slot override, which is the weight that scores. Past weeks keep the points they were scored with. This table does not rescore them.</p>
+{% if rule_diff.rows %}
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th>Tier</th>
+            {% for col in rule_diff.columns %}
+            <th class="num">{{ col.year }} {{ col.platform }}</th>
+            {% endfor %}
+            <th>Mapping</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rule_diff.rows %}
+        <tr>
+            <td>{{ row.category }}</td>
+            <td>{{ row.tier }}</td>
+            {% for cell in row.cells %}
+            <td class="num">{{ cell }}</td>
+            {% endfor %}
+            <td>{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">No seasons stored.</p>
 {% endif %}
 
 {% if faab %}
