@@ -139,7 +139,7 @@
         {% if row.points_for is not none %}{{ "%.0f"|format(row.points_for) }} PF{% endif %}
         {% if row.net_luck is not none %} · {{ "%+d"|format(row.net_luck|int) }} luck{% endif %}
         {% if row.first_chair or row.last_chair %}
-        · {{ (row.first_chair or 0)|int }} Letters / {{ (row.last_chair or 0)|int }} Farmers
+        · {{ (row.first_chair or 0)|int }} letter weeks / {{ (row.last_chair or 0)|int }} farmer weeks
         {% endif %}
         {% if row.champion %}<span class="team">champ</span>{% endif %}
         {% if row.runner_up %}<span class="team">RU</span>{% endif %}

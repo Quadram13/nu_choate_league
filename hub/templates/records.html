@@ -14,7 +14,7 @@
 <p class="jump sticky-jump">
     <span class="jump-label" data-grain="career">Career</span>
     <a href="#holders" data-grain="career">Distinctions</a>
-    <a href="#chairs" data-grain="career">Varsity</a>
+    <a href="#chairs" data-grain="career">Weekly honors</a>
     <a href="#platform" data-grain="career">Platform</a>
     <a href="#coach" data-grain="career">Coach</a>
     <a href="#wins" data-grain="career">Win streaks</a>
@@ -297,10 +297,11 @@
 
 {% if chairs %}
 <div data-grain="career">
-<h2 id="chairs">Varsity</h2>
+<h2 id="chairs">Weekly honors</h2>
+<p class="note">Each count is a week. A Varsity Letter is the top starter at the position that week. A Varsity Farmer is the lowest starter. Beat the Freeze is a bench score above every starter at the position.</p>
 <div class="notable-grid">
     <section>
-        <h3>Most Varsity Letters</h3>
+        <h3>Most Varsity Letter weeks</h3>
         <table>
             <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
             <tbody>
@@ -315,7 +316,7 @@
         </table>
     </section>
     <section>
-        <h3>Most Varsity Farmers</h3>
+        <h3>Most Varsity Farmer weeks</h3>
         <table>
             <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
             <tbody>
@@ -331,7 +332,7 @@
     </section>
 </div>
 {% if chairs.sat %}
-<h3>Most Beat the Freeze</h3>
+<h3>Most Beat the Freeze weeks</h3>
 <table>
     <thead><tr><th class="num">#</th><th>Manager</th><th class="num">Weeks</th></tr></thead>
     <tbody>
@@ -444,14 +445,15 @@
 {% endif %}
 {% if fa_adds %}
 <h3>Most FA adds in a season</h3>
+<p class="note">Ranked by free-agent adds. Adds is waiver claims plus free agents.</p>
 <table>
     <thead>
         <tr>
             <th class="num">#</th>
             <th>Year</th>
             <th>Manager</th>
-            <th class="num">Adds</th>
-            <th class="num">FA</th>
+            <th class="num" title="Free-agent adds. This board is ranked by this column.">FA</th>
+            <th class="num" title="Waiver claims plus free-agent adds.">Adds</th>
         </tr>
     </thead>
     <tbody>
@@ -460,8 +462,8 @@
             <td class="num">{{ loop.index }}</td>
             <td><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
             <td>{{ person(row.manager_id, row.display_name) }}</td>
-            <td class="num">{{ row.adds|int }}</td>
             <td class="num">{{ (row.free_agents or 0)|int }}</td>
+            <td class="num">{{ row.adds|int }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -636,7 +638,7 @@
 {% endif %}
 
 <h2 id="draft">Draft</h2>
-<p class="note">Starter VORP vs that round’s average. <a href="/seasons">Season boards</a></p>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons">Season boards</a></p>
 <div class="notable-grid">
     <section>
         <h3>Best vs round</h3>
@@ -698,7 +700,7 @@
             <th>Year</th>
             <th>Manager</th>
             <th class="num">vsRnd</th>
-            <th class="num">Hits</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
             <th class="num">VORP</th>
         </tr>
     </thead>
@@ -720,14 +722,14 @@
 {% if draft_capital %}
 <div data-grain="career">
 <h2 id="draft-capital">Career draft capital</h2>
-<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. Titles are championships.</p>
+<p class="note">Sums across every draft. vsPts is starter points against the round. vsRnd is VORP against the round. A hit is 8 or more starts and above that round’s VORP. Titles are championships.</p>
 <div class="standings-wrap">
 <table class="js-sort">
     <thead>
         <tr>
             <th>Manager</th>
             <th class="num">Picks</th>
-            <th class="num">Hits</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
             <th class="num" title="Starter points versus the round average">vsPts</th>
             <th class="num" title="VORP versus the round average">vsRnd</th>
             <th class="num" title="Rest-of-season VORP">VORP</th>
@@ -753,7 +755,7 @@
 {% endif %}
 
 <h2 id="wire">Wire</h2>
-<p class="note">Starter VORP after the add. Misses are the failed claim vs what you got.</p>
+<p class="note">Adds are starter VORP on that roster after the add. A miss gap is league VORP from the claim week, bench weeks included: the missed player minus what you got.</p>
 <div class="notable-grid">
     <section>
         <h3>Best adds</h3>
@@ -793,7 +795,7 @@
                     <th>Manager</th>
                     <th>Missed</th>
                     <th>Got</th>
-                    <th class="num">Gap</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
                 </tr>
             </thead>
             <tbody>
