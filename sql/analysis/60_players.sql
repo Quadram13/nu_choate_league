@@ -223,7 +223,9 @@ LEFT JOIN (
         count(*) FILTER (WHERE direction = 'add') AS adds,
         count(*) FILTER (WHERE direction = 'drop') AS drops
     FROM v_moves
+    -- Completed moves only. Failed claims stay on v_moves for the miss log.
     WHERE type <> 'trade'
+        AND status = 'complete'
     GROUP BY player_id
 ) mv ON mv.player_id = pw.player_id
 LEFT JOIN (
