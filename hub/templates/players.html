@@ -14,7 +14,10 @@
 {% endmacro %}
 {% block body %}
 <h1>Players</h1>
-<p class="lede">Career starter PF. Trades are times moved. Rings are playoff starts on the title roster. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP scored while unowned. Highest weeks stay on <a href="/records">Records</a>. All-pro lives on each <a href="/seasons">season</a>.</p>
+<p class="lede">Career starter PF. Trades are times moved. Rings are playoff starts on the title roster. Season rows are a fold. <a href="#wire">Left on the wire</a> is VORP scored while unowned. Highest weeks stay on <a href="/records">Records</a>. All-pro lives on each <a href="/seasons">season</a>. Mean, SD, and CV are the spread of scored weeks (non-zero scores, plus a zero that was started). Boom is the share of those weeks at least 1.5× that row’s own mean.</p>
+{% if career | selectattr("vol_partial") | list %}
+<p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
+{% endif %}
 {% if not career and not seasons and not wire_leaders and not wire_unowned %}
 <p class="note">No player records yet. Load dumps into Postgres first.</p>
 {% endif %}
@@ -43,6 +46,11 @@
             <th class="num">Adds</th>
             <th class="num">Trades</th>
             <th class="num">Rings</th>
+            <th class="num" title="Scored weeks in the volatility sample">Wk</th>
+            <th class="num" title="Mean of scored weeks">Mean</th>
+            <th class="num" title="Sample standard deviation">SD</th>
+            <th class="num" title="Sample SD / mean">CV</th>
+            <th class="num" title="Weeks at least 1.5× the career mean">Boom</th>
         </tr>
     </thead>
     <tbody>
@@ -60,6 +68,11 @@
             <td class="num">{{ (row.times_added or 0)|int }}</td>
             <td class="num">{{ (row.times_traded or 0)|int }}</td>
             <td class="num">{{ (row.rings or 0)|int }}</td>
+            <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% if row.vol_partial %}*{% endif %}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -80,12 +93,18 @@
             <th class="num">Avg</th>
             <th class="num">VORP</th>
             <th class="num">Own</th>
+            <th class="num" title="Scored weeks in the volatility sample">Wk</th>
+            <th class="num" title="Mean of scored weeks">Mean</th>
+            <th class="num" title="Sample standard deviation">SD</th>
+            <th class="num" title="Sample SD / mean">CV</th>
+            <th class="num" title="Weeks at least 1.5× this season's mean">Boom</th>
+            <th class="num" title="Best scored week">Best</th>
         </tr>
     </thead>
     <tbody>
         {% for row in seasons %}
         <tr data-year="{{ row.year }}" data-pos="{{ row.position or '' }}">
-            <td class="num">{{ row.year }}</td>
+            <td class="num">{{ row.year }}{% if row.vol_partial %}*{% endif %}</td>
             <td>{{ player(row.player_id, row.player_name) }}</td>
             <td>{{ row.position or "—" }}</td>
             <td>{{ person(row.manager_id, row.owner_name) }}</td>
@@ -95,6 +114,12 @@
             <td class="num" data-value="{{ row.avg if row.avg is not none else '' }}">{{ avg(row.avg) }}</td>
             <td class="num" data-value="{{ row.vorp }}">{% if row.vorp is not none %}{{ "%.1f"|format(row.vorp) }}{% endif %}</td>
             <td class="num" data-value="{{ row.own_pct if row.own_pct is not none else '' }}">{{ pct(row.own_pct) }}</td>
+            <td class="num" data-value="{{ row.vol_weeks if row.vol_weeks is not none else '' }}">{% if row.vol_weeks is not none %}{{ row.vol_weeks|int }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_mean if row.vol_mean is not none else '' }}">{% if row.vol_mean is not none %}{{ "%.1f"|format(row.vol_mean) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_stddev if row.vol_stddev is not none else '' }}">{% if row.vol_stddev is not none %}{{ "%.1f"|format(row.vol_stddev) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_cv if row.vol_cv is not none else '' }}">{% if row.vol_cv is not none %}{{ "%.2f"|format(row.vol_cv) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.vol_boom if row.vol_boom is not none else '' }}">{{ pct(row.vol_boom) }}</td>
+            <td class="num" data-value="{{ row.vol_best if row.vol_best is not none else '' }}" {% if row.vol_best_year %}title="{{ row.vol_best_year }} W{{ row.vol_best_week }}"{% endif %}>{% if row.vol_best is not none %}{{ "%.1f"|format(row.vol_best) }}{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
