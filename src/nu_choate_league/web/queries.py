@@ -927,8 +927,15 @@ def fetchone(sql: str, params: dict[str, Any] | None = None) -> dict[str, Any] |
 
 
 def list_seasons() -> list[dict[str, Any]]:
+    # Inlining v_finished_seasons prices this statement near 1.89e6 because
+    # seasons and season_outcomes are unanalyzed (reltuples -1). That is
+    # above jit_optimize_above_cost, so LLVM spends about 1.5s compiling a
+    # scan that then runs in about 1ms. MATERIALIZED plans the view alone.
     rows = fetchall(
         """
+        WITH fin AS MATERIALIZED (
+            SELECT * FROM v_finished_seasons
+        )
         SELECT
             s.year,
             s.platform,
@@ -948,7 +955,7 @@ def list_seasons() -> list[dict[str, Any]]:
             CASE WHEN fin.regular_season_complete THEN lc_ts.team_name END
                 AS last_chair_team
         FROM seasons s
-        JOIN v_finished_seasons fin ON fin.year = s.year
+        JOIN fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN managers oc ON oc.id = o.champion
         LEFT JOIN team_seasons oc_ts
