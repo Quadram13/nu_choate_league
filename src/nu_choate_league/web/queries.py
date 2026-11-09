@@ -4608,6 +4608,41 @@ def current_streaks() -> list[dict[str, Any]]:
     )
 
 
+def _record_longest_streaks(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+    """Win and loss boards from one pass over v_streaks.
+
+    longest_streaks("win") and longest_streaks("loss") each recompute the
+    view, and each one was about 75ms. The window keeps the same top-10
+    order those two statements used.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            manager_id, display_name, result, length, start_year, start_week,
+            end_year, end_week, is_current
+        FROM (
+            SELECT
+                manager_id, display_name, result, length, start_year, start_week,
+                end_year, end_week, is_current,
+                row_number() OVER (
+                    PARTITION BY result
+                    ORDER BY length DESC, start_year, start_week, manager_id
+                ) AS rn
+            FROM v_streaks
+            WHERE result IN ('win', 'loss')
+        ) ranked
+        WHERE rn <= %(limit)s
+        ORDER BY result, rn
+        """,
+        {"limit": limit},
+    )
+    grouped: dict[str, list[dict[str, Any]]] = {"win": [], "loss": []}
+    for row in rows:
+        result = row.pop("result")
+        grouped[result].append(row)
+    return grouped
+
+
 def _record_draft_picks(*, worst: bool, limit: int = 10) -> list[dict[str, Any]]:
     order = "ASC" if worst else "DESC"
     return fetchall(
@@ -4846,6 +4881,10 @@ def universe_brackets(year: int) -> list[dict[str, Any]]:
         """,
         {"year": year},
     )
+    return _pack_universe_boards(rows)
+
+
+def _pack_universe_boards(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     boards: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for row in rows:
@@ -7212,6 +7251,7 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
 
 def records_page() -> dict[str, Any]:
     packed = marks_page()
+    streaks = _record_longest_streaks()
     return {
         "high_weeks": high_weeks(),
         "low_weeks": low_weeks(),
@@ -7228,8 +7268,8 @@ def records_page() -> dict[str, Any]:
         "wire_fa_leaders": _fa_season_leaders(limit=10),
         "bench_weeks": _record_bench_weeks(),
         "bench_seasons": _record_bench_seasons(),
-        "win_streaks": longest_streaks("win"),
-        "loss_streaks": longest_streaks("loss"),
+        "win_streaks": streaks["win"],
+        "loss_streaks": streaks["loss"],
         "current_streaks": current_streaks(),
         "season_pf": _record_season_pf(),
         "season_all_play": _record_season_all_play(),
@@ -7690,8 +7730,15 @@ def _record_roster_shape() -> dict[str, Any]:
 
 
 def _record_awards() -> list[dict[str, Any]]:
+    # Inlining v_finished_seasons costs this statement near 2.3e6 because
+    # seasons and season_outcomes are unanalyzed (reltuples -1). That is
+    # above jit_optimize_above_cost, so LLVM spends about 1.5s compiling a
+    # scan that then runs in about 1ms. MATERIALIZED plans the view alone.
     return fetchall(
         """
+        WITH fin AS MATERIALIZED (
+            SELECT * FROM v_finished_seasons
+        )
         SELECT
             s.year,
             o.champion AS champion_id,
@@ -7711,7 +7758,7 @@ def _record_awards() -> list[dict[str, Any]]:
             CASE WHEN fin.regular_season_complete THEN last.display_name END
                 AS last_place
         FROM seasons s
-        JOIN v_finished_seasons fin ON fin.year = s.year
+        JOIN fin ON fin.year = s.year
         LEFT JOIN season_outcomes o ON o.year = s.year
         LEFT JOIN managers ch ON ch.id = o.champion
         LEFT JOIN managers ru ON ru.id = o.runner_up
@@ -9758,6 +9805,68 @@ def _series_span(start: int, end: int) -> str:
     return f"W{start}\u2013W{end}"
 
 
+def _universe_boards_by_year() -> dict[int, list[dict[str, Any]]]:
+    """Every finished season's bracket from one pass over v_universe_games.
+
+    Calling universe_brackets once per year re-executes the view. On a warm
+    cache that was about 150ms a year, about 640ms for the four finished
+    seasons. One statement is about 200ms. The SELECT list and per-year
+    order match universe_brackets.
+    """
+    rows = fetchall(
+        """
+        SELECT
+            g.year,
+            g.universe,
+            g.round,
+            CASE
+                WHEN sh.shape = 'four' AND g.round = 'semifinal' THEN sh.semi_week
+                WHEN sh.shape = 'four' AND g.round = 'championship' THEN sh.semi_last_week + 1
+                ELSE g.week
+            END AS week_start,
+            CASE
+                WHEN sh.shape = 'four' AND g.round = 'semifinal' THEN sh.semi_last_week
+                WHEN sh.shape = 'four' AND g.round = 'championship' THEN sh.final_week
+                ELSE g.week
+            END AS week_end,
+            g.home_seed,
+            g.home_id,
+            hm.display_name AS home_name,
+            ht.team_name AS home_team_name,
+            g.home_points,
+            g.away_seed,
+            g.away_id,
+            am.display_name AS away_name,
+            at.team_name AS away_team_name,
+            g.away_points,
+            g.winner AS winner_id,
+            g.tiebreak,
+            o.matches_official
+        FROM v_universe_games g
+        JOIN v_universe_playoff_shape sh ON sh.year = g.year
+        JOIN managers hm ON hm.id = g.home_id
+        JOIN managers am ON am.id = g.away_id
+        LEFT JOIN team_seasons ht ON ht.year = g.year AND ht.manager_id = g.home_id
+        LEFT JOIN team_seasons at ON at.year = g.year AND at.manager_id = g.away_id
+        LEFT JOIN v_universe_outcomes o
+            ON o.universe = g.universe AND o.year = g.year
+        ORDER BY
+            g.year,
+            CASE g.universe WHEN 'never_median' THEN 0 ELSE 1 END,
+            CASE g.round
+                WHEN 'wildcard' THEN 0
+                WHEN 'semifinal' THEN 1
+                ELSE 2
+            END,
+            g.home_seed
+        """
+    )
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(int(row["year"]), []).append(row)
+    return {year: _pack_universe_boards(group) for year, group in grouped.items()}
+
+
 def _record_universe_replay() -> dict[str, Any]:
     """Full v_universe_games replay for every finished season, both universes."""
     years = fetchall(
@@ -9768,10 +9877,12 @@ def _record_universe_replay() -> dict[str, Any]:
         ORDER BY year
         """
     )
+    boards_by_year = _universe_boards_by_year()
     seasons: list[dict[str, Any]] = []
     any_champion_differs = False
     for row in years:
-        packed = _universe_replay_year(int(row["year"]))
+        year = int(row["year"])
+        packed = _universe_replay_year(year, boards_by_year.get(year, []))
         if packed is None:
             continue
         if packed["any_champion_differs"]:
@@ -9780,7 +9891,10 @@ def _record_universe_replay() -> dict[str, Any]:
     return {"seasons": seasons, "any_champion_differs": any_champion_differs}
 
 
-def _universe_replay_year(year: int) -> dict[str, Any] | None:
+def _universe_replay_year(
+    year: int,
+    boards_for_year: list[dict[str, Any]],
+) -> dict[str, Any] | None:
     official = fetchone(
         """
         SELECT
@@ -9816,7 +9930,7 @@ def _universe_replay_year(year: int) -> dict[str, Any] | None:
     by_universe = {row["universe"]: row for row in outcomes}
     boards: list[dict[str, Any]] = []
     any_champion_differs = False
-    for board in universe_brackets(year):
+    for board in boards_for_year:
         outcome = by_universe.get(board["key"], {})
         champion_id = outcome.get("champion_id")
         runner_up_id = outcome.get("runner_up_id")
