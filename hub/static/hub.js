@@ -668,3 +668,36 @@ function highlightBracket(tree, managerId) {
         });
     });
 })();
+
+/* === D1 players: rank recomputes on sort (append-only) ===
+   Rk is the 1-based index in the current row order. enableSort reorders the
+   body before this listener runs, because the header handler is registered
+   first and this one is on document (bubble). Fold and the year/position
+   chips do not renumber: a hidden row keeps its place in the full order.
+   Players tables opt in with class js-rk and a td.rk per row. Other sorts
+   are unchanged.
+*/
+document.addEventListener("click", function (event) {
+    var node = event.target;
+    if (node && node.nodeType !== 1) {
+        node = node.parentElement;
+    }
+    if (!node || !node.closest) {
+        return;
+    }
+    var header = node.closest("table.js-rk thead th");
+    if (!header) {
+        return;
+    }
+    var table = header.closest("table");
+    var body = table && table.tBodies && table.tBodies[0];
+    if (!body) {
+        return;
+    }
+    Array.prototype.forEach.call(body.rows, function (row, index) {
+        var cell = row.querySelector(".rk");
+        if (cell) {
+            cell.textContent = String(index + 1);
+        }
+    });
+});
