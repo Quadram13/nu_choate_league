@@ -5521,6 +5521,7 @@ def player_page(player_id: str) -> dict[str, Any] | None:
         "title_points": float(ring_row["title_points"] or 0),
         "lines": lines,
         "counting": _player_counting(player_id),
+        "splits": _player_splits(player_id),
         "volatility": volatility,
     }
 
@@ -7807,6 +7808,60 @@ def _exclude_nfl_team_totals(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
         for row in rows
         if not str(row.get("player_id") or "").startswith("TEAM_")
     ]
+
+
+# Issue #37. Phase and half rows are v_player_season_splits. Opponent and
+# home/away rows are the 2022-2023 schedule views. The page prints the
+# current-club caveat next to those tables.
+def _player_splits(player_id: str) -> dict[str, Any]:
+    rows = fetchall(
+        """
+        SELECT *
+        FROM v_player_season_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC,
+            CASE split_family WHEN 'phase' THEN 0 ELSE 1 END,
+            CASE split_value
+                WHEN 'regular' THEN 0
+                WHEN 'playoff' THEN 1
+                WHEN 'first' THEN 2
+                WHEN 'second' THEN 3
+                ELSE 4
+            END
+        """,
+        {"player_id": player_id},
+    )
+    opponents = fetchall(
+        """
+        SELECT year, nfl_team, opponent, games, points, points_per_game
+        FROM v_player_opponent_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC, games DESC, points DESC, opponent
+        """,
+        {"player_id": player_id},
+    )
+    sites = fetchall(
+        """
+        SELECT year, nfl_team, site, games, points, points_per_game
+        FROM v_player_site_splits
+        WHERE player_id = %(player_id)s
+        ORDER BY year DESC, CASE site WHEN 'home' THEN 0 ELSE 1 END
+        """,
+        {"player_id": player_id},
+    )
+    bounds = fetchall(
+        """
+        SELECT year, regular_weeks, midpoint, playoff_start_week
+        FROM v_season_split_bounds
+        ORDER BY year
+        """
+    )
+    return {
+        "rows": rows,
+        "opponents": opponents,
+        "sites": sites,
+        "bounds": bounds,
+    }
 
 
 def _player_counting(player_id: str) -> dict[str, Any]:
