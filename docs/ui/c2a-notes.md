@@ -72,19 +72,30 @@ Bold marks the points leader. 2025 QB leaders start J. Allen 364.62. 2025 K star
 
 Home uses the latest scored year (2026 when this was measured). The season page uses that season. Both modules are on each.
 
+## Avatar gate
+
+Sleeper faces are era2010 grammar. `plaque_macros.person_link` is unchanged and still prefers the Jinja global `avatar_url` over the hue span. That global used to be `photos.avatar_url` for every theme. `photos.avatar_url` returns a `sleepercdn.com/avatars/thumbs/` URL whenever `data/sleeper/{year}/users.json` is on disk. Those files are gitignored. They were copied into this worktree so the era2010 cards would have faces, and they are not in the file diff. With them present, every shared person chip switched from `<span class="hue">` to an 18px `<img class="avatar" ... onerror="this.remove()">`. Unthemed `/` grew from the wave tip's 32,923 bytes to 39,542. The warehouse did not move: the :8000 hub on main, same database, still matches the morning `parity-main` capture.
+
+The C2a append replaces that global, after `themes.install()`, with `era2010_avatar_url`. It is a Jinja `pass_context` function. It returns `None` when the template has no request or `resolve_theme` is not `era2010`. Modern and era90 chips fall through to the hue span. Era2010 matchup cards, the franchise strip, and My Team call `photos.avatar_url` directly, so those faces stay. Standings identity rows also skip the avatar lookup unless the theme is era2010. Franchise, games back, and streak are still computed for every theme, because the boot fixture compares every standings column.
+
+Era2010's own templates do not set `onerror`. A missing CDN image stays a broken icon beside the franchise name. `onerror="this.remove()"` is the shared `person_link` macro. The fragments contract does not bind the era2010 templates. The gate keeps that macro's avatar branch off modern and era90. The fetched era2010 routes (home, season panes, week, gamecenter, League, My Team, both View all boards) contain zero `onerror=` attributes. An era2010 page that later includes a fragment calling `person_link` can still emit it, and that string would be the shared macro.
+
 ## Modern and era90
 
 `git diff origin/cursor/ui-wave-45-bf5b` is the era2010 shell, CSS, and `hub/templates/era2010/*`, plus append-only tails in `app.py`, `queries.py`, and `themes.py`. The queries and app diffs have no deletions. Modern templates, `hub.css`, `hub.js`, and the era90 shell and CSS are the wave tip.
 
-Unthemed `/`, `/?theme=modern`, and `/?theme=nope` are the same document (39,542 UTF-8 bytes) and link `hub.css`. They do not link an era stylesheet.
+After the gate, unthemed `/` on `:8120` is 32,923 UTF-8 bytes and byte-identical to `:8100` at the wave tip `c7f481a`. Zero avatar images, zero sleeper avatar URLs. The same raw fetch of all 20 parity routes (`/`, `/seasons`, `/seasons/2025`, the 2025 trade, moves, draft, wire, week 1, game `2025-w01-1`, marks, desk, scoring, `/versus`, the Coletti/Howey versus, `/members`, Alex Coletti, `/records`, `/luck`, `/players`, `/players/4046`) is zero diffs against `:8100`, status and body. Both serves include the theme switcher, so the comparison is raw.
 
-`/seasons/2025?theme=era90&pane=standings` is 7,924 UTF-8 bytes. That is the figure C1a recorded for this URL on the wave tip. Headers are Manager, W, L, T, PF, PA. The era90 glossary is present. The page links `era90.css`.
+`/seasons/2025?theme=era90&pane=standings` is 7,924 UTF-8 bytes. Headers are Manager, W, L, T, PF, PA. No avatar images.
 
-`scripts/ui/parity.ps1 -Mode check` against `parity-main`, switcher stripped at the expected 194 bytes:
+`scripts/ui/parity.ps1 -Mode check -BaseUrl http://127.0.0.1:8120 -CheckDir C:\Users\marcusdu\AppData\Local\Temp\uiwave\parity-main` fails exactly four routes, and the same four lines against `:8100`:
 
-- Pass: `/seasons` 302, `/luck` 302, `/seasons/2025/scoring` 79,761 bytes unchanged.
-- The structural misses the wave already documented against that baseline are `/` (A3), `/records` (B2), and `/players` (D1).
-- Other data pages also differ from that older capture (season, week, members, `/players/4046`, and the rest of the harness). Those templates and their query functions match the wave tip, so the movement is the live warehouse against the capture, not an era2010 leak into the modern shell. `/players/4046` still renders the modern anatomy (Summary, season, Ownership, Splits, Counting) at 55,615 UTF-8 bytes.
+- `/` 34,444 → 32,729 after the 194-byte switcher strip (the A3 plus reconcile home already on the wave tip; raw document 32,923)
+- `/records` 854,055 → 34,916
+- `/players` 5,243,355 → 239,843
+- `/players/4046` 163,683 → 51,105
+
+The other 16 routes pass, including `/seasons/2025` at 369,120 and scoring at 79,761. The earlier note that those pages had drifted with the warehouse was wrong. They differed because this worktree's avatar files fed the shared person chip.
 
 ## Performance
 
@@ -135,6 +146,6 @@ No fragment amendment. The grammar that needed a table uses `stat_table`. Top-10
 - `hub/templates/era2010/` (home, week, gamecenter, score card, player cell, modules, franchises, My Team, leads and asides)
 - `src/nu_choate_league/web/themes.py` (era2010 projection, standings derivation, dispatch, module boards)
 - `src/nu_choate_league/web/queries.py` (streaks, roster, counting leaders, week highs)
-- `src/nu_choate_league/web/app.py` (alias global and middleware, after the C1a `page()` wrapper)
+- `src/nu_choate_league/web/app.py` (avatar global, alias global, and middleware, after the C1a `page()` wrapper)
 - `docs/ui/c2a-notes.md`
 - `docs/ui/shots/c2a/*.png`

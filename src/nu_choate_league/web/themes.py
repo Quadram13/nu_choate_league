@@ -845,7 +845,12 @@ def _standings_board(year: int, theme: str) -> dict[str, object]:
         losses = int(row.get("losses") or 0)
         ties = int(row.get("ties") or 0)
         display = str(row.get("display_name") or "")
-        identity = _era2010_identity(display, row.get("team_name"), row.get("manager_id"))
+        identity = _era2010_identity(
+            display,
+            row.get("team_name"),
+            row.get("manager_id"),
+            with_avatar=theme == "era2010",
+        )
         marks: dict[str, str] = {}
         if row.get("champion"):
             marks["manager"] = "is-leader"
@@ -2264,8 +2269,26 @@ def era90_family_document(
 # the season pane catalog, and these modules are not season panes. They still
 # render through the stat_table macro.
 
+from jinja2 import pass_context
+
 from .names import flavor_team
 from .photos import avatar_url
+
+
+@pass_context
+def era2010_avatar_url(context: object, manager_id: object) -> str | None:
+    """Jinja ``avatar_url`` global. Person chips stay hue marks unless the theme is era2010.
+
+    ``plaque_macros.person_link`` prefers this global over the hue span. The
+    sleeper avatar files live on disk for the era2010 cards, and an ungated
+    global would swap those chips on modern and era90 too.
+    """
+    request = context.get("request") if hasattr(context, "get") else None
+    if request is None or resolve_theme(request) != "era2010":
+        return None
+    if manager_id is None or str(manager_id).strip() == "":
+        return None
+    return avatar_url(str(manager_id))
 
 ERA2010_TOP = 10
 ERA2010_AVG_NOTE = (
@@ -2331,15 +2354,24 @@ def _era2010_average(points: object, games: int) -> Decimal | None:
     return Decimal(str(points)) / Decimal(games)
 
 
-def _era2010_identity(display: object, team: object, manager_id: object) -> dict[str, object]:
+def _era2010_identity(
+    display: object,
+    team: object,
+    manager_id: object,
+    *,
+    with_avatar: bool = True,
+) -> dict[str, object]:
     name = str(display or "").strip()
     team_name = None if team is None else str(team)
     franchise = flavor_team(name, team_name) or name or "Bye"
+    face = None
+    if with_avatar and manager_id is not None and str(manager_id).strip() != "":
+        face = avatar_url(str(manager_id))
     return {
         "franchise": franchise,
         "owner": name if franchise != name else "",
         "href": _path("/members", manager_id),
-        "avatar": avatar_url(None if manager_id is None else str(manager_id)),
+        "avatar": face,
     }
 
 
