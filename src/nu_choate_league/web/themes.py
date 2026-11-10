@@ -3004,10 +3004,12 @@ def _era2010_league(request: Request) -> HTMLResponse:
     for row in rows:
         display = str(row.get("display_name") or "")
         identity = _era2010_identity(display, names.get(str(row["manager_id"])), row.get("manager_id"))
-        chips.append(identity)
         wins = int(row.get("wins") or 0)
         losses = int(row.get("losses") or 0)
         ties = int(row.get("ties") or 0)
+        identity = dict(identity)
+        identity["record"] = f"{wins}-{losses}-{ties}"
+        chips.append(identity)
         marks: dict[str, str] = {}
         if high_titles and _same(row.get("titles"), high_titles):
             marks["franchise"] = "is-leader"
@@ -3048,6 +3050,7 @@ def _era2010_league(request: Request) -> HTMLResponse:
             "current": queries.season_row(year) if year is not None else {},
             "board": board,
             "franchises": chips,
+            "franchise_cards": True,
         },
     )
 
@@ -3149,6 +3152,11 @@ def era2010_dispatch(request: Request) -> HTMLResponse | None:
     path = request.url.path
     if path.startswith("/static"):
         return None
+    from .era2010_c2b import c2b_response
+
+    extra = c2b_response(request, path)
+    if extra is not None:
+        return extra
     if path == "/":
         route: tuple[object, ...] | None = ("home",)
     elif path == "/members":

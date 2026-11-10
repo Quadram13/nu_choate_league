@@ -11361,6 +11361,53 @@ def players_summary() -> dict[str, Any]:
     }
 
 
+def era2010_index_cards(player_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Recent weeks and the latest season line for the players index cards.
+
+    Landed columns only. No projections. Empty when the index has no ids.
+    """
+    if not player_ids:
+        return {}
+    weeks = fetchall(
+        """
+        SELECT
+            p.player_id,
+            p.year,
+            p.week,
+            p.points,
+            p.started,
+            p.manager_id,
+            m.display_name AS manager_name
+        FROM v_pool_weeks p
+        LEFT JOIN managers m ON m.id = p.manager_id
+        WHERE p.player_id = ANY(%(ids)s)
+        ORDER BY p.player_id, p.year DESC, p.week DESC
+        """,
+        {"ids": player_ids},
+    )
+    seasons = fetchall(
+        """
+        SELECT
+            player_id, year, starts, started_points, owner_name, manager_id, own_pct
+        FROM v_player_season
+        WHERE player_id = ANY(%(ids)s)
+        ORDER BY player_id, year DESC
+        """,
+        {"ids": player_ids},
+    )
+    found: dict[str, dict[str, Any]] = {}
+    for row in seasons:
+        key = str(row["player_id"])
+        if key not in found:
+            found[key] = {"season": row, "weeks": []}
+    for row in weeks:
+        key = str(row["player_id"])
+        bucket = found.setdefault(key, {"season": None, "weeks": []})
+        if len(bucket["weeks"]) < 4:
+            bucket["weeks"].append(row)
+    return found
+
+
 def players_board_payload(name: str) -> dict[str, Any] | None:
     """Every row of one board, plus the summary links. None if the name is not ours."""
     spec = next((item for item in _PLAYER_SPLIT_BOARDS if item["name"] == name), None)

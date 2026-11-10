@@ -1,5 +1,5 @@
-<ul class="franchises">
+<ul class="franchises{% if franchise_cards %} franchise-cards{% endif %}">
 {% for row in franchises %}
-<li><a href="{{ frame.carry(row.href) }}">{% if row.avatar %}<img class="avatar" src="{{ row.avatar }}" alt="" width="36" height="36">{% endif %}<span><span class="franchise-name">{{ row.franchise }}</span>{% if row.owner %}<span class="owner">{{ row.owner }}</span>{% endif %}</span></a></li>
+<li><a href="{{ frame.carry(row.href) }}">{% if row.avatar %}<img class="avatar" src="{{ row.avatar }}" alt="" width="36" height="36">{% endif %}<span><span class="franchise-name">{{ row.franchise }}</span>{% if row.owner %}<span class="owner">{{ row.owner }}</span>{% endif %}{% if row.record %}<span class="record-line">{{ row.record }}</span>{% endif %}</span></a></li>
 {% endfor %}
 </ul>

@@ -1,0 +1,7 @@
+<p class="record">{{ position }}</p>
+<p class="sibling-row">
+    <a href="{{ frame.carry('/players') }}">Players</a>
+    <a href="{{ frame.carry('/players/' ~ player_id ~ '/log') }}">Game log</a>
+    <a href="{{ frame.carry('/players/' ~ player_id ~ '/splits') }}">Splits</a>
+</p>
+{% include "era2010/sections.html" %}

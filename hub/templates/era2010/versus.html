@@ -1,0 +1,28 @@
+<p class="stat-note">Regular-season record from the row franchise against the column franchise. A winning record is bold. The cell is the pair page.</p>
+<div class="matrix" style="--cols: {{ managers|length }}" role="table" aria-label="Head to head">
+    <div class="matrix-row matrix-head" role="row">
+        <span class="matrix-name" role="columnheader"></span>
+        {% for manager in managers %}
+        <a class="matrix-name" role="columnheader" href="{{ frame.carry(manager.href) }}">
+            {% if manager.avatar %}<img class="avatar" src="{{ manager.avatar }}" alt="" width="28" height="28">{% endif %}
+            <span>{{ manager.franchise }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% for line in rows %}
+    <div class="matrix-row" role="row">
+        <a class="matrix-name" href="{{ frame.carry(line.manager.href) }}">
+            {% if line.manager.avatar %}<img class="avatar" src="{{ line.manager.avatar }}" alt="" width="28" height="28">{% endif %}
+            <span>{{ line.manager.franchise }}</span>
+        </a>
+        {% for cell in line.cells %}
+            {% if cell.self %}
+            <span class="matrix-self" role="cell"></span>
+            {% else %}
+            <a class="matrix-cell{% if cell.leader %} is-leader{% endif %}" role="cell" href="{{ frame.carry(cell.href) }}">{{ cell.record }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% for note in notes %}<p class="stat-note">{{ note }}</p>{% endfor %}

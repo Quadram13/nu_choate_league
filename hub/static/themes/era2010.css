@@ -532,3 +532,130 @@ a.score.won:visited {
     margin: 8px 0;
     font-size: 13px;
 }
+
+.franchise-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.franchise-cards li {
+    background: linear-gradient(#fff, #f3f3f3);
+    border: 1px solid #ccc;
+    border-top: 3px solid #cc0000;
+    border-radius: 6px;
+}
+
+.record-line {
+    display: block;
+    color: #111;
+    font-weight: bold;
+}
+
+.chapter-grid,
+.player-cards,
+.board-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.chapter-card,
+.player-cards li,
+.board-links li {
+    background: linear-gradient(#fff, #f3f3f3);
+    border: 1px solid #ccc;
+    border-top: 3px solid #cc0000;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.card-name {
+    font-weight: bold;
+}
+
+.card-line,
+.card-weeks {
+    margin: 4px 0 0;
+    color: #333;
+}
+
+.card-weeks {
+    padding-left: 18px;
+}
+
+.matrix {
+    overflow-x: auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.matrix-row {
+    display: grid;
+    grid-template-columns: 132px repeat(var(--cols), minmax(52px, 1fr));
+}
+
+.matrix-name,
+.matrix-cell,
+.matrix-self {
+    min-width: 0;
+    padding: 4px;
+    border-bottom: 1px solid #e6e6e6;
+    border-right: 1px solid #f0f0f0;
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 11px;
+    text-align: center;
+}
+
+.matrix-row .matrix-name:first-child,
+.matrix-head .matrix-name:first-child {
+    text-align: left;
+}
+
+.matrix-head .matrix-name {
+    background: linear-gradient(#3a3a3a, #1b1b1b);
+    color: #fff;
+}
+
+.matrix-head a,
+.matrix-head a:visited {
+    color: #fff;
+}
+
+.matrix .avatar {
+    width: 28px;
+    height: 28px;
+}
+
+.matrix-self {
+    background: #f6f6f6;
+}
+
+.matrix-cell.is-leader {
+    font-weight: bold;
+}
+
+.panel table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    color: #1a1a1a;
+}
+
+.panel th,
+.panel td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #e2e2e2;
+    text-align: left;
+    background: #fff;
+}
+
+.panel a,
+.panel a:visited {
+    color: #0645ad;
+}
