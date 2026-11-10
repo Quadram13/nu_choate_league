@@ -40,7 +40,7 @@ Rank on a full page is `(page - 1) * 50 + row`. Page 2 starts at 51. The numeral
 
 The index numerals all link, including page 1, because the index is not itself page 1. Each numeral is its own `<a>`. The href carries `theme=era90`, so the first click does not depend on the cookie. A later click can omit the query: the middleware sets the `theme` cookie when the request has `?theme=`.
 
-The small grid keeps the person and the sort keys (year when the order uses one, PF and VORP, or the yard sum, or FA VORP). The other columns stay on the player page and on Modern. The theme switcher is the way to that full table.
+The small grid keeps the person and the sort keys. Career PF is `starter_points`. Season PF is `started_points` (points on starts). Wire season and wire career show FA VORP. Never rostered shows points while unowned. Counting shows the yard sum. The other columns stay on the player page and on Modern. The theme switcher is the way to that full table.
 
 A rankings page is the shell plus fifty rows. On this database the career page is about 17 KB. The old `/players` document in the main baseline is 5,500,422 bytes.
 

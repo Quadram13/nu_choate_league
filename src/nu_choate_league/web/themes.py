@@ -3418,6 +3418,14 @@ def _era90_rank_rows(
         columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("yds", "Yds", True)]
         if board == "players-counting-season":
             columns.insert(1, ("year", "Year", True))
+    elif board == "players-wire-unowned":
+        columns = [
+            ("rk", "Rk", True),
+            ("year", "Year", True),
+            ("player", "Player", False),
+            ("pos", "Pos", False),
+            ("pts", "Pts", True),
+        ]
     elif board.startswith("players-wire"):
         columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("vorp", "FA VORP", True)]
         if board != "players-wire-career":
@@ -3443,11 +3451,15 @@ def _era90_rank_rows(
             "year": _era90_cell(row.get("year") or "", numeric=True, href=_path("/seasons", row.get("year")) if row.get("year") else ""),
             "player": _era90_cell(label, href=href, mark=mark),
             "pos": _era90_cell(row.get("position") or "—"),
-            "pf": _era90_cell(_num1(row.get("starter_points")), numeric=True),
+            "pf": _era90_cell(
+                _num1(row.get("started_points") if board == "players-season-rankings" else row.get("starter_points")),
+                numeric=True,
+            ),
             "vorp": _era90_cell(
                 _num1(row.get("fa_vorp") if board.startswith("players-wire") else row.get("started_vorp")),
                 numeric=True,
             ),
+            "pts": _era90_cell(_num1(row.get("fa_points")), numeric=True),
             "yds": _era90_cell(_yards(row), numeric=True),
         }
         body.append([cells[key] for key, _label, _numeric in columns])
@@ -3465,7 +3477,11 @@ def _era90_ranking_section(
     shown = list(rows)[:ERA90_TOP]
     columns, body = _era90_rank_rows(shown, board, offset=0)
     sort = _ERA90_SORT.get(board, "the published order")
-    if board.startswith("players-wire"):
+    if board == "players-season-rankings":
+        keys = "Points on starts are the sort key."
+    elif board == "players-wire-unowned":
+        keys = "Points while unowned are the sort key."
+    elif board.startswith("players-wire"):
         keys = "FA VORP is the sort key."
     elif "counting" in board:
         keys = "Yards are the sort key."
