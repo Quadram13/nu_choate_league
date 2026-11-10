@@ -3273,7 +3273,7 @@ def _era90_cell(
     return {
         "text": "—" if text is None or text == "" else str(text),
         "numeric": numeric,
-        "href": _era90_href(href) if href else "",
+        "href": href,
         "mark": mark,
     }
 

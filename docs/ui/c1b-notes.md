@@ -60,6 +60,12 @@ Player, log, and splits print one line in the era order: last name, first name, 
 
 The year numerals are the player's `log_years`. On the profile they link to `/players/{id}/log?year=N`. On the log and the splits, the selected year is `<strong>` and the rest are links, including `All`.
 
+## Contract reading
+
+Stat-table cells are fragment content. Their hrefs stay plain root-relative paths, with no `theme=`. Contract §2.3. The `?theme=era90` on the document sets the cookie, and the next plain link stays in the theme. Numeral rows, the year row, and the records link farm are shell grammar. Those hrefs still carry `theme=era90`, the same way C1a week numerals do.
+
+Player, member, and versus grids stay out of `BOARDS`. The boot gate equates that registry with the season pane catalog, and these pages are not season panes. C2a already built its top-10 tables the same way. `render_panes` stays the season-document entry. That is the reading of contract §5.1 in `c1a-notes.md`. A ranking document is not a season pane, so it uses the same shell response as the other family pages.
+
 ## What stayed put
 
 `queries.py`, `hub.css`, `hub.js`, `base.html`, the fragment templates, and the era2010 files are untouched. `BOARDS` did not gain a player board. The seven pre-contract tables inside `hub/templates/players/` are still the modern body. They render inside the era shell. They were not rewritten.
