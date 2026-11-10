@@ -1,0 +1,38 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if trade_partners %}
+<h2 id="partners">Trade partners</h2>
+<p class="note">
+    Each row is the series with that manager. Net VORP is this manager’s rest-of-season VORP minus theirs, summed across the deals.
+    The series winner is the positive net. Deal wins are counted separately and can disagree.
+    A push is a deal with equal VORP.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Partner</th>
+            <th class="num">Deals</th>
+            <th class="num" title="This manager’s deal wins, losses, and equal-VORP pushes">Record</th>
+            <th class="num" title="Sum of this manager’s VORP minus the partner’s">Net VORP</th>
+            <th>Series</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trade_partners %}
+        <tr>
+            <td>{{ person(row.opponent_id, row.opponent_name) }}</td>
+            <td class="num" data-value="{{ row.deals }}">{{ row.deals|int }}</td>
+            <td class="num" data-value="{{ row.wins }}">{{ row.wins|int }}-{{ row.losses|int }}{% if row.pushes %}-{{ row.pushes|int }}{% endif %}</td>
+            {{ signed_cell(row.net_vorp) }}
+            <td>{% if row.series_winner_id %}{{ person(row.series_winner_id, row.series_winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}

@@ -1,0 +1,37 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if roster_shape.seasons %}
+<h2 id="roster-shape">Roster shape</h2>
+{{ roster_note(roster_shape.league_ir_slots) }}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            {{ roster_head(roster_shape.show_other) }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in roster_shape.seasons %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            {{ roster_cells(row, roster_shape.show_other) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if roster_shape.career %}
+    {% set row = roster_shape.career %}
+    <tfoot>
+        <tr>
+            <td>Career</td>
+            {{ roster_cells(row, roster_shape.show_other) }}
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+{% endif %}

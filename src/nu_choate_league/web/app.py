@@ -122,7 +122,9 @@ def season(request: Request, year: int) -> HTMLResponse:
     # --- A2 era dispatch (#98). Modern falls through to the legacy document. ---
     if themes.resolve_theme(request) != "modern":
         return themes.season_document(request, year)
-    data = queries.season_page(year)
+    raw_pane = request.query_params.get("pane") or "standings"
+    pane = raw_pane if raw_pane in queries.SEASON_PANES else "standings"
+    data = queries.season_page(year, pane=pane)
     if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
     return page(
@@ -323,7 +325,9 @@ def members(request: Request) -> HTMLResponse:
 
 @app.get("/members/{manager_id}", response_class=HTMLResponse)
 def member(request: Request, manager_id: str) -> HTMLResponse:
-    data = queries.member_page(manager_id)
+    raw_section = request.query_params.get("section") or ""
+    section = raw_section if raw_section in queries.MEMBER_SECTIONS else ""
+    data = queries.member_page(manager_id, section=section or None)
     if data is None:
         raise StarletteHTTPException(status_code=404, detail=f"No manager {manager_id}.")
     return page(

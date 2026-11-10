@@ -1,0 +1,64 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if draft.hits or draft.misses or draft.totals.picks %}
+<h2 id="draft">Draft</h2>
+<p class="note">
+    Starter VORP vs that round’s average.
+    A hit is 8 or more starts and above that round’s VORP.
+    {% if draft.totals.picks %}{{ draft.totals.hits|int }} hit{{ "s" if draft.totals.hits != 1 else "" }} in {{ draft.totals.picks|int }} pick{{ "s" if draft.totals.picks != 1 else "" }}{% if draft.totals.vs_vorp is not none %} · {{ "%+.1f"|format(draft.totals.vs_vorp) }} vsRnd{% endif %}{% endif %}.
+</p>
+{% if draft.hits or draft.misses %}
+<div class="notable-grid">
+    {% if draft.hits %}
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.hits %}
+                <tr>
+                    <td>{{ pick_link(row.year, row, row.year ~ " #" ~ row.overall) }}</td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if draft.misses %}
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.misses %}
+                <tr>
+                    <td>{{ pick_link(row.year, row, row.year ~ " #" ~ row.overall) }}</td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}

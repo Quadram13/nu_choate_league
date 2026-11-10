@@ -277,6 +277,94 @@ def _register_boards() -> None:
         if spec.name in BOARDS:
             raise RuntimeError(f"duplicate board {spec.name}")
         BOARDS[spec.name] = spec
+    # D2 (#106): same envelope, registered after D1. Bodies live outside
+    # fragments/ because they keep the season and member tables.
+    for spec in _deferred_boards():
+        if spec.name in BOARDS:
+            raise RuntimeError(f"duplicate board {spec.name}")
+        BOARDS[spec.name] = spec
+
+
+def _query_year(request: Request) -> int:
+    raw = request.query_params.get("year")
+    if raw is None or not str(raw).isascii() or not str(raw).isdigit():
+        raise StarletteHTTPException(status_code=404, detail="Missing year.")
+    return int(raw)
+
+
+def _season_fragment(name: str, part: str, title: str) -> Board:
+    def load(request: Request) -> Context:
+        year = _query_year(request)
+        data = queries.season_board(year, part)
+        if data is None:
+            raise StarletteHTTPException(status_code=404, detail=f"No season {year}.")
+        data["fragment_href"] = f"/fragments/{name}"
+        data["board_href"] = f"/boards/{name}"
+        data["body"] = f"season/{part}.html"
+        return data
+
+    return Board(
+        name=name,
+        template="deferred/envelope.html",
+        title=title,
+        nav="seasons",
+        loader=load,
+    )
+
+
+def _member_fragment(name: str, section: str, title: str, body: str) -> Board:
+    def load(request: Request) -> Context:
+        manager = request.query_params.get("manager") or ""
+        if not manager:
+            raise StarletteHTTPException(status_code=404, detail="Missing manager.")
+        data = queries.member_page(manager, section=section)
+        if data is None:
+            raise StarletteHTTPException(status_code=404, detail=f"No manager {manager}.")
+        data["fragment_href"] = f"/fragments/{name}"
+        data["board_href"] = f"/boards/{name}"
+        data["body"] = body
+        return data
+
+    return Board(
+        name=name,
+        template="deferred/envelope.html",
+        title=title,
+        nav="members",
+        loader=load,
+    )
+
+
+def _deferred_boards() -> tuple[Board, ...]:
+    season = (
+        ("season-universes", "universes", "Universes"),
+        ("season-power", "power", "All-play"),
+        ("season-heat", "heat", "Week ranks"),
+        ("season-race", "race", "Points race"),
+        ("season-weeks", "weeks", "Weeks"),
+        ("season-playoffs", "playoffs", "Playoffs"),
+        ("season-moves", "moves", "Moves"),
+        ("season-draft", "draft", "Draft"),
+        ("season-lineups", "lineups", "Lineups"),
+        ("season-stacks", "stacks", "Stacks"),
+    )
+    member = (
+        ("member-h2h", "h2h", "Head-to-head", "member/h2h.html"),
+        ("member-draft", "draft", "Draft", "member/draft.html"),
+        ("member-wire", "wire", "Wire", "member/wire.html"),
+        ("member-trades", "trades", "Trades", "member/trades.html"),
+        ("member-draft-board", "draft-board", "Draft board", "member/draft-board.html"),
+        ("member-partners", "partners", "Trade partners", "member/partners.html"),
+        ("member-waiver", "waiver-roi", "Waiver priority", "member/waiver-roi.html"),
+        ("member-roster", "roster-shape", "Roster shape", "member/roster-shape.html"),
+        ("member-lineups", "lineups", "Lineups", "member/lineups.html"),
+        ("member-luck", "luck", "Luck", "member/luck.html"),
+        ("member-highs", "highs", "Highs", "member/highs.html"),
+        ("member-consistency", "consistency", "Consistency", "member/consistency.html"),
+        ("member-clutch", "clutch", "Clutch", "member/clutch.html"),
+    )
+    return tuple(_season_fragment(name, part, title) for name, part, title in season) + tuple(
+        _member_fragment(name, section, title, body) for name, section, title, body in member
+    )
 
 
 _register_boards()
