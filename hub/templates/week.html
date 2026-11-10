@@ -10,6 +10,7 @@
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
+    <a href="/seasons/{{ current.year }}#weeks">Weeks</a>
     {% if gc.prev_week %}
     <a href="/seasons/{{ current.year }}/week/{{ gc.prev_week }}">← week {{ gc.prev_week }}</a>
     {% endif %}

@@ -10,7 +10,7 @@
 {% macro who(side, face, winner_id) -%}
 <div class="who {{ face }}{% if winner_id and side.id == winner_id %} won{% elif winner_id %} lost{% endif %}">
     {% if side.id %}{{ person_link(side.id, side.name) }}{% else %}{{ side.name }}{% endif %}
-    {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+    {% if side.team %}<span class="team">{% if side.id %}<a href="/seasons/{{ current.year }}#m-{{ side.id }}" title="{{ side.team }}">{{ side.team }}</a>{% else %}{{ side.team }}{% endif %}</span>{% endif %}
 </div>
 {%- endmacro %}
 {% macro pts(row) -%}
@@ -32,7 +32,7 @@
 <div class="gc-lineup">
     <h3>
         {% if side.id %}{{ person_link(side.id, side.name) }}{% else %}{{ side.name }}{% endif %}
-        {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+        {% if side.team %}<span class="team">{% if side.id %}<a href="/seasons/{{ current.year }}#m-{{ side.id }}" title="{{ side.team }}">{{ side.team }}</a>{% else %}{{ side.team }}{% endif %}</span>{% endif %}
     </h3>
     {% if (show_starters and side.starters) or side.bench %}
     <table>
@@ -121,7 +121,7 @@
     <a href="/seasons/{{ current.year }}/week/{{ gc.week }}/{{ gc.next_match.id }}">{{ gc.next_match.home.name }} vs {{ gc.next_match.away.name }} →</a>
     {% endif %}
 </p>
-<h1>{{ gc.game.home.name }} vs {{ gc.game.away.name }}</h1>
+<h1>{{ person_link(gc.game.home.id, gc.game.home.name) }} vs {{ person_link(gc.game.away.id, gc.game.away.name) }}</h1>
 <p class="lede">{{ current.year }} week {{ gc.week }}{% if gc.kind_label and gc.game.kind != "regular" %} · {{ gc.kind_label }}{% endif %}</p>
 <p class="jump">
     {% for week in gc.weeks %}

@@ -4,6 +4,7 @@
 {% from "wire_macros.html" import value_strip, cost_cell %}
 {% from "plaque_macros.html" import plaque_free, person_link, highlight_chip %}
 {% from "scoring_macros.html" import environment_block %}
+{% from "link_macros.html" import records_chapter, season_years %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -13,7 +14,7 @@
     <td>
         {{ game.label }}
         {% if game.alltime_rank and game.records_href %}
-        · <a href="{{ game.records_href }}">{{ game.alltime_label }}</a>
+        · <a href="{{ records_chapter(game.records_href) }}">{{ game.alltime_label }}</a>
         {% endif %}
     </td>
     <td class="num">{% if game.id %}<a href="/seasons/{{ year }}/week/{{ game.week }}/{{ game.id }}">{{ game.week }}</a>{% else %}{{ game.week }}{% endif %}</td>
@@ -39,40 +40,40 @@
 </p>
 {% endif %}
 {% endmacro %}
-{% macro seed(manager_id, name, team, points, winner_id) %}
+{% macro seed(manager_id, name, team, points, winner_id, year=none) %}
 <div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
     <span class="who">
         {{ person(manager_id, name) }}
-        {% if team %}<span class="team">{{ team }}</span>{% endif %}
+        {% if team %}<span class="team">{% if year and manager_id %}<a href="/seasons/{{ year }}#m-{{ manager_id }}" title="{{ team }}">{{ team }}</a>{% else %}{{ team }}{% endif %}</span>{% endif %}
     </span>
     <span class="num">{% if points is not none %}{{ "%.1f"|format(points) }}{% endif %}</span>
 </div>
 {% endmacro %}
 {% macro match_card(match, year) %}
 <article class="bracket-match" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}">
-    {{ seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id) }}
-    {{ seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id) }}
+    {{ seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, year) }}
+    {{ seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, year) }}
     {% if match.id %}
     <p class="open-gc"><a href="/seasons/{{ year }}/week/{{ match.week }}/{{ match.id }}">lineups</a></p>
     {% endif %}
 </article>
 {% endmacro %}
-{% macro universe_seed(manager_id, name, team, points, winner_id, seed_no) %}
+{% macro universe_seed(manager_id, name, team, points, winner_id, seed_no, year=none) %}
 <div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
     <span class="who">
         <span class="seed-line">
             <span class="seed-no">{{ seed_no }}</span>
             {{ person(manager_id, name) }}
         </span>
-        {% if team %}<span class="team">{{ team }}</span>{% endif %}
+        {% if team %}<span class="team">{% if year and manager_id %}<a href="/seasons/{{ year }}#m-{{ manager_id }}" title="{{ team }}">{{ team }}</a>{% else %}{{ team }}{% endif %}</span>{% endif %}
     </span>
     <span class="num">{% if points is not none %}{{ "%.2f"|format(points) }}{% endif %}</span>
 </div>
 {% endmacro %}
-{% macro universe_match(match) %}
+{% macro universe_match(match, year=none) %}
 <article class="bracket-match universe-game" data-round="{{ match.round }}" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}" data-home-seed="{{ match.home_seed }}" data-away-seed="{{ match.away_seed }}">
-    {{ universe_seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, match.home_seed) }}
-    {{ universe_seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, match.away_seed) }}
+    {{ universe_seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, match.home_seed, year) }}
+    {{ universe_seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, match.away_seed, year) }}
     {% if match.tiebreak %}<p class="note tiebreak">Tiebreak: {{ match.tiebreak }}</p>{% endif %}
 </article>
 {% endmacro %}
@@ -85,7 +86,7 @@
         <svg class="bracket-lines" aria-hidden="true"></svg>
         {% for round in tree.rounds %}
         <div class="bracket-round">
-            <h3 id="week-{{ round.week }}-{{ fragment }}">{{ round.label }} · week {{ round.week }}</h3>
+            <h3 id="week-{{ round.week }}-{{ fragment }}">{{ round.label }} · <a href="/seasons/{{ year }}/week/{{ round.week }}">week {{ round.week }}</a></h3>
             <div class="bracket-slots">
                 {% for match in round.matches %}
                 {{ match_card(match, year) }}
@@ -124,6 +125,7 @@
         {% if teams %} · {{ teams }} teams{% endif %}
     </span>
 </p>
+{{ season_years(seasons, current.year) }}
 
 <div class="hardware-row">
     {% if current.champion %}
@@ -169,6 +171,7 @@
 <p class="jump js-season-tabs">
     <a href="#standings" data-tab="standings">Standings</a>
     <a href="#weeks" data-tab="weeks">Weeks</a>
+    {% if notables.high or notables.low or notables.blowout or notables.closest or notables.lucky or notables.unlucky %}<a href="#matchups">Notable</a>{% endif %}
     {% if schedule.winners_tree or schedule.consolation_tree or path %}<a href="#playoffs" data-tab="playoffs">Playoffs</a>{% endif %}
     {% if trades or wire.managers or wire.adds or wire.misses or wire.dodges or wire.value_per_priority or wire.unclaimed or wire.fa_leaders %}<a href="#moves" data-tab="moves">Moves</a>{% endif %}
     {% if draft.managers or draft.hits or draft.misses %}<a href="#draft" data-tab="draft">Draft</a>{% endif %}
@@ -180,6 +183,20 @@
 
 <section class="js-season-pane" id="standings" data-tab="standings">
     <h2>Official standings</h2>
+    {% if scoring or (scoring_env and scoring_env.season) or universes or power or heat or race or desk or median_tax %}
+    <p class="jump">
+        {% if scoring %}<a href="#scoring">Scoring</a>{% endif %}
+        {% if scoring_env and scoring_env.season %}<a href="#scoring-env">Environment</a>{% endif %}
+        {% if universes %}<a href="#universes">Universes</a>{% endif %}
+        {% if universes and universes.brackets %}<a href="#universe-brackets">Brackets</a>{% endif %}
+        {% if universes and universes.brackets %}<a href="#universe-replay">Replay</a>{% endif %}
+        {% if power %}<a href="#power">All-play</a>{% endif %}
+        {% if heat %}<a href="#heat">Week ranks</a>{% endif %}
+        {% if race %}<a href="#race">Points race</a>{% endif %}
+        {% if desk %}<a href="#desk">Desk</a>{% endif %}
+        {% if median_tax %}<a href="#median-tax">Median tax</a>{% endif %}
+    </p>
+    {% endif %}
     {% if current.vs_median %}
     <p class="note">H2H plus a game vs the weekly median.</p>
     {% else %}
@@ -275,10 +292,14 @@
             </a>
             {% endfor %}
             {% for point in scoring.points.avg %}
-            <circle class="avg" cx="{{ point.x }}" cy="{{ point.y }}" r="2.2"><title>W{{ point.week }} avg {{ "%.1f"|format(point.value) }}</title></circle>
+            <a href="/seasons/{{ current.year }}/week/{{ point.week }}">
+                <circle class="avg" cx="{{ point.x }}" cy="{{ point.y }}" r="2.2"><title>W{{ point.week }} avg {{ "%.1f"|format(point.value) }}</title></circle>
+            </a>
             {% endfor %}
             {% for point in scoring.points.median %}
-            <circle class="median" cx="{{ point.x }}" cy="{{ point.y }}" r="2.2"><title>W{{ point.week }} median {{ "%.1f"|format(point.value) }}</title></circle>
+            <a href="/seasons/{{ current.year }}/week/{{ point.week }}">
+                <circle class="median" cx="{{ point.x }}" cy="{{ point.y }}" r="2.2"><title>W{{ point.week }} median {{ "%.1f"|format(point.value) }}</title></circle>
+            </a>
             {% endfor %}
             {% for point in scoring.points.low %}
             <a href="/seasons/{{ current.year }}/week/{{ point.week }}">
@@ -286,7 +307,9 @@
             </a>
             {% endfor %}
             {% for tick in scoring.x_ticks %}
-            <text class="tick" x="{{ tick.x }}" y="{{ scoring.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
+            <a href="/seasons/{{ current.year }}/week/{{ tick.week }}">
+                <text class="tick" x="{{ tick.x }}" y="{{ scoring.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
+            </a>
             {% endfor %}
         </svg>
     </div>
@@ -294,7 +317,7 @@
     {% if scoring_env and scoring_env.season %}
     <div id="scoring-env">
         <h3>Scoring environment</h3>
-        <p class="note">Paired regular-season manager-weeks on posted weeks. A live week stays out until the median team total reaches 40. Std dev is the sample standard deviation. Deciles are percentile_cont. {% if scoring_env.season.partial %}{{ current.year }} is the posted weeks only.{% endif %} Each season is described on its own scoring.</p>
+        <p class="note">Paired regular-season manager-weeks on posted weeks. A live week stays out until the median team total reaches 40. Std dev is the sample standard deviation. Deciles are percentile_cont. {% if scoring_env.season.partial %}{{ current.year }} is the posted weeks only.{% endif %} Each season is described on its own scoring. <a href="/records/environment#environment">Record book</a>.</p>
         {{ environment_block(scoring_env, current.year) }}
         <p class="note"><a href="/seasons/{{ current.year }}/scoring#scarcity">Replacement by week</a> names the player on the scoring sheet.</p>
     </div>
@@ -325,7 +348,7 @@
                     <h3>{{ round.label }} · {{ round.span }}</h3>
                     <div class="bracket-slots">
                         {% for match in round.matches %}
-                        {{ universe_match(match) }}
+                        {{ universe_match(match, current.year) }}
                         {% endfor %}
                     </div>
                 </div>
@@ -544,13 +567,15 @@
             <path class="line race" d="{{ series.path }}" style="stroke: hsl({{ series.hue }} 55% 58%)"></path>
             {% endfor %}
             {% for tick in race.x_ticks %}
-            <text class="tick" x="{{ tick.x }}" y="{{ race.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
+            <a href="/seasons/{{ current.year }}/week/{{ tick.week }}">
+                <text class="tick" x="{{ tick.x }}" y="{{ race.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
+            </a>
             {% endfor %}
         </svg>
     </div>
     <p class="chart-legend race-legend">
         {% for series in race.series %}
-        <span><span class="hue" style="--hue: {{ series.hue }}"></span>{{ series.display_name }}</span>
+        <span><span class="hue" style="--hue: {{ series.hue }}"></span><a href="/members/{{ series.manager_id }}">{{ series.display_name }}</a></span>
         {% endfor %}
     </p>
     {% endif %}
@@ -564,7 +589,7 @@
             <tr>
                 <th></th>
                 {% for col in desk.managers %}
-                <th class="num" title="{{ col.display_name }}">{{ col.display_name[:3] }}</th>
+                <th class="num" title="{{ col.display_name }}"><a href="/members/{{ col.manager_id }}">{{ col.display_name[:3] }}</a></th>
                 {% endfor %}
             </tr>
         </thead>
@@ -664,7 +689,7 @@
 {% endif %}
 {% if notables.high or notables.low or notables.blowout or notables.closest or notables.lucky or notables.unlucky %}
 <h2 id="matchups">Notable matchups</h2>
-<p class="note"><a href="/records#high">Records</a> · <a href="/seasons/{{ current.year }}/marks">Distinctions</a></p>
+<p class="note"><a href="/records/environment#high">Highest weeks</a> · <a href="/records/games">Games</a> · <a href="/seasons/{{ current.year }}/marks">Distinctions</a></p>
 <table>
     <tbody>
         {{ notable_row(notables.high, current.year) }}
@@ -679,6 +704,9 @@
 </section>
 
 <section class="js-season-pane" id="playoffs" data-tab="playoffs">
+{% if path or schedule.winners_tree or schedule.consolation_tree %}
+<p class="note"><a href="/records/playoff">Playoff records</a> · <a href="/records/playoff-history">History</a></p>
+{% endif %}
 {% if path %}
 <h2>How they got there</h2>
 <p class="note">Regular-season path.{% if current.vs_median %} Record is H2H plus the median game. Median is wins vs the weekly median.{% else %} Record is head-to-head. This season did not play a median game.{% endif %}</p>
@@ -947,7 +975,7 @@
 <section class="js-season-pane" id="draft" data-tab="draft">
 {% if draft.managers or draft.hits or draft.misses %}
 <h2>Draft</h2>
-<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons/{{ current.year }}/draft">Full board</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons/{{ current.year }}/draft">Full board</a> · <a href="/records/draft">Record book</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
 {% if draft.managers %}
 <div class="standings-wrap">
 <table class="js-sort">
@@ -1069,7 +1097,7 @@
 <section class="js-season-pane" id="lineups" data-tab="lineups">
 {% if lineups and lineups.coaches %}
 <h2>Lineups</h2>
-<p class="note">Points left on the bench vs that week’s optimal lineup.</p>
+<p class="note">Points left on the bench vs that week’s optimal lineup. <a href="/records/lineups">Bench records</a> · <a href="/records/coach">Coaching</a>.</p>
 <div class="standings-wrap">
     <table class="js-sort mgmt-heat sticky-first">
         <thead>
@@ -1160,7 +1188,7 @@
 {% if stacks.coverage %}
 <p class="note">Starter rows with a catalog club: {{ stacks.coverage.starter_with_club }} of {{ stacks.coverage.starter_rows }}{% if stacks.coverage.starter_club_rate is not none %} ({{ "%.1f"|format(stacks.coverage.starter_club_rate * 100) }}%){% endif %}. Posted regular-season quarterbacks with a club: {{ stacks.coverage.regular_qb_with_club }} of {{ stacks.coverage.regular_qb_rows }}. WR, TE, and RB: {{ stacks.coverage.regular_catcher_with_club }} of {{ stacks.coverage.regular_catcher_rows }}{% if stacks.coverage.regular_catcher_club_rate is not none %} ({{ "%.1f"|format(stacks.coverage.regular_catcher_club_rate * 100) }}%){% endif %}. A stack can use only the clubbed rows.{% if stacks.coverage.unposted_starter_rows %} {{ stacks.coverage.unposted_starter_rows }} starter rows sit on an unposted week and stay out of the count.{% endif %}</p>
 {% endif %}
-<p class="note">{{ stacks.stack_weeks }} regular-season stacks across {{ stacks.managers_with_stack }} managers. Two-catcher weeks: {{ stacks.multi_catcher_weeks }}. <a href="/records#stacks">Record book</a> has the all-time weeks, the season leaders, and the league comparison.</p>
+<p class="note">{{ stacks.stack_weeks }} regular-season stacks across {{ stacks.managers_with_stack }} managers. Two-catcher weeks: {{ stacks.multi_catcher_weeks }}. <a href="/records/stacks#stacks">Record book</a> has the all-time weeks, the season leaders, and the league comparison.</p>
 {% if stacks.managers %}
 <div class="standings-wrap">
     <table class="js-sort sticky-first">

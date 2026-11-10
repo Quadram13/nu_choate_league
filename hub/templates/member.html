@@ -3,6 +3,7 @@
 {% from "draft_macros.html" import pick_link %}
 {% from "plaque_macros.html" import plaque_free, holder_row, person_link, team_season_card %}
 {% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% from "link_macros.html" import records_chapter %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
 {% endmacro %}
@@ -66,16 +67,16 @@
 {% set pf_years = finishes | selectattr("most_points") | map(attribute="year") | list %}
 <div class="hardware-row">
     {% if champ_years %}
-    {{ plaque_free("Champion", figure=champ_years|length, meta=champ_years|join(" · "), polarity="high") }}
+    {{ plaque_free("Champion", figure=champ_years|length, year_links=champ_years, polarity="high") }}
     {% endif %}
     {% if ru_years %}
-    {{ plaque_free("Runner-up", figure=ru_years|length, meta=ru_years|join(" · ")) }}
+    {{ plaque_free("Runner-up", figure=ru_years|length, year_links=ru_years) }}
     {% endif %}
     {% if rs_years %}
-    {{ plaque_free("RS champ", figure=rs_years|length, meta=rs_years|join(" · "), polarity="high") }}
+    {{ plaque_free("RS champ", figure=rs_years|length, year_links=rs_years, polarity="high") }}
     {% endif %}
     {% if pf_years %}
-    {{ plaque_free("Most PF", figure=pf_years|length, meta=pf_years|join(" · "), polarity="high") }}
+    {{ plaque_free("Most PF", figure=pf_years|length, year_links=pf_years, polarity="high") }}
     {% endif %}
     {% if member.playoff_appearances %}
     {{ plaque_free("Playoffs", figure=member.playoff_appearances|int) }}
@@ -412,7 +413,7 @@
     <tbody>
         {% for row in waiver_roi.seasons %}
         <tr>
-            <td class="num">{{ row.year }}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
             <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
             <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
             {{ signed_cell(row.ros_vorp) }}
@@ -458,7 +459,7 @@
     <tbody>
         {% for row in waiver_roi.claims %}
         <tr>
-            <td class="num">{{ row.year }}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
             <td class="num"><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
             <td>
                 {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
@@ -589,7 +590,7 @@
             <td>
                 Highest week
                 {% if highs.high.alltime_rank and highs.high.records_href %}
-                · <a href="{{ highs.high.records_href }}">{{ highs.high.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.high.records_href) }}">{{ highs.high.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>{% if highs.high.id %}<a href="/seasons/{{ highs.high.year }}/week/{{ highs.high.week }}/{{ highs.high.id }}">{{ highs.high.year }} W{{ highs.high.week }}</a>{% else %}{{ highs.high.year }} W{{ highs.high.week }}{% endif %}</td>
@@ -601,7 +602,7 @@
             <td>
                 Lowest week
                 {% if highs.low.alltime_rank and highs.low.records_href %}
-                · <a href="{{ highs.low.records_href }}">{{ highs.low.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.low.records_href) }}">{{ highs.low.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>{% if highs.low.id %}<a href="/seasons/{{ highs.low.year }}/week/{{ highs.low.week }}/{{ highs.low.id }}">{{ highs.low.year }} W{{ highs.low.week }}</a>{% else %}{{ highs.low.year }} W{{ highs.low.week }}{% endif %}</td>
@@ -613,7 +614,7 @@
             <td>
                 Biggest blowout
                 {% if highs.blowout.alltime_rank and highs.blowout.records_href %}
-                · <a href="{{ highs.blowout.records_href }}">{{ highs.blowout.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.blowout.records_href) }}">{{ highs.blowout.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>{% if highs.blowout.id %}<a href="/seasons/{{ highs.blowout.year }}/week/{{ highs.blowout.week }}/{{ highs.blowout.id }}">{{ highs.blowout.year }} W{{ highs.blowout.week }}</a>{% else %}{{ highs.blowout.year }} W{{ highs.blowout.week }}{% endif %}</td>
@@ -631,7 +632,7 @@
             <td>
                 Closest
                 {% if highs.closest.alltime_rank and highs.closest.records_href %}
-                · <a href="{{ highs.closest.records_href }}">{{ highs.closest.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.closest.records_href) }}">{{ highs.closest.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>{% if highs.closest.id %}<a href="/seasons/{{ highs.closest.year }}/week/{{ highs.closest.week }}/{{ highs.closest.id }}">{{ highs.closest.year }} W{{ highs.closest.week }}</a>{% else %}{{ highs.closest.year }} W{{ highs.closest.week }}{% endif %}</td>
@@ -649,7 +650,7 @@
             <td>
                 Longest win streak{% if highs.win_streak.is_current %} · current{% endif %}
                 {% if highs.win_streak.alltime_rank and highs.win_streak.records_href %}
-                · <a href="{{ highs.win_streak.records_href }}">{{ highs.win_streak.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.win_streak.records_href) }}">{{ highs.win_streak.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>
@@ -665,7 +666,7 @@
             <td>
                 Longest loss streak{% if highs.loss_streak.is_current %} · current{% endif %}
                 {% if highs.loss_streak.alltime_rank and highs.loss_streak.records_href %}
-                · <a href="{{ highs.loss_streak.records_href }}">{{ highs.loss_streak.alltime_label }}</a>
+                · <a href="{{ records_chapter(highs.loss_streak.records_href) }}">{{ highs.loss_streak.alltime_label }}</a>
                 {% endif %}
             </td>
             <td>
@@ -704,7 +705,7 @@
     <tbody>
         {% for row in volatility.seasons %}
         <tr>
-            <td class="num">{{ row.year }}{% if row.partial_season %}*{% endif %}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a>{% if row.partial_season %}*{% endif %}</td>
             <td class="num">{{ row.weeks_scored|int }}</td>
             <td class="num" data-value="{{ row.mean_points }}">{% if row.mean_points is not none %}{{ "%.1f"|format(row.mean_points) }}{% endif %}</td>
             <td class="num" data-value="{{ row.median_points }}">{% if row.median_points is not none %}{{ "%.1f"|format(row.median_points) }}{% endif %}</td>
@@ -712,8 +713,8 @@
             <td class="num" data-value="{{ row.cv if row.cv is not none else '' }}">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
             <td class="num" data-value="{{ row.boom_rate if row.boom_rate is not none else '' }}">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
             <td class="num" data-value="{{ row.bust_rate if row.bust_rate is not none else '' }}">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
-            <td class="num" data-value="{{ row.best_points }}" title="W{{ row.best_week }}">{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
-            <td class="num" data-value="{{ row.worst_points }}" title="W{{ row.worst_week }}">{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.best_points }}" title="W{{ row.best_week }}">{% if row.best_points is not none and row.best_week %}<a href="/seasons/{{ row.year }}/week/{{ row.best_week }}">{{ "%.1f"|format(row.best_points) }}</a>{% elif row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" data-value="{{ row.worst_points }}" title="W{{ row.worst_week }}">{% if row.worst_points is not none and row.worst_week %}<a href="/seasons/{{ row.year }}/week/{{ row.worst_week }}">{{ "%.1f"|format(row.worst_points) }}</a>{% elif row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
             <td class="num" data-value="{{ row.best3_share if row.best3_share is not none else '' }}">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
         </tr>
         {% endfor %}
@@ -730,8 +731,8 @@
             <td class="num">{% if row.cv is not none %}{{ "%.2f"|format(row.cv) }}{% endif %}</td>
             <td class="num">{% if row.boom_rate is not none %}{{ "%.0f"|format(row.boom_rate * 100) }}%{% endif %}</td>
             <td class="num">{% if row.bust_rate is not none %}{{ "%.0f"|format(row.bust_rate * 100) }}%{% endif %}</td>
-            <td class="num" {% if row.best_year %}title="{{ row.best_year }} W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
-            <td class="num" {% if row.worst_year %}title="{{ row.worst_year }} W{{ row.worst_week }}"{% endif %}>{% if row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
+            <td class="num" {% if row.best_year %}title="{{ row.best_year }} W{{ row.best_week }}"{% endif %}>{% if row.best_points is not none and row.best_year and row.best_week %}<a href="/seasons/{{ row.best_year }}/week/{{ row.best_week }}">{{ "%.1f"|format(row.best_points) }}</a>{% elif row.best_points is not none %}{{ "%.1f"|format(row.best_points) }}{% endif %}</td>
+            <td class="num" {% if row.worst_year %}title="{{ row.worst_year }} W{{ row.worst_week }}"{% endif %}>{% if row.worst_points is not none and row.worst_year and row.worst_week %}<a href="/seasons/{{ row.worst_year }}/week/{{ row.worst_week }}">{{ "%.1f"|format(row.worst_points) }}</a>{% elif row.worst_points is not none %}{{ "%.1f"|format(row.worst_points) }}{% endif %}</td>
             <td class="num">{% if row.best3_share is not none %}{{ "%.0f"|format(row.best3_share * 100) }}%{% endif %}</td>
         </tr>
     </tfoot>
@@ -781,7 +782,7 @@
     Gap is vsPy minus vsExp.
     The career Pythagorean row is refit on career points.
     {% if clutch.career and clutch.career.includes_partial %}The career row includes in-progress 2026.{% endif %}
-    <a href="/records#clutch">Record book</a>.
+    <a href="/records/clutch#clutch">Record book</a>.
 </p>
 <div class="standings-wrap">
 <table class="js-sort">
@@ -802,7 +803,7 @@
     <tbody>
         {% for row in clutch.seasons %}
         <tr>
-            <td class="num">{{ row.year }}{% if row.partial_season %}*{% endif %}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a>{% if row.partial_season %}*{% endif %}</td>
             <td data-value="{{ row.actual_wins if row.actual_wins is not none else '' }}">{{ row.h2h or "—" }}</td>
             <td data-value="{{ row.one_score_win_pct if row.one_score_win_pct is not none else '' }}">{{ row.one_score or "—" }}</td>
             <td data-value="{{ row.blowout_win_pct if row.blowout_win_pct is not none else '' }}">{{ row.blowout or "—" }}</td>

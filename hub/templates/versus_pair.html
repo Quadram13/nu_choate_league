@@ -25,7 +25,7 @@
             · playoff {{ record(series.playoff_wins, series.playoff_losses, series.playoff_ties) }}
             {% endif %}
             {% if streak %}
-            · {{ streak.length }} {{ streak.result }}{% if streak.length != 1 %}s{% endif %} since {{ streak.start_year }} W{{ streak.start_week }}
+            · {{ streak.length }} {{ streak.result }}{% if streak.length != 1 %}s{% endif %} since <a href="/seasons/{{ streak.start_year }}/week/{{ streak.start_week }}">{{ streak.start_year }} W{{ streak.start_week }}</a>
             {% endif %}
         </span>
         {% else %}
@@ -40,10 +40,10 @@
 {% if closest or blowout %}
 <div class="plaque-grid">
     {% if closest %}
-    {{ plaque_free("The inch", figure=("%.1f"|format(closest.abs_margin)), href=closest.href, meta=closest.year ~ " W" ~ closest.week, polarity="high") }}
+    {{ plaque_free("The inch", figure=("%.1f"|format(closest.abs_margin)), href=closest.href, meta=closest.year ~ " W" ~ closest.week, meta_href="/seasons/" ~ closest.year ~ "/week/" ~ closest.week, polarity="high") }}
     {% endif %}
     {% if blowout %}
-    {{ plaque_free("The rout", figure=("%.1f"|format(blowout.abs_margin)), href=blowout.href, meta=blowout.year ~ " W" ~ blowout.week, polarity="high") }}
+    {{ plaque_free("The rout", figure=("%.1f"|format(blowout.abs_margin)), href=blowout.href, meta=blowout.year ~ " W" ~ blowout.week, meta_href="/seasons/" ~ blowout.year ~ "/week/" ~ blowout.week, polarity="high") }}
     {% endif %}
 </div>
 {% endif %}
@@ -54,11 +54,11 @@
     <p class="note">
         {{ trades.deals }} deal{% if trades.deals != 1 %}s{% endif %}
         · {{ record(trades.left_wins, trades.right_wins, trades.pushes) }}
-        · net {{ "%+.1f"|format(trades.net_vorp) }} ROS VORP for {{ left.display_name }}.
+        · net {{ "%+.1f"|format(trades.net_vorp) }} ROS VORP for {{ person(left.manager_id, left.display_name, hue_left) }}.
         {% if trades.table_winner == "left" %}
-        {{ left.display_name }} has won the table.
+        {{ person(left.manager_id, left.display_name, hue_left) }} has won the table.
         {% elif trades.table_winner == "right" %}
-        {{ right.display_name }} has won the table.
+        {{ person(right.manager_id, right.display_name, hue_right) }} has won the table.
         {% else %}
         The table is even.
         {% endif %}
@@ -76,7 +76,7 @@
             {% for row in trades.rows %}
             <tr>
                 <td><a href="{{ row.href }}">{{ row.year }} W{{ row.week }}</a></td>
-                <td class="{% if row.winner_id == left.manager_id %}won{% elif row.winner_id == right.manager_id %}lost{% endif %}">{% if row.winner_name %}{{ row.winner_name }}{% else %}even{% endif %}</td>
+                <td class="{% if row.winner_id == left.manager_id %}won{% elif row.winner_id == right.manager_id %}lost{% endif %}">{% if row.winner_id %}{{ person(row.winner_id, row.winner_name) }}{% else %}even{% endif %}</td>
                 <td class="num{% if row.edge > 0 %} plus{% elif row.edge < 0 %} minus{% endif %}">{{ "%+.1f"|format(row.edge) }}</td>
                 <td class="num">{{ "%.1f"|format(row.gap) }}</td>
             </tr>

@@ -65,7 +65,7 @@
             <td class="num">{{ row.most_points_titles|int }}</td>
             <td data-value="{% if row.streak_length %}{% if row.streak_result == 'win' %}{{ row.streak_length }}{% else %}-{{ row.streak_length }}{% endif %}{% else %}0{% endif %}">
                 {% if row.streak_length %}
-                <a href="/records#current">{{ row.streak_length }} {{ "W" if row.streak_result == "win" else "L" }}</a>
+                <a href="/records/streaks#current">{{ row.streak_length }} {{ "W" if row.streak_result == "win" else "L" }}</a>
                 {% endif %}
             </td>
         </tr>

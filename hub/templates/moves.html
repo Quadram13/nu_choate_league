@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "link_macros.html" import season_years %}
 {% from "plaque_macros.html" import person_link %}
 {% macro person(id, name) %}
 {{ person_link(id, name) }}
@@ -10,6 +11,8 @@
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
     <a href="/seasons/{{ current.year }}#moves">on the season page</a>
+    <a href="/records/trades">Trades</a>
+    <a href="/records/wire">Wire</a>
 </p>
 <p class="season-head">
     <label class="season-pick">
@@ -22,6 +25,7 @@
     </label>
     <span class="lede">Moves</span>
 </p>
+{{ season_years(seasons, current.year, '/moves') }}
 <p class="note">Completed trades, waivers, and free-agent adds.</p>
 {% if moves %}
 <div class="standings-wrap">
@@ -37,7 +41,7 @@
     <tbody>
         {% for row in moves %}
         <tr>
-            <td class="num">{% if row.href %}<a href="{{ row.href }}">{{ row.week }}</a>{% else %}{{ row.week }}{% endif %}</td>
+            <td class="num">{% if row.href and (row.type != 'free_agent' or row.adds) %}<a href="{{ row.href }}">{{ row.week }}</a>{% elif row.week %}<a href="/seasons/{{ current.year }}/week/{{ row.week }}">{{ row.week }}</a>{% else %}{{ row.week }}{% endif %}</td>
             <td>{{ row.type }}{% if row.status and row.status != "complete" %} <span class="team">{{ row.status }}</span>{% endif %}</td>
             <td>
                 {% for item in row.adds %}
