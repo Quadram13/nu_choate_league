@@ -1,0 +1,80 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<h2 id="blowouts">Biggest blowouts</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Matchup</th>
+            <th>When</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in blowouts %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.blowout_rank }}</td>
+            <td>
+                {% if row.points >= row.opp_points %}
+                {{ person(row.manager_id, row.manager_name) }}
+                {{ "%.1f"|format(row.points) }}
+                –
+                {{ person(row.opponent_id, row.opponent_name) }}
+                {{ "%.1f"|format(row.opp_points) }}
+                {% else %}
+                {{ person(row.opponent_id, row.opponent_name) }}
+                {{ "%.1f"|format(row.opp_points) }}
+                –
+                {{ person(row.manager_id, row.manager_name) }}
+                {{ "%.1f"|format(row.points) }}
+                {% endif %}
+            </td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 id="closest">Closest games</h2>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Matchup</th>
+            <th>When</th>
+            <th class="num">Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in closest %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ row.closest_rank }}</td>
+            <td>
+                {% if row.points >= row.opp_points %}
+                {{ person(row.manager_id, row.manager_name) }}
+                {{ "%.1f"|format(row.points) }}
+                –
+                {{ person(row.opponent_id, row.opponent_name) }}
+                {{ "%.1f"|format(row.opp_points) }}
+                {% else %}
+                {{ person(row.opponent_id, row.opponent_name) }}
+                {{ "%.1f"|format(row.opp_points) }}
+                –
+                {{ person(row.manager_id, row.manager_name) }}
+                {{ "%.1f"|format(row.points) }}
+                {% endif %}
+            </td>
+            <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="num">{{ "%.1f"|format(row.abs_margin) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

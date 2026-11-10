@@ -1,0 +1,6 @@
+<p class="jump">
+<a href="{{ back_href }}">Players</a>
+{% for item in siblings %}
+{% if item.current %}<strong>{{ item.label }}</strong>{% else %}<a href="{{ item.board_href }}">{{ item.label }}</a>{% endif %}
+{% endfor %}
+</p>

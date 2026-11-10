@@ -1,0 +1,10 @@
+<p class="sibling-row"><a href="{{ frame.carry('/versus') }}">Versus</a></p>
+<p class="record">{{ left.franchise }} {{ record }} {{ right.franchise }}</p>
+{% if streak %}<p class="stat-note">{{ streak.length }} {{ streak.result }}s since {{ streak.start_year }} W{{ streak.start_week }}.</p>{% endif %}
+<section class="scoreboard">
+    {% for card in cards %}
+    <h2>{{ card.label }}</h2>
+    {% include "era2010/score_card.html" %}
+    {% endfor %}
+    {% if not cards %}<p class="stat-note">No posted games.</p>{% endif %}
+</section>

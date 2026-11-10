@@ -1,0 +1,146 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<h2 id="trades">Most lopsided trades</h2>
+<p class="note">Rest-of-season starter VORP. Winner listed first.</p>
+<div class="trade-list">
+    {% for row in trades %}
+    {{ trade_card(row, show_year=True) }}
+    {% endfor %}
+</div>
+
+{% if most_traded.rows %}
+<div data-grain="career">
+<h2 id="traded">Most traded</h2>
+<p class="note">{{ most_traded.moves }} player-moves across {{ most_traded.trades }} trades. {% if most_traded.two_manager == most_traded.trades %}Each trade is between two managers.{% else %}{{ most_traded.two_manager }} of {{ most_traded.trades }} trades are between two managers.{% endif %} The strip is the top 10.</p>
+<ul class="kind-strip">
+    {% for row in most_traded.rows %}
+    <li>
+        <span class="num">{{ loop.index }}</span>
+        <span><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</span>
+        <span class="num">{{ row.trades|int }}</span>
+    </li>
+    {% endfor %}
+</ul>
+</div>
+{% endif %}
+
+{% if journeymen %}
+<div data-grain="career">
+<h2 id="journeymen">Journeymen</h2>
+<p class="note">{{ journeymen|length }} players rostered by three or more managers, the same line the player page uses. Defenses and kickers count. Players lists the count for every player, and for each season.</p>
+<table class="js-fold" data-fold="15">
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="num">Managers</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in journeymen %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="/players/{{ row.player_id }}">{{ row.player_name }}</a></td>
+            <td>{{ row.position or "—" }}</td>
+            <td class="num">{{ row.managers|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if trade_partners.pairs %}
+<div data-grain="career">
+<h2 id="partners">Trade partners</h2>
+<p class="note">
+    {{ trade_partners.pairs|length }} pairs, {{ trade_partners.pairs|sum(attribute='deals') }} two-sided trades.
+    Net left is the sum of left VORP minus right VORP. Net right is the negative of that sum.
+    {% if trade_partners.symmetry_gap == 0 %}gap_left + gap_right is 0 on every pair.{% else %}The largest |gap_left + gap_right| is {{ "%.3g"|format(trade_partners.symmetry_gap) }}.{% endif %}
+    The series winner is the positive net. Deal wins can disagree. A push is equal VORP on that deal.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Left</th>
+            <th>Right</th>
+            <th class="num">Deals</th>
+            <th class="num" title="Deals the left manager won">L wins</th>
+            <th class="num" title="Deals the right manager won">R wins</th>
+            <th class="num" title="Deals with equal rest-of-season VORP">Push</th>
+            <th class="num" title="Sum of left VORP minus right VORP">Net left</th>
+            <th class="num" title="The negative of net left">Net right</th>
+            <th>Series</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trade_partners.pairs %}
+        <tr>
+            <td>{{ person(row.left_id, row.left_name) }}</td>
+            <td>{{ person(row.right_id, row.right_name) }}</td>
+            <td class="num" data-value="{{ row.deals }}">{{ row.deals|int }}</td>
+            <td class="num" data-value="{{ row.left_wins }}">{{ row.left_wins|int }}</td>
+            <td class="num" data-value="{{ row.right_wins }}">{{ row.right_wins|int }}</td>
+            <td class="num" data-value="{{ row.pushes }}">{{ row.pushes|int }}</td>
+            {{ signed_cell(row.net_left_vorp) }}
+            {{ signed_cell(row.net_right_vorp) }}
+            <td>{% if row.series_winner_id %}{{ person(row.series_winner_id, row.series_winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% for block in trade_partners.busiest %}
+{% set pair = block.pair %}
+<h3>{{ person(pair.left_id, pair.left_name) }} and {{ person(pair.right_id, pair.right_name) }}</h3>
+<p class="note">
+    Busiest pair, {{ pair.deals|int }} deals.
+    The edges below sum to {{ "%+.2f"|format(pair.net_left_vorp) }} for {{ person(pair.left_id, pair.left_name) }}.
+</p>
+<div class="standings-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>{{ person(pair.left_id, pair.left_name) }} got</th>
+            <th class="num">VORP</th>
+            <th>{{ person(pair.right_id, pair.right_name) }} got</th>
+            <th class="num">VORP</th>
+            <th class="num" title="Left VORP minus right VORP">Edge</th>
+            <th>Winner</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in block.trades %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="trade-got">{{ row.left_received or "—" }}</td>
+            <td class="num">{% if row.left_vorp is not none %}{{ "%+.1f"|format(row.left_vorp) }}{% else %}—{% endif %}</td>
+            <td class="trade-got">{{ row.right_received or "—" }}</td>
+            <td class="num">{% if row.right_vorp is not none %}{{ "%+.1f"|format(row.right_vorp) }}{% else %}—{% endif %}</td>
+            {{ signed_cell(row.left_vorp_edge) }}
+            <td>{% if row.winner_id %}{{ person(row.winner_id, row.winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="5">Sum</td>
+            {{ signed_cell(pair.net_left_vorp) }}
+            <td>{% if pair.series_winner_id %}{{ person(pair.series_winner_id, pair.series_winner_name) }}{% else %}even{% endif %}</td>
+        </tr>
+    </tfoot>
+</table>
+</div>
+{% endfor %}
+</div>
+{% endif %}

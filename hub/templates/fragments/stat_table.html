@@ -1,0 +1,34 @@
+{# Additive keys stay off era boards, so those renders keep their bytes.
+   board.table_class
+   column.extra_class, column.title, column.data_type
+   cell.extra_class, cell.title, cell.data_value, cell.html
+   row.data_pos
+   extra_class keeps a caller's own tokens (modern's num). hub.css
+   right-aligns th.num and td.num. stat-n is not in that sheet.
+   cell.html is markup this macro already trusts (a person_link result)
+   and is marked safe. data_value is emitted only when the key is defined
+   and not none: an undefined value is not none, and printing it would add
+   data-value="" to every era cell. #}
+{% macro stat_table(board) %}
+<table class="stat{% if board.table_class %} {{ board.table_class }}{% endif %}">
+{% if board.caption %}<caption class="stat-caption">{{ board.caption }}</caption>{% endif %}
+<thead>
+<tr>
+{% for column in board.columns -%}
+<th class="stat-h{% if column.numeric %} stat-n{% endif %}{% if column.extra_class %} {{ column.extra_class }}{% endif %}"{% if column.title %} title="{{ column.title }}"{% endif %}{% if column.data_type %} data-type="{{ column.data_type }}"{% endif %}>{{ column.label }}</th>
+{%- endfor %}
+</tr>
+</thead>
+<tbody>
+{% for row in board.rows %}
+<tr class="stat-row"{% if row.data_pos is defined %} data-pos="{{ row.data_pos }}"{% endif %}>
+{% for cell in row.cells -%}
+<td class="stat-c{% if cell.numeric %} stat-n{% endif %}{% if cell.mark %} {{ cell.mark }}{% endif %}{% if cell.extra_class %} {{ cell.extra_class }}{% endif %}"{% if cell.title %} title="{{ cell.title }}"{% endif %}{% if cell.data_value is defined and cell.data_value is not none %} data-value="{{ cell.data_value }}"{% endif %}>{% if cell.html %}{{ cell.html|safe }}{% elif cell.href %}<a href="{{ cell.href }}">{{ cell.text }}</a>{% else %}{{ cell.text }}{% endif %}</td>
+{%- endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% if board.note %}<p class="stat-note">{{ board.note }}</p>{% endif %}
+{% if board.more_href %}<p class="stat-more"><a href="{{ board.more_href }}">View all</a></p>{% endif %}
+{% endmacro %}

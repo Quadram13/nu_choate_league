@@ -1,0 +1,39 @@
+{% from "players/_macros.html" import player, rk_head, year_link, count_head, count_cells, view_all %}
+<section class="board" id="{{ board_name }}" data-fragment="{{ fragment_href }}" data-board="{{ board_href }}">
+{% if not teaser %}
+{% include "players/_nav.html" %}
+<h2 id="counting">Counting</h2>
+<h3>By season</h3>
+{% include "players/_counting_note.html" %}
+<p class="note">{{ total }} season rows, newest year first, then yards. Every row is in this page. Year and position chips need script. Rank follows a sort.</p>
+<p class="jump js-year-filter" hidden></p>
+<p class="jump js-pos-filter" hidden></p>
+{% else %}
+<h3>By season</h3>
+{{ view_all(rows, total, board_href, ", newest year first, then yards") }}
+{% endif %}
+<div class="standings-wrap">
+<table class="js-sort js-fold js-rk" data-fold="20">
+    <thead>
+        <tr>
+            {{ rk_head() }}
+            <th class="num">Year</th>
+            <th>Player</th>
+            <th>Pos</th>
+            {{ count_head() }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr data-year="{{ row.year }}" data-pos="{{ row.position or '' }}">
+            <td class="num rk">{{ loop.index }}</td>
+            <td class="num" data-value="{{ row.year }}">{{ year_link(row.year) }}</td>
+            <td>{{ player(row.player_id, row.player_name) }}</td>
+            <td>{{ row.position or "—" }}</td>
+            {{ count_cells(row) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</section>

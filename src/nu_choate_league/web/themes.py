@@ -1,0 +1,3710 @@
+"""Theme machinery for the hub.
+
+A page author lists panes and slots and calls ``render_panes``. They do not
+read the theme, name a shell, or write a second table. ``render_panes`` is the
+era path only. Modern stays on the legacy ``page()`` helper so those documents
+remain byte-near.
+
+Resolution is ``?theme=``, then the ``theme`` cookie, then modern. An unknown
+value is modern. A request that carries ``?theme=`` sets the cookie.
+
+The boot gate in ``install`` refuses to serve when the registry, shell files,
+stylesheets, season pane ids, and fragment rules disagree, or when a fixture
+render does not echo the board registry with the same raw values across eras.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from html import escape
+from pathlib import Path
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
+
+from jinja2 import ChoiceLoader, DictLoader
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, Response
+from starlette.templating import Jinja2Templates
+
+from ..paths import project_root
+from . import queries
+
+THEMES: tuple[str, ...] = ("modern", "era90", "era2010")
+ERA_THEMES: tuple[str, ...] = ("era90", "era2010")
+THEME_COOKIE = "theme"
+THEME_MAX_AGE = 60 * 60 * 24 * 365
+
+THEME_LABELS: dict[str, str] = {
+    "modern": "Modern",
+    "era90": "1998",
+    "era2010": "2010",
+}
+
+# Mast order. Era2010 reuses it: no reached source captured an ESPN 2010 tab order.
+_SITE_NAV: tuple[str, ...] = ("home", "seasons", "members", "versus", "records", "players")
+
+# Eagle league-task order: home, seasons, record book, top 10, rules, then the rest.
+_ERA90_NAV: tuple[str, ...] = (
+    "home",
+    "seasons",
+    "records",
+    "players",
+    "scoring",
+    "members",
+    "versus",
+)
+
+NAV_ORDER: dict[str, tuple[str, ...]] = {
+    "modern": _SITE_NAV,
+    "era2010": _SITE_NAV,
+    "era90": _ERA90_NAV,
+}
+
+# A None path is the season scoring sheet, filled when the page has a year.
+NAV: dict[str, tuple[str | None, str]] = {
+    "home": ("/", "Home"),
+    "seasons": ("/seasons", "Seasons"),
+    "members": ("/members", "Members"),
+    "versus": ("/versus", "Versus"),
+    "records": ("/records", "Records"),
+    "players": ("/players", "Players"),
+    "scoring": (None, "Scoring"),
+}
+
+# Dead off-site names stay text when one is still declared. C1a leaves this
+# empty: Nando, SportsZone, CNN/SI and the rest of the Eagle farm are dead,
+# and a dead farm is not the right rail. Live NFL.com and ESPN NFL anchors
+# are written in the era90 shell. The gate still requires any label that
+# remains here to render as text, never as an invented href.
+ERA90_DEAD_LABELS: tuple[str, ...] = ()
+
+# Existing season.html pane order. Not an ESPN 2010 tab order.
+SEASON_PANES: tuple[tuple[str, str, str], ...] = (
+    ("standings", "Standings", "fragments/board.html"),
+    ("weeks", "Weeks", "fragments/games.html"),
+    ("playoffs", "Playoffs", "fragments/games.html"),
+    ("moves", "Moves", "fragments/board.html"),
+    ("draft", "Draft", "fragments/board.html"),
+    ("lineups", "Lineups", "fragments/board.html"),
+    ("stacks", "Stacks", "fragments/board.html"),
+)
+
+REQUIRED_SLOTS: tuple[str, ...] = ("lead", "aside")
+MARKS = frozenset({"", "is-leader", "is-record", "is-active-leader"})
+_FOOTNOTE = "Bold marks a leader. Gold marks a record. Italic marks the active leader."
+
+_ERA90_STANDINGS: tuple[str, ...] = (
+    "manager",
+    "wins",
+    "losses",
+    "ties",
+    "points_for",
+    "points_against",
+)
+# MFL dense row, landed columns only. Franchise replaces Manager on this
+# projection. GB, Strk, and the two averages are derived in _standings_board.
+# Div W-L-T is absent: the league has no division records.
+_ERA2010_STANDINGS: tuple[str, ...] = (
+    "franchise",
+    "record",
+    "win_pct",
+    "games_back",
+    "streak",
+    "points_for",
+    "avg_pf",
+    "points_against",
+    "avg_pa",
+)
+_DRAFT_KEYS: tuple[str, ...] = ("overall", "round", "manager", "player", "position")
+_MOVES_KEYS: tuple[str, ...] = ("week", "left", "right", "gap")
+_LINEUP_KEYS: tuple[str, ...] = ("manager", "weeks", "actual", "optimal", "bench")
+_STACK_KEYS: tuple[str, ...] = (
+    "manager",
+    "stack_weeks",
+    "combined",
+    "points_for",
+    "stack_share",
+)
+
+_FRAGMENT_FORBIDDEN: tuple[str, ...] = (
+    "frame.",
+    "{% extends",
+    "{%extends",
+    "theme=",
+    "?theme",
+    "bgcolor",
+    "border=",
+    "style=",
+    "era90",
+    "era2010",
+    "data-theme",
+    "<script",
+    "javascript:",
+    "onclick=",
+)
+
+_SHELL_FACT_TOKENS: tuple[str, ...] = (
+    "points_for",
+    "points_against",
+    "display_name",
+    "player_name",
+    "starter_points",
+    "manager_id",
+    "transaction_id",
+    "win_pct",
+    "stack_share",
+    "vorp_gap",
+    "actual_points",
+    "optimal_points",
+    "left_on_bench",
+)
+
+_SHORT_NAMES: tuple[tuple[str, str], ...] = (
+    ("Aaron Rodgers", "A. Rodgers"),
+    ("Amon-Ra St. Brown", "A. St. Brown"),
+    ("Ken Griffey Jr", "K. Griffey"),
+    ("Odell Beckham Jr.", "O. Beckham"),
+    ("Cher", "Cher"),
+)
+
+_templates: Jinja2Templates | None = None
+
+
+class ThemeContractError(RuntimeError):
+    """The process must not serve. ``install`` raises this and nothing else."""
+
+    def __init__(self, problems: list[str]) -> None:
+        self.problems = problems
+        detail = "\n".join(f"- {problem}" for problem in problems)
+        super().__init__(f"theme contract failed:\n{detail}")
+
+
+@dataclass(frozen=True)
+class Column:
+    key: str
+    label: str
+    numeric: bool
+    formatter: str
+
+
+@dataclass(frozen=True)
+class BoardSpec:
+    note: str
+    columns: tuple[Column, ...]
+    projections: Mapping[str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class FragmentView:
+    name: str
+    label: str
+    template: str
+
+
+@dataclass(frozen=True)
+class Pane:
+    """One addressable section. ``load`` runs only when the pane is active."""
+
+    name: str
+    label: str
+    template: str
+    load: Callable[[], Mapping[str, object]]
+
+
+@dataclass(frozen=True)
+class Slot:
+    name: str
+    template: str
+
+
+@dataclass(frozen=True)
+class NavLink:
+    key: str
+    href: str
+    label: str
+
+
+@dataclass(frozen=True)
+class ThemeChoice:
+    theme_id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class WeekLink:
+    week: int
+    href: str
+
+
+@dataclass(frozen=True)
+class Frame:
+    theme: str
+    title: str
+    nav: str
+    pager: str
+    fragments: tuple[FragmentView, ...]
+    active: FragmentView
+    slots: tuple[tuple[str, str], ...]
+    path: str
+    nav_links: tuple[NavLink, ...]
+    theme_choices: tuple[ThemeChoice, ...]
+    week_nav: tuple[WeekLink, ...]
+    dead_labels: tuple[str, ...]
+
+    @property
+    def paged(self) -> bool:
+        return len(self.fragments) > 1
+
+    def slot(self, name: str) -> str | None:
+        for key, template in self.slots:
+            if key == name:
+                return template
+        return None
+
+    def pane_href(self, name: str) -> str:
+        return self.path + "?" + urlencode((("pane", name), ("theme", self.theme)))
+
+    def theme_href(self, theme: str) -> str:
+        chosen = theme if theme in THEMES else "modern"
+        pairs: list[tuple[str, str]] = []
+        if self.paged:
+            pairs.append(("pane", self.active.name))
+        pairs.append(("theme", chosen))
+        return self.path + "?" + urlencode(pairs)
+
+    def carry(self, href: str) -> str:
+        """Append the theme to a shell link. Fragments do not call this."""
+        if not href.startswith("/") or href.startswith("//"):
+            return href
+        parts = urlsplit(href)
+        pairs = [
+            (key, value)
+            for key, value in _query_pairs(parts.query)
+            if key != "theme"
+        ]
+        pairs.append(("theme", self.theme))
+        return urlunsplit(("", "", parts.path, urlencode(pairs), parts.fragment))
+
+
+def _query_pairs(query: str) -> list[tuple[str, str]]:
+    from urllib.parse import parse_qsl
+
+    return parse_qsl(query, keep_blank_values=True)
+
+
+def resolve_theme(request: Request) -> str:
+    """``?theme=`` wins, including an unknown value (that becomes modern)."""
+    asked = request.query_params.get("theme")
+    if asked is not None:
+        return asked if asked in THEMES else "modern"
+    cooked = request.cookies.get(THEME_COOKIE)
+    if cooked in THEMES:
+        return cooked
+    return "modern"
+
+
+def persist_theme(request: Request, response: Response) -> Response:
+    """Set the cookie only when the request itself chose a theme."""
+    if request.url.path.startswith("/static"):
+        return response
+    if "theme" not in request.query_params:
+        return response
+    response.set_cookie(
+        THEME_COOKIE,
+        resolve_theme(request),
+        max_age=THEME_MAX_AGE,
+        path="/",
+        samesite="lax",
+        httponly=True,
+    )
+    return response
+
+
+def rows_all_href(path: str, pane: str) -> str:
+    """Theme-free View All link. The cookie keeps the theme."""
+    return path + "?" + urlencode((("pane", pane), ("rows", "all")))
+
+
+def numeral_hrefs(path: str, weeks: Sequence[int], *, theme: str) -> tuple[WeekLink, ...]:
+    """Shell week numerals. The theme is chrome, so these links may carry it."""
+    chosen = theme if theme in THEMES else "modern"
+    links: list[WeekLink] = []
+    for week in weeks:
+        number = int(week)
+        href = f"{path}/week/{number}?" + urlencode((("theme", chosen),))
+        links.append(WeekLink(number, href))
+    return tuple(links)
+
+
+def tie_dash(value: object, theme: str) -> str:
+    """Zero ties render as ``-`` in era themes. Modern keeps the digit."""
+    ties = 0 if value is None or value == "" else int(value)
+    if theme != "modern" and ties == 0:
+        return "-"
+    return str(ties)
+
+
+def _short_name(name: str) -> str:
+    """CBS 17 Sep 2009 grammar: ``A. Rodgers``.
+
+    A particle stays with the surname (``Amon-Ra St. Brown`` → ``A. St. Brown``).
+    Jr/III is dropped. The full name stays the cell's raw value.
+    """
+    parts = name.split()
+    suffixes = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
+    particles = {"st", "st.", "de", "da", "van", "von", "del", "la", "le", "di"}
+    while len(parts) > 2 and parts[-1].lower() in suffixes:
+        parts.pop()
+    if len(parts) < 2 or not parts[0]:
+        return name
+    start = len(parts) - 1
+    while start > 1 and parts[start - 1].lower() in particles:
+        start -= 1
+    return f"{parts[0][0]}. {' '.join(parts[start:])}"
+
+
+def _raw_text(value: object) -> str:
+    if value is None or value == "":
+        return ""
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str):
+        return value
+    try:
+        decimal_value = Decimal(str(value))
+    except Exception:
+        return str(value)
+    text = format(decimal_value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text
+
+
+def _cell_raw(column: Column, value: object) -> str:
+    """Theme-independent raw value. Formatters must not change this."""
+    if column.formatter == "tie":
+        ties = 0 if value is None or value == "" else int(value)
+        return str(ties)
+    if column.formatter == "player":
+        return "" if value is None else str(value).strip()
+    return _raw_text(value)
+
+
+def _format_text(value: object, theme: str) -> str:
+    del theme
+    if value is None:
+        return "—"
+    text = str(value).strip()
+    return text or "—"
+
+
+def _format_int(value: object, theme: str) -> str:
+    del theme
+    if value is None or value == "":
+        return "0"
+    return str(int(value))
+
+
+def _format_places(places: int) -> Callable[[object, str], str]:
+    def _format(value: object, theme: str) -> str:
+        del theme
+        if value is None or value == "":
+            return "—"
+        return f"{Decimal(str(value)):.{places}f}"
+
+    return _format
+
+
+def _format_share(value: object, theme: str) -> str:
+    del theme
+    if value is None or value == "":
+        return "—"
+    number = Decimal(str(value))
+    if Decimal("0") <= number <= Decimal("1"):
+        return f"{number * 100:.1f}%"
+    return f"{number:.1f}%"
+
+
+def _format_player(value: object, theme: str) -> str:
+    name = "" if value is None else str(value).strip()
+    if not name:
+        return "—"
+    if theme == "era2010":
+        return _short_name(name)
+    return name
+
+
+FORMATTERS: dict[str, Callable[[object, str], str]] = {
+    "text": _format_text,
+    "int": _format_int,
+    "num1": _format_places(1),
+    "num2": _format_places(2),
+    "num3": _format_places(3),
+    "tie": tie_dash,
+    "share": _format_share,
+    "player": _format_player,
+}
+
+
+def _column(key: str, label: str, numeric: bool, formatter: str) -> Column:
+    return Column(key, label, numeric, formatter)
+
+
+def _all(*keys: str) -> dict[str, tuple[str, ...]]:
+    return {theme: keys for theme in THEMES}
+
+
+BOARDS: dict[str, BoardSpec] = {
+    "standings": BoardSpec(
+        note="W, L, and T are wins, losses, and ties. PF is points for. PA is points against.",
+        columns=(
+            _column("rank", "#", True, "int"),
+            _column("manager", "Manager", False, "text"),
+            _column("wins", "W", True, "int"),
+            _column("losses", "L", True, "int"),
+            _column("ties", "T", True, "tie"),
+            _column("points_for", "PF", True, "num2"),
+            _column("points_against", "PA", True, "num2"),
+            _column("win_pct", "Pct", True, "num3"),
+            _column("record", "W-L-T", True, "text"),
+            _column("franchise", "Franchise", False, "text"),
+            _column("games_back", "GB", True, "num1"),
+            _column("streak", "Strk", False, "text"),
+            _column("avg_pf", "Avg PF", True, "num2"),
+            _column("avg_pa", "Avg PA", True, "num2"),
+        ),
+        projections={
+            "modern": (
+                "rank",
+                "manager",
+                "wins",
+                "losses",
+                "ties",
+                "points_for",
+                "points_against",
+                "win_pct",
+                "record",
+            ),
+            "era90": _ERA90_STANDINGS,
+            "era2010": _ERA2010_STANDINGS,
+        },
+    ),
+    "moves": BoardSpec(
+        note="Gap is the VORP difference. Bold marks the side ahead when the trade is not even.",
+        columns=(
+            _column("week", "Week", True, "int"),
+            _column("left", "Left", False, "text"),
+            _column("right", "Right", False, "text"),
+            _column("gap", "Gap", True, "num1"),
+        ),
+        projections=_all(*_MOVES_KEYS),
+    ),
+    "draft": BoardSpec(
+        note="Bold marks the first overall pick.",
+        columns=(
+            _column("overall", "Pick", True, "int"),
+            _column("round", "Round", True, "int"),
+            _column("manager", "Manager", False, "text"),
+            _column("player", "Player", False, "player"),
+            _column("position", "Pos", False, "text"),
+        ),
+        projections=_all(*_DRAFT_KEYS),
+    ),
+    "lineups": BoardSpec(
+        note="Actual and optimal are starter points. Bench is points left on the bench.",
+        columns=(
+            _column("manager", "Manager", False, "text"),
+            _column("weeks", "Weeks", True, "int"),
+            _column("actual", "Actual", True, "num1"),
+            _column("optimal", "Optimal", True, "num1"),
+            _column("bench", "Bench", True, "num1"),
+        ),
+        projections=_all(*_LINEUP_KEYS),
+    ),
+    "stacks": BoardSpec(
+        note="Weeks are weeks a quarterback started with a teammate catcher. Share is combined points divided by points for.",
+        columns=(
+            _column("manager", "Manager", False, "text"),
+            _column("stack_weeks", "Weeks", True, "int"),
+            _column("combined", "Combined", True, "num2"),
+            _column("points_for", "PF", True, "num2"),
+            _column("stack_share", "Share", True, "share"),
+        ),
+        projections=_all(*_STACK_KEYS),
+    ),
+}
+
+
+def _projection_keys(spec: BoardSpec, theme: str) -> tuple[str, ...]:
+    if theme not in spec.projections:
+        raise KeyError(f"{theme} has no projection")
+    return spec.projections[theme]
+
+
+def _note(spec: BoardSpec, theme: str, row_count: int) -> str:
+    parts: list[str] = []
+    if row_count == 0:
+        parts.append("None posted.")
+    keys = _projection_keys(spec, theme)
+    # era90 standings glossary is one sentence under the grid. The shared
+    # gold footnote stays on every other board so era2010 and modern notes
+    # do not move.
+    if theme == "era90" and "ties" in keys:
+        parts.append(
+            "W, L, and T are wins, losses, and ties; "
+            "PF is points for and PA is points against, and a zero tie is shown as -."
+        )
+        return " ".join(part for part in parts if part)
+    parts.append(spec.note)
+    if "ties" in keys:
+        parts.append("A zero tie is shown as -.")
+    parts.append(_FOOTNOTE)
+    return " ".join(part for part in parts if part)
+
+
+def _mapped_cells(spec: BoardSpec, row: Mapping[str, object], theme: str) -> dict[str, dict[str, object]]:
+    hrefs = row.get("_href") or {}
+    marks = row.get("_mark") or {}
+    if not isinstance(hrefs, Mapping) or not isinstance(marks, Mapping):
+        raise ValueError("row _href and _mark must be mappings")
+    cells: dict[str, dict[str, object]] = {}
+    for column in spec.columns:
+        href = hrefs.get(column.key) or ""
+        mark = marks.get(column.key) or ""
+        if not isinstance(href, str) or not isinstance(mark, str):
+            raise ValueError(f"{column.key} href and mark must be strings")
+        if mark not in MARKS:
+            raise ValueError(f"unknown leader mark {mark}")
+        if "theme=" in href:
+            raise ValueError("cell href carries a theme token")
+        if href and (not href.startswith("/") or href.startswith("//")):
+            raise ValueError("cell href must be a root-relative path")
+        value = row.get(column.key)
+        cells[column.key] = {
+            "key": column.key,
+            "text": FORMATTERS[column.formatter](value, theme),
+            "raw": _cell_raw(column, value),
+            "numeric": column.numeric,
+            "href": href,
+            "mark": mark,
+        }
+    return cells
+
+
+def present(
+    board_id: str,
+    rows: Sequence[Mapping[str, object]],
+    theme: str,
+    *,
+    caption: str,
+) -> dict[str, object]:
+    """Project ``rows`` for one theme. Does not sort and does not query."""
+    spec = BOARDS[board_id]
+    chosen = theme if theme in THEMES else "modern"
+    keys = _projection_keys(spec, chosen)
+    by_key = {column.key: column for column in spec.columns}
+    columns = [by_key[key] for key in keys]
+    body: list[dict[str, object]] = []
+    for row in rows:
+        mapped = _mapped_cells(spec, row, chosen)
+        body.append({"cells": [mapped[key] for key in keys]})
+    return {
+        "caption": caption,
+        "columns": [
+            {"key": column.key, "label": column.label, "numeric": column.numeric}
+            for column in columns
+        ],
+        "rows": body,
+        "note": _note(spec, chosen, len(rows)),
+    }
+
+
+def _nav_links(theme: str, year: int | None) -> tuple[NavLink, ...]:
+    items: list[NavLink] = []
+    for key in NAV_ORDER[theme]:
+        path, label = NAV[key]
+        if path is None:
+            if year is None:
+                continue
+            path = f"/seasons/{year}/scoring"
+        items.append(NavLink(key, path, label))
+    return tuple(items)
+
+
+def _frame(
+    *,
+    theme: str,
+    title: str,
+    nav: str,
+    pager: str,
+    fragments: tuple[FragmentView, ...],
+    active: FragmentView,
+    slots: Mapping[str, str],
+    path: str,
+    year: int | None,
+    week_nav: Sequence[int],
+) -> Frame:
+    return Frame(
+        theme=theme,
+        title=title,
+        nav=nav,
+        pager=pager,
+        fragments=fragments,
+        active=active,
+        slots=tuple(slots.items()),
+        path=path,
+        nav_links=_nav_links(theme, year),
+        theme_choices=tuple(
+            ThemeChoice(theme_id, THEME_LABELS[theme_id]) for theme_id in THEMES
+        ),
+        week_nav=numeral_hrefs(path, week_nav, theme=theme),
+        dead_labels=ERA90_DEAD_LABELS if theme == "era90" else (),
+    )
+
+
+def render_panes(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    panes: Sequence[Pane],
+    slots: Sequence[Slot] = (),
+    context: Mapping[str, object] | None = None,
+    pager: str = "",
+) -> HTMLResponse:
+    """Render one era shell. Only the active pane's loader runs."""
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    theme = resolve_theme(request)
+    if theme not in ERA_THEMES:
+        raise RuntimeError("render_panes serves era shells; modern stays on page()")
+    if not panes:
+        raise ValueError("a themed page needs at least one pane")
+    names = [pane.name for pane in panes]
+    if len(names) != len(set(names)):
+        raise ValueError(f"duplicate pane name on {title!r}")
+    for pane in panes:
+        if re.fullmatch(r"[a-z][a-z0-9]*", pane.name) is None:
+            raise ValueError(f"pane name must be a slug: {pane.name}")
+    slot_map: dict[str, str] = {}
+    for slot in slots:
+        if slot.name not in REQUIRED_SLOTS:
+            raise ValueError(f"unknown slot {slot.name}")
+        if slot.name in slot_map:
+            raise ValueError(f"duplicate slot {slot.name}")
+        slot_map[slot.name] = slot.template
+    missing = [name for name in REQUIRED_SLOTS if name not in slot_map]
+    if missing:
+        raise ValueError(f"missing slots: {missing}")
+    env = _templates.env
+    for pane in panes:
+        env.get_template(pane.template)
+    for template in slot_map.values():
+        env.get_template(template)
+
+    base = dict(context or {})
+    if "frame" in base:
+        raise ValueError("context cannot include frame")
+    year = base.get("year")
+    if year is not None and not isinstance(year, int):
+        raise ValueError("year must be int")
+
+    requested = request.query_params.get("pane")
+    active_name = requested if isinstance(requested, str) and requested in names else names[0]
+    active_pane = next(pane for pane in panes if pane.name == active_name)
+    if os.environ.get("NU_CHOATE_PERF") == "1":
+        print(f"NU_CHOATE_PERF pane {active_pane.name}", file=sys.stderr, flush=True)
+    loaded = dict(active_pane.load())
+    week_values = loaded.pop("week_nav", ())
+    overlap = set(base) & set(loaded)
+    if overlap:
+        raise ValueError(f"loader overwrites context keys: {sorted(overlap)}")
+    base.update(loaded)
+    weeks = tuple(int(week) for week in (week_values or ()))
+
+    fragments = tuple(FragmentView(pane.name, pane.label, pane.template) for pane in panes)
+    active = FragmentView(active_pane.name, active_pane.label, active_pane.template)
+    frame = _frame(
+        theme=theme,
+        title=title,
+        nav=nav,
+        pager=pager,
+        fragments=fragments,
+        active=active,
+        slots=slot_map,
+        path=request.url.path,
+        year=year if isinstance(year, int) else None,
+        week_nav=weeks,
+    )
+    payload: dict[str, object] = {**base, "frame": frame, "title": title, "nav": nav}
+    return _templates.TemplateResponse(request, f"shells/{theme}.html", payload)
+
+
+def _same(value: object, high: float | None) -> bool:
+    if value is None or high is None:
+        return False
+    return round(float(value), 4) == round(high, 4)
+
+
+def _max_number(values: object) -> float | None:
+    found = [float(value) for value in values if value is not None]  # type: ignore[union-attr]
+    return max(found) if found else None
+
+
+def _path(prefix: str, identifier: object) -> str:
+    if identifier is None or str(identifier).strip() == "":
+        return ""
+    return f"{prefix}/{quote(str(identifier), safe='')}"
+
+
+def _points(value: object) -> str:
+    if value is None:
+        return "—"
+    return f"{Decimal(str(value)):.2f}"
+
+
+def _higher(home: float | None, away: float | None, side: str) -> str:
+    if home is None or away is None or round(home, 4) == round(away, 4):
+        return ""
+    if (side == "home" and home > away) or (side == "away" and away > home):
+        return "is-leader"
+    return ""
+
+
+def _game_view(row: Mapping[str, object]) -> dict[str, object]:
+    if "home_manager_id" in row or "away_manager_id" in row:
+        home_id = row.get("home_manager_id")
+        away_id = row.get("away_manager_id")
+    else:
+        home_id = row.get("home_id")
+        away_id = row.get("away_id")
+    home_pts = row.get("home_points")
+    away_pts = row.get("away_points")
+    home_n = None if home_pts is None else float(home_pts)  # type: ignore[arg-type]
+    away_n = None if away_pts is None else float(away_pts)  # type: ignore[arg-type]
+    home_name = row.get("home_name") or "—"
+    away_name = row.get("away_name") or "—"
+    return {
+        "home": str(home_name),
+        "home_href": _path("/members", home_id),
+        "home_pts": _points(home_pts),
+        "home_mark": _higher(home_n, away_n, "home"),
+        "away": str(away_name),
+        "away_href": _path("/members", away_id),
+        "away_pts": _points(away_pts),
+        "away_mark": _higher(home_n, away_n, "away"),
+        "kind_label": "",
+    }
+
+
+def _tree_groups(tree: Mapping[str, object] | None, fallback: str) -> list[dict[str, object]]:
+    if not tree:
+        return []
+    groups: list[dict[str, object]] = []
+    for round_ in tree.get("rounds") or []:  # type: ignore[union-attr]
+        label = str(round_.get("label") or fallback)
+        matches = round_.get("matches") or []
+        groups.append(
+            {
+                "week": int(round_["week"]),
+                "label": label,
+                "games": [_game_view(match) for match in matches],
+            }
+        )
+    by_week: dict[int, dict[str, object]] = {}
+    for match in tree.get("placements") or []:  # type: ignore[union-attr]
+        week = int(match.get("week") or 0)
+        label = str(match.get("place_label") or fallback)
+        group = by_week.get(week)
+        if group is None:
+            group = {"week": week, "label": label, "games": []}
+            by_week[week] = group
+        games = group["games"]
+        assert isinstance(games, list)
+        games.append(_game_view(match))
+    groups.extend(by_week[key] for key in sorted(by_week))
+    return groups
+
+
+def _standings_board(year: int, theme: str) -> dict[str, object]:
+    rows = queries.standings(year)
+    high = _max_number(row.get("points_for") for row in rows)
+    streaks = queries.era2010_season_streaks(year) if theme == "era2010" else {}
+    diffs = [int(row.get("wins") or 0) - int(row.get("losses") or 0) for row in rows]
+    lead = max(diffs) if diffs else 0
+    chips: list[dict[str, object]] = []
+    body: list[dict[str, object]] = []
+    for row, diff in zip(rows, diffs):
+        wins = int(row.get("wins") or 0)
+        losses = int(row.get("losses") or 0)
+        ties = int(row.get("ties") or 0)
+        display = str(row.get("display_name") or "")
+        identity = _era2010_identity(
+            display,
+            row.get("team_name"),
+            row.get("manager_id"),
+            with_avatar=theme == "era2010",
+        )
+        marks: dict[str, str] = {}
+        if row.get("champion"):
+            marks["manager"] = "is-leader"
+        elif int(row.get("rank") or 0) == 1:
+            marks["manager"] = "is-active-leader"
+        if marks.get("manager"):
+            marks["franchise"] = marks["manager"]
+        if _same(row.get("points_for"), high):
+            marks["points_for"] = "is-record"
+        h2h_games = (
+            int(row.get("h2h_wins") or 0)
+            + int(row.get("h2h_losses") or 0)
+            + int(row.get("h2h_ties") or 0)
+        )
+        href = _path("/members", row.get("manager_id"))
+        body.append(
+            {
+                "rank": row.get("rank"),
+                "manager": display,
+                "franchise": identity["franchise"],
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
+                "points_for": row.get("points_for"),
+                "points_against": row.get("points_against"),
+                "win_pct": row.get("win_pct"),
+                "record": f"{wins}-{losses}-{ties}",
+                "games_back": Decimal(lead - diff) / Decimal(2),
+                "streak": streaks.get(str(row.get("manager_id") or "")) or None,
+                "avg_pf": _era2010_average(row.get("points_for"), h2h_games),
+                "avg_pa": _era2010_average(row.get("points_against"), h2h_games),
+                "_href": {"manager": href, "franchise": href},
+                "_mark": marks,
+            }
+        )
+        chips.append(identity)
+    board = present("standings", body, theme, caption=f"{year} standings")
+    if theme == "era2010":
+        board["franchises"] = chips
+    return board
+
+
+def _moves_board(year: int, theme: str) -> dict[str, object]:
+    rows = queries._season_trades(year)
+    body: list[dict[str, object]] = []
+    for row in rows:
+        verdict = row.get("verdict") or {}
+        ahead = verdict.get("kind") not in (None, "even")
+        winner = row.get("winner_id")
+        marks = {}
+        if ahead and winner == row.get("left_id"):
+            marks["left"] = "is-leader"
+        if ahead and winner == row.get("right_id"):
+            marks["right"] = "is-leader"
+        body.append(
+            {
+                "week": row.get("week"),
+                "left": row.get("left_name") or "",
+                "right": row.get("right_name") or "",
+                "gap": row.get("vorp_gap"),
+                "_href": {
+                    "week": f"/seasons/{year}/trades/{quote(str(row.get('transaction_id') or ''), safe='')}",
+                    "left": _path("/members", row.get("left_id")),
+                    "right": _path("/members", row.get("right_id")),
+                },
+                "_mark": marks,
+            }
+        )
+    return present("moves", body, theme, caption=f"{year} trades")
+
+
+def _draft_board(year: int, theme: str) -> dict[str, object]:
+    page = queries.draft_page(year)
+    picks = [] if not page else list(page["picks"])
+    high = _max_number(row.get("ros_vorp") for row in picks)
+    body: list[dict[str, object]] = []
+    for row in picks:
+        overall = int(row.get("overall") or 0)
+        mark = ""
+        if overall == 1:
+            mark = "is-leader"
+        elif _same(row.get("ros_vorp"), high):
+            mark = "is-record"
+        body.append(
+            {
+                "overall": overall,
+                "round": row.get("round"),
+                "manager": row.get("manager_name") or "",
+                "player": row.get("player_name") or "",
+                "position": row.get("position") or "",
+                "_href": {
+                    "manager": _path("/members", row.get("manager_id")),
+                    "player": _path("/players", row.get("player_id")),
+                },
+                "_mark": {"player": mark} if mark else {},
+            }
+        )
+    return present("draft", body, theme, caption=f"{year} draft")
+
+
+def _lineups_board(year: int, theme: str) -> dict[str, object]:
+    packed = queries._season_lineups(year)
+    coaches = list(packed.get("coaches") or [])
+    high = _max_number(row.get("actual_points") for row in coaches)
+    body: list[dict[str, object]] = []
+    for row in coaches:
+        marks = {}
+        if _same(row.get("actual_points"), high):
+            marks["manager"] = "is-leader"
+            marks["actual"] = "is-record"
+        body.append(
+            {
+                "manager": row.get("manager_name") or "",
+                "weeks": row.get("weeks"),
+                "actual": row.get("actual_points"),
+                "optimal": row.get("optimal_points"),
+                "bench": row.get("left_on_bench"),
+                "_href": {"manager": _path("/members", row.get("manager_id"))},
+                "_mark": marks,
+            }
+        )
+    return present("lineups", body, theme, caption=f"{year} lineups")
+
+
+def _stacks_board(year: int, theme: str) -> dict[str, object]:
+    packed = queries._season_stacks(year)
+    managers = list(packed.get("managers") or [])
+    high = _max_number(row.get("stack_weeks") for row in managers)
+    body: list[dict[str, object]] = []
+    for row in managers:
+        marks = {}
+        if _same(row.get("stack_weeks"), high):
+            marks["manager"] = "is-leader"
+            marks["stack_weeks"] = "is-record"
+        body.append(
+            {
+                "manager": row.get("manager_name") or "",
+                "stack_weeks": row.get("stack_weeks"),
+                "combined": row.get("combined_points"),
+                "points_for": row.get("points_for"),
+                "stack_share": row.get("stack_share"),
+                "_href": {"manager": _path("/members", row.get("manager_id"))},
+                "_mark": marks,
+            }
+        )
+    return present("stacks", body, theme, caption=f"{year} stacks")
+
+
+def _week_groups(year: int) -> tuple[list[dict[str, object]], list[int]]:
+    schedule = queries.season_schedule(year)
+    groups: list[dict[str, object]] = []
+    weeks: list[int] = []
+    for week, games in schedule["regular"]:
+        weeks.append(int(week))
+        groups.append(
+            {
+                "week": int(week),
+                "label": "",
+                "games": [_game_view(game) for game in games],
+            }
+        )
+    return groups, weeks
+
+
+def _playoff_groups(year: int) -> tuple[list[dict[str, object]], list[int]]:
+    schedule = queries.season_schedule(year)
+    groups: list[dict[str, object]] = []
+    groups.extend(_tree_groups(schedule.get("winners_tree"), "Playoff"))
+    groups.extend(_tree_groups(schedule.get("consolation_tree"), "Consolation"))
+    if not groups:
+        # Bracket JSON is optional. Posted playoff games still belong on the pane.
+        groups = _posted_playoff_groups(year)
+    weeks = sorted({int(group["week"]) for group in groups})
+    return groups, weeks
+
+
+def _posted_playoff_groups(year: int) -> list[dict[str, object]]:
+    rows = queries.fetchall(
+        """
+        SELECT
+            m.id,
+            m.week,
+            m.kind,
+            m.home_manager_id,
+            m.away_manager_id,
+            hm.display_name AS home_name,
+            am.display_name AS away_name,
+            m.home_points,
+            m.away_points
+        FROM matchups m
+        LEFT JOIN managers hm ON hm.id = m.home_manager_id
+        LEFT JOIN managers am ON am.id = m.away_manager_id
+        WHERE m.year = %(year)s
+          AND m.kind IN ('playoff', 'consolation')
+          AND (m.home_points <> 0 OR m.away_points <> 0)
+        ORDER BY m.week, m.kind, m.id
+        """,
+        {"year": year},
+    )
+    labels = {"playoff": "Playoff", "consolation": "Consolation"}
+    by_week: dict[int, dict[str, object]] = {}
+    for row in rows:
+        week = int(row["week"])
+        group = by_week.get(week)
+        if group is None:
+            group = {
+                "week": week,
+                "label": labels.get(str(row.get("kind") or ""), ""),
+                "games": [],
+            }
+            by_week[week] = group
+        games = group["games"]
+        assert isinstance(games, list)
+        games.append(_game_view(row))
+    return [by_week[week] for week in sorted(by_week)]
+
+
+def season_document(request: Request, year: int) -> HTMLResponse:
+    """Era season page. Modern never reaches this function."""
+    theme = resolve_theme(request)
+    if theme == "modern":
+        raise RuntimeError("modern season documents stay on page()")
+    current = queries.season_row(year)
+    if current is None:
+        raise StarletteHTTPException(status_code=404, detail=f"No season {year} in the warehouse.")
+
+    def standings() -> dict[str, object]:
+        board = _standings_board(year, theme)
+        payload: dict[str, object] = {"board": board}
+        if theme == "era2010":
+            payload["franchises"] = board.pop("franchises", ())
+            payload["avg_note"] = ERA2010_AVG_NOTE
+            payload["modules"] = era2010_modules(
+                request,
+                year,
+                f"/seasons/{year}",
+                (("pane", "standings"),),
+            )
+        return payload
+
+    def weeks() -> dict[str, object]:
+        groups, week_nums = _week_groups(year)
+        return {"week_groups": groups, "week_nav": week_nums}
+
+    def playoffs() -> dict[str, object]:
+        groups, week_nums = _playoff_groups(year)
+        return {"week_groups": groups, "week_nav": week_nums}
+
+    def moves() -> dict[str, object]:
+        return {"board": _moves_board(year, theme)}
+
+    def draft() -> dict[str, object]:
+        return {"board": _draft_board(year, theme)}
+
+    def lineups() -> dict[str, object]:
+        return {"board": _lineups_board(year, theme)}
+
+    def stacks() -> dict[str, object]:
+        return {"board": _stacks_board(year, theme)}
+
+    loaders: dict[str, Callable[[], Mapping[str, object]]] = {
+        "standings": standings,
+        "weeks": weeks,
+        "playoffs": playoffs,
+        "moves": moves,
+        "draft": draft,
+        "lineups": lineups,
+        "stacks": stacks,
+    }
+    if set(loaders) != {name for name, _, _ in SEASON_PANES}:
+        raise RuntimeError("season loader map drifted from the pane catalog")
+    if theme == "era90":
+        # Numeral week nav is era90 grammar on every season pane, not only
+        # the weeks list. Weeks and playoffs already return the numbers.
+        def _with_week_nav(load: Callable[[], Mapping[str, object]]) -> Callable[[], Mapping[str, object]]:
+            def wrapped() -> Mapping[str, object]:
+                payload = dict(load())
+                if not payload.get("week_nav"):
+                    payload["week_nav"] = queries.scored_weeks(year)
+                return payload
+
+            return wrapped
+
+        loaders = {name: _with_week_nav(fn) for name, fn in loaders.items()}
+    panes = tuple(Pane(name, label, template, loaders[name]) for name, label, template in SEASON_PANES)
+    context: dict[str, object] = {"year": year, "current": current}
+    if theme == "era90":
+        context["last_updated"] = queries.era90_last_updated()
+    return render_panes(
+        request,
+        title=f"{year} season",
+        nav="seasons",
+        pager="Season",
+        panes=panes,
+        slots=(
+            Slot("lead", "fragments/season_lead.html"),
+            Slot("aside", "fragments/season_aside.html"),
+        ),
+        context=context,
+    )
+
+
+_FIXTURE_CURRENT: dict[str, object] = {
+    "platform": "sleeper",
+    "champion": "Alex Coletti",
+    "champion_id": "alex-coletti",
+    "runner_up": "Jamie Active",
+}
+
+_FIXTURES: dict[str, list[dict[str, object]]] = {
+    "standings": [
+        {
+            "rank": 1,
+            "manager": "Alex Coletti",
+            "wins": 10,
+            "losses": 4,
+            "ties": 0,
+            "points_for": Decimal("1600.50"),
+            "points_against": Decimal("1400.25"),
+            "win_pct": Decimal("0.714"),
+            "record": "10-4-0",
+            "franchise": "Coletti FC",
+            "games_back": Decimal("0.0"),
+            "streak": "W3",
+            "avg_pf": Decimal("114.32"),
+            "avg_pa": Decimal("100.02"),
+            "_href": {
+                "manager": "/members/alex-coletti",
+                "franchise": "/members/alex-coletti",
+            },
+            "_mark": {
+                "manager": "is-leader",
+                "franchise": "is-leader",
+                "points_for": "is-record",
+            },
+        },
+        {
+            "rank": 2,
+            "manager": "Jamie Active",
+            "wins": 9,
+            "losses": 5,
+            "ties": 1,
+            "points_for": Decimal("1500"),
+            "points_against": Decimal("1499.50"),
+            "win_pct": Decimal("0.633"),
+            "record": "9-5-1",
+            "franchise": "Active FC",
+            "games_back": Decimal("1.0"),
+            "streak": "L2",
+            "avg_pf": Decimal("100.00"),
+            "avg_pa": Decimal("99.97"),
+            "_href": {
+                "manager": "/members/jamie-active",
+                "franchise": "/members/jamie-active",
+            },
+            "_mark": {"manager": "is-active-leader", "franchise": "is-active-leader"},
+        },
+    ],
+    "moves": [
+        {
+            "week": 4,
+            "left": "Alex Coletti",
+            "right": "Jamie Active",
+            "gap": Decimal("12.5"),
+            "_href": {
+                "week": "/seasons/2025/trades/abc",
+                "left": "/members/alex-coletti",
+                "right": "/members/jamie-active",
+            },
+            "_mark": {"left": "is-leader"},
+        }
+    ],
+    "draft": [
+        {
+            "overall": 1,
+            "round": 1,
+            "manager": "Alex Coletti",
+            "player": "Aaron Rodgers",
+            "position": "QB",
+            "_href": {"manager": "/members/alex-coletti", "player": "/players/100"},
+            "_mark": {"player": "is-leader"},
+        },
+        {
+            "overall": 12,
+            "round": 2,
+            "manager": "Jamie Active",
+            "player": "Amon-Ra St. Brown",
+            "position": "WR",
+            "_href": {"manager": "/members/jamie-active", "player": "/players/200"},
+            "_mark": {},
+        },
+    ],
+    "lineups": [
+        {
+            "manager": "Alex Coletti",
+            "weeks": 14,
+            "actual": Decimal("150.5"),
+            "optimal": Decimal("160.0"),
+            "bench": Decimal("9.5"),
+            "_href": {"manager": "/members/alex-coletti"},
+            "_mark": {"manager": "is-leader", "actual": "is-record"},
+        }
+    ],
+    "stacks": [
+        {
+            "manager": "Alex Coletti",
+            "stack_weeks": 8,
+            "combined": Decimal("320.25"),
+            "points_for": Decimal("1281"),
+            "stack_share": Decimal("0.25"),
+            "_href": {"manager": "/members/alex-coletti"},
+            "_mark": {"manager": "is-leader", "stack_weeks": "is-record"},
+        }
+    ],
+}
+
+
+def _request(query: str, cookie: str | None = None) -> Request:
+    headers: list[tuple[bytes, bytes]] = []
+    if cookie is not None:
+        headers.append((b"cookie", f"{THEME_COOKIE}={cookie}".encode()))
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/seasons/2025",
+        "raw_path": b"/seasons/2025",
+        "root_path": "",
+        "query_string": query.encode(),
+        "headers": headers,
+        "client": ("127.0.0.1", 0),
+        "server": ("127.0.0.1", 80),
+    }
+    return Request(scope)
+
+
+def _between(text: str, start: str, end: str) -> str | None:
+    opening = text.find(start)
+    if opening < 0:
+        return None
+    closing = text.find(end, opening + len(start))
+    if closing < 0:
+        return None
+    return text[opening + len(start) : closing]
+
+
+def _css_code(text: str) -> str:
+    stripped = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return "".join(stripped.split()).lower()
+
+
+def _labels(html: str) -> list[str]:
+    return re.findall(r"<th[^>]*>([^<]*)</th>", html)
+
+
+def collect_contract_problems(
+    templates: Jinja2Templates,
+    *,
+    root: Path | None = None,
+) -> list[str]:
+    """Return every contract violation. Empty means the process may serve."""
+    problems: list[str] = []
+    root = root or project_root()
+    problems.extend(_check_resolution())
+    problems.extend(_check_registry())
+    problems.extend(_check_files(root))
+    if problems:
+        return problems
+    try:
+        problems.extend(_check_fixture_render(templates.env))
+    except Exception as exc:
+        problems.append(f"fixture render failed: {exc}")
+    return problems
+
+
+def _check_resolution() -> list[str]:
+    problems: list[str] = []
+    cases = (
+        ("", None, "modern"),
+        ("theme=era90", None, "era90"),
+        ("theme=era2010", None, "era2010"),
+        ("theme=modern", None, "modern"),
+        ("theme=nope", None, "modern"),
+        ("theme=", None, "modern"),
+        ("theme=nope", "era90", "modern"),
+        ("", "era90", "era90"),
+        ("", "nope", "modern"),
+        ("theme=era2010", "era90", "era2010"),
+    )
+    for query, cookie, expected in cases:
+        got = resolve_theme(_request(query, cookie))
+        if got != expected:
+            problems.append(f"resolve {query!r} cookie={cookie!r} -> {got}, expected {expected}")
+    chosen = _request("theme=era90")
+    response = HTMLResponse("ok")
+    persist_theme(chosen, response)
+    cookie_header = response.headers.get("set-cookie", "")
+    if "theme=era90" not in cookie_header or "HttpOnly" not in cookie_header:
+        problems.append(f"themed request did not set the theme cookie: {cookie_header!r}")
+    if f"Max-Age={THEME_MAX_AGE}" not in cookie_header:
+        problems.append("theme cookie does not persist across sessions")
+    silent = HTMLResponse("ok")
+    persist_theme(_request(""), silent)
+    if silent.headers.get("set-cookie"):
+        problems.append("a request without ?theme= rewrote the cookie")
+    sample = rows_all_href("/seasons/2025", "draft")
+    if sample != "/seasons/2025?pane=draft&rows=all" or "theme=" in sample:
+        problems.append(f"View All href is not a theme-free link: {sample}")
+    weeks = numeral_hrefs("/seasons/2025", (1, 16), theme="era90")
+    if [link.week for link in weeks] != [1, 16] or any("theme=era90" not in link.href for link in weeks):
+        problems.append("week numerals are not real themed shell links")
+    for full, short in _SHORT_NAMES:
+        if _short_name(full) != short:
+            problems.append(f"player formatter {full!r} -> {_short_name(full)!r}, expected {short!r}")
+    if tie_dash(0, "era90") != "-" or tie_dash(0, "era2010") != "-" or tie_dash(0, "modern") != "0":
+        problems.append("tie_dash is not the shared zero-tie glyph")
+    if tie_dash(1, "era90") != "1":
+        problems.append("tie_dash rewrote a non-zero tie")
+    return problems
+
+
+def _check_registry() -> list[str]:
+    problems: list[str] = []
+    if set(NAV_ORDER) != set(THEMES) or set(THEME_LABELS) != set(THEMES):
+        problems.append("theme labels or nav order drifted from the registry")
+    if NAV_ORDER["era90"] != _ERA90_NAV or NAV_ORDER["era2010"] != _SITE_NAV:
+        problems.append("era nav order drifted")
+    if NAV_ORDER["modern"] != _SITE_NAV:
+        problems.append("modern nav order drifted from the mast")
+    for order in NAV_ORDER.values():
+        missing = [key for key in order if key not in NAV]
+        if missing:
+            problems.append(f"nav keys missing from NAV: {missing}")
+    links = _nav_links("era90", 2025)
+    if tuple(link.key for link in links) != _ERA90_NAV:
+        problems.append("era90 rail did not follow the league-task order")
+    scoring = next(link for link in links if link.key == "scoring")
+    if scoring.href != "/seasons/2025/scoring":
+        problems.append("era90 scoring task is not the season scoring sheet")
+    pane_names = [name for name, _, _ in SEASON_PANES]
+    if pane_names != [
+        "standings",
+        "weeks",
+        "playoffs",
+        "moves",
+        "draft",
+        "lineups",
+        "stacks",
+    ]:
+        problems.append(f"season pane catalog drifted: {pane_names}")
+    if len(pane_names) != len(set(pane_names)):
+        problems.append("duplicate season pane id")
+    board_panes = {name for name, _, template in SEASON_PANES if template == "fragments/board.html"}
+    if set(BOARDS) != board_panes:
+        problems.append(f"board registry {sorted(BOARDS)} != table panes {sorted(board_panes)}")
+    for name, _, template in SEASON_PANES:
+        if name in ("weeks", "playoffs") and template != "fragments/games.html":
+            problems.append(f"{name} is not the games fragment")
+    for board_id, spec in BOARDS.items():
+        if set(spec.projections) != set(THEMES):
+            problems.append(f"{board_id} projections do not cover every theme")
+        keys = [column.key for column in spec.columns]
+        if len(keys) != len(set(keys)):
+            problems.append(f"{board_id} has a duplicate column")
+        known = set(keys)
+        for column in spec.columns:
+            if column.formatter not in FORMATTERS:
+                problems.append(f"{board_id}.{column.key} formatter {column.formatter} is unknown")
+        for theme, projection in spec.projections.items():
+            if len(projection) != len(set(projection)):
+                problems.append(f"{board_id} {theme} projection repeats a column")
+            unknown = [key for key in projection if key not in known]
+            if unknown:
+                problems.append(f"{board_id} {theme} projection has unknown keys {unknown}")
+        if board_id not in _FIXTURES:
+            problems.append(f"{board_id} has no fixture row")
+    standings = BOARDS["standings"]
+    if standings.projections.get("era90") != _ERA90_STANDINGS:
+        problems.append("era90 standings projection is not the small grid")
+    if standings.projections.get("era2010") != _ERA2010_STANDINGS:
+        problems.append("era2010 standings projection drifted")
+    tie_column = next(column for column in standings.columns if column.key == "ties")
+    if tie_column.formatter != "tie":
+        problems.append("the ties column does not use tie_dash")
+    player_column = next(column for column in BOARDS["draft"].columns if column.key == "player")
+    if player_column.formatter != "player":
+        problems.append("the draft player column does not use the shared name formatter")
+    return problems
+
+
+def _check_files(root: Path) -> list[str]:
+    problems: list[str] = []
+    shells = root / "hub" / "templates" / "shells"
+    fragments = root / "hub" / "templates" / "fragments"
+    styles = root / "hub" / "static" / "themes"
+    base_path = root / "hub" / "templates" / "base.html"
+    season_path = root / "hub" / "templates" / "season.html"
+    if not base_path.is_file() or not season_path.is_file():
+        problems.append("base.html or season.html is missing")
+        return problems
+    base = base_path.read_text(encoding="utf-8")
+    if base.count('href="/static/hub.css"') != 1:
+        problems.append("modern skin must link hub.css once from base.html")
+    if 'src="/static/hub.js"' not in base:
+        problems.append("modern page dropped hub.js")
+    if base.count('class="theme-switch"') != 1:
+        problems.append("base.html must carry exactly one theme switcher")
+    found = re.findall(r'href="\?theme=([^"]+)"[^>]*>([^<]+)</a>', base)
+    expected = [(theme, THEME_LABELS[theme]) for theme in THEMES]
+    if found != expected:
+        problems.append(f"base.html switcher drifted from the registry: {found}")
+    season = season_path.read_text(encoding="utf-8")
+    sections = re.findall(
+        r'<section class="js-season-pane" id="([^"]+)" data-tab="([^"]+)">',
+        season,
+    )
+    catalog = [(name, name) for name, _, _ in SEASON_PANES]
+    if sections != catalog:
+        problems.append(f"season sections drifted from the pane catalog: {sections}")
+    if (shells / "modern.html").is_file():
+        problems.append("modern has no shell; it is the legacy page() path")
+    if (styles / "modern.css").is_file():
+        problems.append("modern skin is hub.css via base.html, not themes/modern.css")
+    for name in ("_fragment.html", "_slot.html", "_week_nav.html"):
+        if not (shells / name).is_file():
+            problems.append(f"missing shell mount {name}")
+    mount = (shells / "_fragment.html").read_text(encoding="utf-8") if (shells / "_fragment.html").is_file() else ""
+    if "<!--a2-fragment-->" not in mount or "<!--/a2-fragment-->" not in mount:
+        problems.append("fragment mount lost its markers")
+    if "frame.active.template" not in mount:
+        problems.append("fragment mount does not include the active template")
+    week_nav = (shells / "_week_nav.html").read_text(encoding="utf-8") if (shells / "_week_nav.html").is_file() else ""
+    if "Results" not in week_nav or "item.href" not in week_nav:
+        problems.append("week numeral row is not a shell include of real links")
+    for theme in ERA_THEMES:
+        path = shells / f"{theme}.html"
+        css_path = styles / f"{theme}.css"
+        if not path.is_file():
+            problems.append(f"missing shell {path}")
+            continue
+        if not css_path.is_file():
+            problems.append(f"missing stylesheet {css_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if text.count("shells/_fragment.html") != 1:
+            problems.append(f"{theme} shell must mount the fragment once")
+        for snippet in (
+            'slot_name="lead"',
+            'slot_name="aside"',
+            "shells/_week_nav.html",
+            "frame.theme_choices",
+            "frame.theme_href",
+            "frame.nav_links",
+            "frame.pane_href",
+            "frame.paged",
+        ):
+            if snippet not in text:
+                problems.append(f"{theme} shell is missing {snippet}")
+        if "fragments/" in text or ".template" in text:
+            problems.append(f"{theme} shell names content; use the mount")
+        if text.count('rel="stylesheet"') != 1 or f"/static/themes/{theme}.css" not in text:
+            problems.append(f"{theme} shell must link exactly its own stylesheet")
+        if "hub.css" in text or "hub.js" in text:
+            problems.append(f"{theme} shell pulls a modern asset")
+        for token in _SHELL_FACT_TOKENS:
+            if token in text:
+                problems.append(f"{theme} shell contains stat fact {token}")
+        lowered = text.lower()
+        table_count = lowered.count("<table")
+        if theme == "era90":
+            if table_count != 1:
+                problems.append("era90 shell must contain exactly one layout table")
+            for snippet in (
+                'class="portal"',
+                'class="band"',
+                'class="rail-left"',
+                'class="rail-right"',
+                'class="link-box"',
+                'class="numeral-row"',
+                "loop.index",
+                "frame.dead_labels",
+                "Email the COMMISSIONER",
+            ):
+                if snippet not in text:
+                    problems.append(f"era90 shell is missing {snippet}")
+            if text.count('class="link-box"') != 1:
+                problems.append("era90 right rail must be exactly one link box")
+        else:
+            if table_count:
+                problems.append("era2010 shell contains a layout table")
+            if "frame.dead_labels" in text or "dead-label" in text:
+                problems.append("era2010 shell took the era90 link farm")
+            for snippet in ('class="tabs"', "fragment.label", 'class="shell"'):
+                if snippet not in text:
+                    problems.append(f"era2010 shell is missing {snippet}")
+            if any(name in text for name, _, _ in SEASON_PANES):
+                problems.append("era2010 shell hardcodes a pane id; loop the catalog")
+        css = css_path.read_text(encoding="utf-8")
+        if "hub.css" in css or "hub.js" in css:
+            problems.append(f"{theme}.css imports a modern asset")
+        folded = _css_code(css)
+        if "background:#fff" not in folded and "background:#ffffff" not in folded:
+            problems.append(f"{theme} stat surface is not light")
+        for klass in (".is-leader", ".is-record", ".is-active-leader"):
+            if klass not in css:
+                problems.append(f"{theme}.css is missing {klass}")
+        if theme == "era90":
+            for token in ("display:flex", "display:inline-flex", "display:grid", "display:inline-grid"):
+                if token in folded:
+                    problems.append(f"era90 stylesheet used {token}")
+            if "#660000" not in folded or "background:#660000" not in folded:
+                problems.append("era90 stylesheet is missing the #660000 commissioner band")
+            if "#0000ff" not in folded:
+                problems.append("era90 links are not blue")
+        if theme == "era2010":
+            if "width:960px" not in folded:
+                problems.append("era2010 shell is not the fixed 960 scaffold")
+            if "#0645ad" not in folded:
+                problems.append("era2010 links are not blue")
+    if not fragments.is_dir():
+        problems.append("fragments directory is missing")
+        return problems
+    tables: list[str] = []
+    for path in sorted(fragments.rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        folded = text.lower()
+        if "<table" in folded:
+            tables.append(path.name)
+        if path.name == "stat_table.html" and folded.count("<table") != 1:
+            problems.append("stat_table.html must contain exactly one table")
+        for token in _FRAGMENT_FORBIDDEN:
+            if token in text:
+                problems.append(f"{path.name} contains {token!r}")
+        if re.search(r"theme", text, re.I):
+            problems.append(f"{path.name} mentions theme")
+    if tables != ["stat_table.html"]:
+        problems.append(f"<table is not confined to stat_table.html: {tables}")
+    return problems
+
+
+def _check_fixture_render(env: object) -> list[str]:
+    problems: list[str] = []
+    rendered: dict[str, dict[str, str]] = {}
+    for board_id, rows in _FIXTURES.items():
+        spec = BOARDS[board_id]
+        raws: dict[str, list[list[str]]] = {}
+        rendered[board_id] = {}
+        for theme in THEMES:
+            board = present(board_id, rows, theme, caption=f"Fixture {board_id}")
+            html = env.get_template("fragments/board.html").render(board=board)  # type: ignore[attr-defined]
+            rendered[board_id][theme] = html
+            if "theme=" in html:
+                problems.append(f"{board_id} {theme} fragment carries a theme token")
+            raws[theme] = []
+            for row in rows:
+                mapped = _mapped_cells(spec, row, theme)
+                raws[theme].append([str(mapped[column.key]["raw"]) for column in spec.columns])
+                keys = _projection_keys(spec, theme)
+                labels = [next(column.label for column in spec.columns if column.key == key) for key in keys]
+                if _labels(html) != labels:
+                    problems.append(f"{board_id} {theme} headers {_labels(html)} != {labels}")
+                for key in keys:
+                    text = str(mapped[key]["text"])
+                    if f">{escape(text)}<" not in html:
+                        problems.append(f"{board_id} {theme} did not echo {key}={text!r}")
+        if raws["era90"] != raws["era2010"] or raws["era90"] != raws["modern"]:
+            problems.append(f"{board_id} raw values diverged across themes")
+    same = ("moves", "lineups", "stacks")
+    for board_id in same:
+        if rendered[board_id]["era90"] != rendered[board_id]["era2010"]:
+            problems.append(f"{board_id} fragment diverged across eras without a projection change")
+        if rendered[board_id]["era90"] != rendered[board_id]["modern"]:
+            problems.append(f"{board_id} modern projection diverged from the era fragment")
+    if rendered["standings"]["era90"] == rendered["standings"]["era2010"]:
+        problems.append("era90 standings rendered the same grid as era2010")
+    if rendered["draft"]["era90"] != rendered["draft"]["modern"]:
+        problems.append("draft full-name projection diverged between era90 and modern")
+    if rendered["draft"]["era90"] == rendered["draft"]["era2010"]:
+        problems.append("era2010 draft did not apply the short player name")
+    draft_era = rendered["draft"]["era2010"]
+    draft_full = rendered["draft"]["era90"]
+    if ">A. Rodgers<" not in draft_era or ">A. St. Brown<" not in draft_era:
+        problems.append("era2010 draft did not echo the short player names")
+    if ">Aaron Rodgers<" not in draft_full or ">Amon-Ra St. Brown<" not in draft_full:
+        problems.append("era90 draft did not echo the full player names")
+    if "Aaron Rodgers" in draft_era or "Amon-Ra St. Brown" in draft_era:
+        problems.append("era2010 draft showed a full player name")
+    era90_standings = rendered["standings"]["era90"]
+    if ">-</td>" not in era90_standings:
+        problems.append("era90 zero ties did not render as -")
+    if ">0</td>" in era90_standings:
+        problems.append("era90 standings still showed a zero tie digit")
+    for theme in ERA_THEMES:
+        for klass in ("is-leader", "is-record", "is-active-leader"):
+            if klass not in rendered["standings"][theme]:
+                problems.append(f"{theme} standings missing {klass}")
+    games = env.get_template("fragments/games.html").render(  # type: ignore[attr-defined]
+        year=2025,
+        week_groups=[
+            {
+                "week": 1,
+                "label": "",
+                "games": [
+                    {
+                        "home": "Alex Coletti",
+                        "home_href": "/members/alex-coletti",
+                        "home_pts": "100.00",
+                        "home_mark": "is-leader",
+                        "away": "Jamie Active",
+                        "away_href": "/members/jamie-active",
+                        "away_pts": "90.00",
+                        "away_mark": "",
+                        "kind_label": "",
+                    }
+                ],
+            }
+        ],
+    )
+    if "theme=" in games or 'href="/seasons/2025/week/1"' not in games:
+        problems.append("week content fragment is not a theme-free document link")
+    view = present("draft", _FIXTURES["draft"], "era2010", caption="Fixture draft")
+    view["more_href"] = rows_all_href("/seasons/2025", "draft")
+    more_html = env.get_template("fragments/board.html").render(board=view)  # type: ignore[attr-defined]
+    if "View all" not in more_html or "rows=all" not in more_html or "theme=" in more_html:
+        problems.append("View All did not render as a theme-free link")
+    fragments = tuple(FragmentView(name, label, template) for name, label, template in SEASON_PANES)
+    for theme in ERA_THEMES:
+        board = present("standings", _FIXTURES["standings"], theme, caption="Fixture standings")
+        frame = _frame(
+            theme=theme,
+            title="Fixture season",
+            nav="seasons",
+            pager="Season",
+            fragments=fragments,
+            active=fragments[0],
+            slots={
+                "lead": "fragments/season_lead.html",
+                "aside": "fragments/season_aside.html",
+            },
+            path="/seasons/2025",
+            year=2025,
+            week_nav=(1, 16),
+        )
+        html = env.get_template(f"shells/{theme}.html").render(  # type: ignore[attr-defined]
+            frame=frame,
+            year=2025,
+            current=_FIXTURE_CURRENT,
+            board=board,
+        )
+        if "/static/hub.css" in html or "/static/hub.js" in html:
+            problems.append(f"{theme} shell render pulled a modern asset")
+        fragment = _between(html, "<!--a2-fragment-->", "<!--/a2-fragment-->")
+        direct = env.get_template("fragments/board.html").render(board=board)  # type: ignore[attr-defined]
+        if fragment is None:
+            problems.append(f"{theme} shell render lost the fragment markers")
+        elif fragment != direct:
+            problems.append(f"{theme} shell fragment bytes diverged from the fragment template")
+        elif "theme=" in fragment or "1600.50" not in fragment:
+            problems.append(f"{theme} fragment region failed the echo check")
+        for slot_name in REQUIRED_SLOTS:
+            slot_html = _between(html, f"<!--a2-slot:{slot_name}-->", f"<!--/a2-slot:{slot_name}-->")
+            if slot_html is None:
+                problems.append(f"{theme} shell dropped the {slot_name} slot")
+            elif "theme=" in slot_html:
+                problems.append(f"{theme} {slot_name} slot carries a theme token")
+        for name, _, _ in SEASON_PANES:
+            if f"pane={name}" not in html:
+                problems.append(f"{theme} shell missing pane link {name}")
+        for label in THEME_LABELS.values():
+            if label not in html:
+                problems.append(f"{theme} switcher missing {label}")
+        if f"week/1?theme={theme}" not in html or f"week/16?theme={theme}" not in html:
+            problems.append(f"{theme} week numerals are not themed links")
+        if theme == "era90":
+            match = re.search(
+                r'class="numeral-row"><span class="numeral-label">Season</span>(.*?)</p>',
+                html,
+            )
+            numbers = re.findall(r">(\d+)</a>", match.group(1)) if match else []
+            if numbers != [str(index) for index in range(1, 8)]:
+                problems.append(f"era90 pane numerals were {numbers}")
+            for label in ERA90_DEAD_LABELS:
+                if f'<p class="dead-label">{label}</p>' not in html:
+                    problems.append(f"era90 missing text-only label {label}")
+            if html.count('class="link-box"') != 1:
+                problems.append("era90 render did not keep a single link box")
+        else:
+            if "dead-label" in html:
+                problems.append("era2010 render included the era90 link farm")
+            cursor = 0
+            for _, label, _ in SEASON_PANES:
+                at = html.find(f">{label}</a>", cursor)
+                if at < 0:
+                    problems.append(f"era2010 tabs missing {label}")
+                    break
+                cursor = at + 1
+    return problems
+
+
+def install(templates: Jinja2Templates) -> None:
+    """Bind the environment and refuse to serve when the contract fails."""
+    global _templates
+    _templates = templates
+    problems = collect_contract_problems(templates)
+    if problems:
+        _templates = None
+        raise ThemeContractError(problems)
+
+
+# --- C1a era90 portal and season family (#100). Append-only. ---
+# Content templates live in hub/templates/era90/ and are mounted by the
+# era90 shell. The shell stays the one layout table the boot gate checks.
+# Interior season pages keep the A2 left rail. The portal home replaces
+# that rail with the Eagle task order.
+
+ERA90_FAMILY: dict[str, str] = {
+    "week.html": "era90/week.html",
+    "gamecenter.html": "era90/gamecenter.html",
+    "moves.html": "era90/moves.html",
+    "draft.html": "era90/draft.html",
+    "marks.html": "era90/marks.html",
+    "desk.html": "era90/desk.html",
+    "scoring.html": "era90/scoring.html",
+    "records/index.html": "era90/records.html",
+    # C1b (#103). The modern templates stay the body. These names only
+    # leave the legacy renderer when the request theme is era90.
+    "records/chapter.html": "era90/mount.html",
+    "players.html": "era90/players.html",
+    "player.html": "era90/mount.html",
+    "player_log.html": "era90/mount.html",
+    "player_splits.html": "era90/mount.html",
+    "members.html": "era90/members.html",
+    "member.html": "era90/mount.html",
+    "versus.html": "era90/versus.html",
+    "versus_pair.html": "era90/mount.html",
+    "trade.html": "era90/mount.html",
+    "wire.html": "era90/mount.html",
+}
+
+_MOVE_LABELS = {"trade": "trade", "waiver": "waiver", "free_agent": "free agent"}
+
+
+def _era90_standings_board(
+    rows: Sequence[Mapping[str, object]],
+    theme: str,
+    caption: str,
+) -> dict[str, object]:
+    high = _max_number(row.get("points_for") for row in rows)
+    body: list[dict[str, object]] = []
+    for row in rows:
+        wins = int(row.get("wins") or 0)
+        losses = int(row.get("losses") or 0)
+        ties = int(row.get("ties") or 0)
+        marks: dict[str, str] = {}
+        if row.get("champion"):
+            marks["manager"] = "is-leader"
+        elif int(row.get("rank") or 0) == 1:
+            marks["manager"] = "is-active-leader"
+        if _same(row.get("points_for"), high):
+            marks["points_for"] = "is-record"
+        body.append(
+            {
+                "rank": row.get("rank"),
+                "manager": row.get("display_name") or "",
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
+                "points_for": row.get("points_for"),
+                "points_against": row.get("points_against"),
+                "win_pct": row.get("win_pct"),
+                "record": f"{wins}-{losses}-{ties}",
+                "_href": {"manager": _path("/members", row.get("manager_id"))},
+                "_mark": marks,
+            }
+        )
+    return present("standings", body, theme, caption=caption)
+
+
+def _era90_standings_boards(
+    rows: Sequence[Mapping[str, object]],
+    theme: str,
+    caption: str,
+) -> list[dict[str, object]]:
+    """One shared standings grid, or one per division when the rows carry one.
+
+    This warehouse has no division column, so the home and the week page
+    render a single table. A future ``division`` value splits the same
+    projection without a second fragment.
+    """
+    grouped: dict[str, list[Mapping[str, object]]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = str(row.get("division") or "")
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(row)
+    boards: list[dict[str, object]] = []
+    for key in order:
+        label = key if key and len(order) > 1 else caption
+        boards.append(_era90_standings_board(grouped[key], theme, label))
+    return boards
+
+
+def _portal_rail(seasons: Sequence[Mapping[str, object]], year: int | None) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    if year is not None:
+        items.append({"href": f"/seasons/{year}", "label": f"{year} season"})
+    past = [row for row in seasons if year is None or int(row["year"]) != int(year)]
+    if past:
+        items.append({"href": "", "label": "Past seasons"})
+        for row in past:
+            season_year = int(row["year"])
+            items.append({"href": f"/seasons/{season_year}", "label": str(season_year)})
+    items.append({"href": "/records", "label": "Record book"})
+    items.append({"href": "/players", "label": "Top 10"})
+    if year is not None:
+        items.append({"href": f"/seasons/{year}/scoring", "label": "Rules and scoring"})
+    items.append({"href": "/records/awards", "label": "Champions"})
+    return items
+
+
+def _era_year(context: Mapping[str, object]) -> int | None:
+    current = context.get("current")
+    if isinstance(current, Mapping) and current.get("year") is not None:
+        return int(current["year"])
+    return None
+
+
+def _era_weeks(context: Mapping[str, object], year: int | None) -> list[int]:
+    gc = context.get("gc")
+    if isinstance(gc, Mapping) and gc.get("weeks"):
+        return [int(week) for week in gc["weeks"]]  # type: ignore[union-attr]
+    if year is None:
+        return []
+    return queries.scored_weeks(year)
+
+
+def _era90_frame(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    template: str,
+    year: int | None,
+    weeks: Sequence[int],
+) -> Frame:
+    active = FragmentView("page", title, template)
+    week_nav = ()
+    if year is not None:
+        week_nav = tuple(
+            WeekLink(int(week), f"/seasons/{int(year)}/week/{int(week)}?theme=era90")
+            for week in weeks
+        )
+    return Frame(
+        theme="era90",
+        title=title,
+        nav=nav,
+        pager="",
+        fragments=(active,),
+        active=active,
+        slots=(),
+        path=request.url.path,
+        nav_links=_nav_links("era90", year),
+        theme_choices=tuple(ThemeChoice(theme_id, THEME_LABELS[theme_id]) for theme_id in THEMES),
+        week_nav=week_nav,
+        dead_labels=ERA90_DEAD_LABELS,
+    )
+
+
+def _era90_response(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    template: str,
+    context: Mapping[str, object],
+    year: int | None,
+    weeks: Sequence[int],
+) -> HTMLResponse:
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    frame = _era90_frame(request, title=title, nav=nav, template=template, year=year, weeks=weeks)
+    payload: dict[str, object] = {**context, "frame": frame, "title": title, "nav": nav}
+    return _templates.TemplateResponse(request, "shells/era90.html", payload)
+
+
+def era90_home(request: Request) -> HTMLResponse:
+    """Portal home. Skips the modern desk so the era page stays the small grid."""
+    seasons = queries.list_seasons()
+    year = queries.latest_scored_year()
+    rows = queries.standings(year) if year is not None else []
+    boards = _era90_standings_boards(rows, "era90", f"{year} standings") if rows else []
+    weeks = queries.scored_weeks(year) if year is not None else []
+    current = next(
+        (row for row in seasons if year is not None and int(row["year"]) == int(year)),
+        None,
+    )
+    cheer = None
+    if current and current.get("champion") and current.get("champion_id"):
+        cheer = {
+            "lead": "Congratulations",
+            "name": current["champion"],
+            "href": f"/members/{current['champion_id']}",
+        }
+    elif rows:
+        top = rows[0]
+        cheer = {
+            "lead": "Leader",
+            "name": top.get("display_name") or "",
+            "href": _path("/members", top.get("manager_id")),
+        }
+    context: dict[str, object] = {
+        "year": year,
+        "boards": boards,
+        "ticker": queries.era90_ticker(year),
+        "cheer": cheer,
+        "portal_rail": _portal_rail(seasons, year),
+        "last_updated": queries.era90_last_updated(),
+    }
+    return _era90_response(
+        request,
+        title="Nu Choate League",
+        nav="home",
+        template="era90/home.html",
+        context=context,
+        year=year,
+        weeks=weeks,
+    )
+
+
+def _era90_week_view(gc: Mapping[str, object], year: int) -> dict[str, object]:
+    week = int(gc["week"])  # type: ignore[arg-type]
+    groups: list[dict[str, object]] = []
+    boxes: list[dict[str, str]] = []
+    for group in gc.get("groups") or []:  # type: ignore[union-attr]
+        games: list[dict[str, object]] = []
+        kind = group.get("kind")
+        label = "" if kind == "regular" else str(group.get("label") or "")
+        for game in group.get("games") or []:
+            home = game.get("home") or {}
+            away = game.get("away") or {}
+            winner = game.get("winner_id")
+            games.append(
+                {
+                    "home": home.get("name") or "—",
+                    "home_href": _path("/members", home.get("id")),
+                    "home_pts": _points(home.get("points")),
+                    "home_mark": "is-leader" if winner and winner == home.get("id") else "",
+                    "away": away.get("name") or "—",
+                    "away_href": _path("/members", away.get("id")),
+                    "away_pts": _points(away.get("points")),
+                    "away_mark": "is-leader" if winner and winner == away.get("id") else "",
+                    "kind_label": label,
+                }
+            )
+            if game.get("id"):
+                boxes.append(
+                    {
+                        "href": f"/seasons/{year}/week/{week}/{game['id']}",
+                        "label": f"{home.get('name') or '—'} vs {away.get('name') or '—'}",
+                    }
+                )
+        groups.append({"week": week, "label": label, "games": games})
+    standings = gc.get("standings") or {}
+    rows = standings.get("rows") or [] if isinstance(standings, Mapping) else []
+    boards = _era90_standings_boards(rows, "era90", f"{year} week {week}") if rows else []
+    cheer = None
+    if rows:
+        top = rows[0]
+        cheer = {
+            "lead": "Leader",
+            "name": top.get("display_name") or "",
+            "href": _path("/members", top.get("manager_id")),
+        }
+    median = standings.get("week_median") if isinstance(standings, Mapping) else None
+    median_line = f"Scoring median {float(median):.1f}." if median is not None else None
+    return {
+        "year": year,
+        "boards": boards,
+        "week_groups": groups,
+        "boxes": boxes,
+        "cheer": cheer,
+        "median_line": median_line,
+    }
+
+
+def _era90_side(side: Mapping[str, object]) -> dict[str, object]:
+    players: list[dict[str, str]] = []
+    for row in side.get("starters") or []:  # type: ignore[union-attr]
+        players.append(
+            {
+                "slot": str(row.get("slot") or ""),
+                "name": str(row.get("player_name") or ""),
+                "href": _path("/players", row.get("player_id")),
+                "points": _points(row.get("points")),
+            }
+        )
+    return {
+        "name": side.get("name") or "",
+        "href": _path("/members", side.get("id")),
+        "points": _points(side.get("points")),
+        "players": players,
+    }
+
+
+def _era90_sibling(game: Mapping[str, object] | None, year: int, week: int) -> dict[str, str] | None:
+    if not game or not game.get("id"):
+        return None
+    home = game.get("home") or {}
+    away = game.get("away") or {}
+    return {
+        "href": f"/seasons/{year}/week/{week}/{game['id']}",
+        "label": f"{home.get('name') or '—'} vs {away.get('name') or '—'}",
+    }
+
+
+def _era90_gamecenter(gc: Mapping[str, object], year: int) -> dict[str, object]:
+    game = gc["game"]
+    assert isinstance(game, Mapping)
+    week = int(gc["week"])  # type: ignore[arg-type]
+    home = game["home"]
+    away = game["away"]
+    assert isinstance(home, Mapping) and isinstance(away, Mapping)
+    winner = game.get("winner_id")
+    cheer = None
+    if winner and winner == home.get("id"):
+        cheer = {"lead": "Winner", "name": home.get("name") or "", "href": _path("/members", home.get("id"))}
+    elif winner and winner == away.get("id"):
+        cheer = {"lead": "Winner", "name": away.get("name") or "", "href": _path("/members", away.get("id"))}
+    return {
+        "kind_label": gc.get("kind_label") or "",
+        "sides": [_era90_side(home), _era90_side(away)],
+        "cheer": cheer,
+        "prev": _era90_sibling(gc.get("prev_match") if isinstance(gc.get("prev_match"), Mapping) else None, year, week),
+        "next": _era90_sibling(gc.get("next_match") if isinstance(gc.get("next_match"), Mapping) else None, year, week),
+    }
+
+
+def _era90_moves(moves: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    lines: list[dict[str, str]] = []
+    for move in moves:
+        names: list[str] = []
+        adds = move.get("adds") or []
+        drops = move.get("drops") or []
+        for row in list(adds) + list(drops):  # type: ignore[operator]
+            name = row.get("player_name")
+            if name:
+                names.append(str(name))
+        kind = _MOVE_LABELS.get(str(move.get("type") or ""), str(move.get("type") or "move"))
+        text = f"Week {move.get('week')} {kind}"
+        if names:
+            text += " " + ", ".join(names)
+        lines.append({"href": str(move.get("href") or ""), "text": text})
+    return {"lines": lines}
+
+
+def _era90_draft_board(picks: Sequence[Mapping[str, object]], year: int) -> dict[str, object]:
+    high = _max_number(row.get("ros_vorp") for row in picks)
+    body: list[dict[str, object]] = []
+    for row in picks:
+        overall = int(row.get("overall") or 0)
+        mark = ""
+        if overall == 1:
+            mark = "is-leader"
+        elif _same(row.get("ros_vorp"), high):
+            mark = "is-record"
+        body.append(
+            {
+                "overall": overall,
+                "round": row.get("round"),
+                "manager": row.get("manager_name") or "",
+                "player": row.get("player_name") or "",
+                "position": row.get("position") or "",
+                "_href": {
+                    "manager": _path("/members", row.get("manager_id")),
+                    "player": _path("/players", row.get("player_id")),
+                },
+                "_mark": {"player": mark} if mark else {},
+            }
+        )
+    return present("draft", body, "era90", caption=f"{year} draft")
+
+
+def _era90_marks(context: Mapping[str, object]) -> dict[str, object]:
+    chapters: list[dict[str, object]] = []
+    for chapter in context.get("by_kind") or []:  # type: ignore[union-attr]
+        rows: list[dict[str, str]] = []
+        for week in chapter.get("weeks") or []:
+            who = week.get("display_name") or week.get("manager_name") or ""
+            text = f"W{week.get('week')} {who}".strip()
+            if week.get("points") is not None:
+                text += f" {_points(week.get('points'))}"
+            rows.append({"href": str(week.get("href") or ""), "text": text})
+        chapters.append({"label": chapter.get("label") or "", "rows": rows})
+    return {"chapters": chapters}
+
+
+def _era90_desk(desk: Mapping[str, object] | None) -> dict[str, object]:
+    if not desk:
+        return {"managers": []}
+    order = list(desk.get("managers") or [])
+    managers: list[dict[str, object]] = []
+    for manager in order:
+        rows: list[dict[str, str]] = []
+        cells = manager.get("cells") or []
+        for index, cell in enumerate(cells):
+            if not cell or cell.get("self"):
+                continue
+            other = order[index]
+            record = cell.get("record") or ""
+            rows.append(
+                {
+                    "href": f"/versus/{manager['manager_id']}/{other['manager_id']}",
+                    "text": f"vs {other['display_name']} {record}".strip(),
+                }
+            )
+        managers.append(
+            {
+                "name": manager.get("display_name") or "",
+                "href": f"/members/{manager['manager_id']}",
+                "rows": rows,
+            }
+        )
+    return {"managers": managers}
+
+
+def _era90_scoring(context: Mapping[str, object]) -> dict[str, object]:
+    groups: list[dict[str, object]] = []
+    current_label = None
+    bucket: dict[str, object] | None = None
+    for row in context.get("rows") or []:  # type: ignore[union-attr]
+        label = str(row.get("group") or "Scoring")
+        if label != current_label:
+            bucket = {"label": label, "rows": []}
+            groups.append(bucket)
+            current_label = label
+        value = row.get("value")
+        if value is None:
+            value = row.get("points") or ""
+        assert bucket is not None
+        rows = bucket["rows"]
+        assert isinstance(rows, list)
+        rows.append({"label": str(row.get("label") or ""), "value": str(value)})
+    years: list[dict[str, str]] = []
+    for row in context.get("seasons") or []:  # type: ignore[union-attr]
+        season_year = int(row["year"])
+        years.append({"href": f"/seasons/{season_year}/scoring", "label": str(season_year)})
+    return {"groups": groups, "years": years}
+
+
+def _era90_records(context: Mapping[str, object]) -> dict[str, object]:
+    chapters: list[dict[str, object]] = []
+    for chapter in context.get("chapters") or []:  # type: ignore[union-attr]
+        chapters.append(
+            {
+                "href": _era90_href(f"/records/{chapter['slug']}"),
+                "title": chapter.get("title") or "",
+                "taste": chapter.get("taste") or "",
+                "anchors": chapter.get("anchors") or [],
+            }
+        )
+    holders: list[dict[str, str]] = []
+    for row in context.get("holders") or []:  # type: ignore[union-attr]
+        text = str(row.get("display_name") or "")
+        if row.get("total") is not None:
+            text = f"{text} {int(row['total'])}"
+        holders.append({"href": _era90_href(f"/members/{row['manager_id']}"), "text": text})
+    return {"chapters": chapters, "holders": holders}
+
+
+def _era90_prepare(name: str, context: Mapping[str, object], year: int | None) -> dict[str, object]:
+    if name == "week.html" and isinstance(context.get("gc"), Mapping) and year is not None:
+        return _era90_week_view(context["gc"], year)  # type: ignore[arg-type]
+    if name == "gamecenter.html" and isinstance(context.get("gc"), Mapping) and year is not None:
+        return _era90_gamecenter(context["gc"], year)  # type: ignore[arg-type]
+    if name == "moves.html":
+        return _era90_moves(context.get("moves") or [])  # type: ignore[arg-type]
+    if name == "draft.html" and year is not None:
+        draft = context.get("draft") or {}
+        picks = draft.get("picks") or [] if isinstance(draft, Mapping) else []
+        years = []
+        if isinstance(draft, Mapping):
+            for season_year in draft.get("years") or []:
+                years.append({"href": f"/seasons/{int(season_year)}/draft", "label": str(int(season_year))})
+        board = _era90_draft_board(picks, year) if picks else None
+        return {"board": board, "years": years}
+    if name == "marks.html":
+        return _era90_marks(context)
+    if name == "desk.html":
+        desk = context.get("desk")
+        return _era90_desk(desk if isinstance(desk, Mapping) else None)
+    if name == "scoring.html":
+        return _era90_scoring(context)
+    if name == "records/index.html":
+        return _era90_records(context)
+    extra = _era90_c1b(name, context)
+    if extra is not None:
+        return extra
+    return {}
+
+
+def era90_family_document(
+    request: Request,
+    name: str,
+    *,
+    nav: str,
+    title: str,
+    context: Mapping[str, object],
+) -> HTMLResponse:
+    """Render one legacy season-family route inside the era90 shell."""
+    year = _era_year(context)
+    weeks = _era_weeks(context, year)
+    prepared = dict(context)
+    prepared.update(_era90_prepare(name, context, year))
+    prepared["last_updated"] = queries.era90_last_updated()
+    return _era90_response(
+        request,
+        title=title,
+        nav=nav,
+        template=ERA90_FAMILY[name],
+        context=prepared,
+        year=year,
+        weeks=weeks,
+    )
+
+
+# --- C2a era2010 (#101). Module boards, matchup cards, League / My Team. ---
+# Top-10 boards stay out of BOARDS. The boot gate equates that registry with
+# the season pane catalog, and these modules are not season panes. They still
+# render through the stat_table macro.
+
+from jinja2 import pass_context
+
+from .names import flavor_team
+from .photos import avatar_url
+
+
+@pass_context
+def era2010_avatar_url(context: object, manager_id: object) -> str | None:
+    """Jinja ``avatar_url`` global. Person chips stay hue marks unless the theme is era2010.
+
+    ``plaque_macros.person_link`` prefers this global over the hue span. The
+    sleeper avatar files live on disk for the era2010 cards, and an ungated
+    global would swap those chips on modern and era90 too.
+    """
+    request = context.get("request") if hasattr(context, "get") else None
+    if request is None or resolve_theme(request) != "era2010":
+        return None
+    if manager_id is None or str(manager_id).strip() == "":
+        return None
+    return avatar_url(str(manager_id))
+
+ERA2010_TOP = 10
+ERA2010_AVG_NOTE = (
+    "Avg PF divides official points for by head-to-head games. "
+    "Avg PA divides head-to-head points against by those games. "
+    "W-L-T and Pct include a median game when the season played one. "
+    "GB is half the wins-minus-losses gap behind the best mark in this table. "
+    "Strk is the trailing run of regular and median results through the last week of this season. "
+    "This league has no division column."
+)
+ERA2010_POSITIONS: tuple[tuple[str, str], ...] = (
+    ("QB", "QB"),
+    ("RB", "RB"),
+    ("WR", "WR"),
+    ("TE", "TE"),
+    ("K", "K"),
+    ("DEF", "DEF"),
+)
+_ERA2010_POS = {code for code, _label in ERA2010_POSITIONS}
+
+# hub.js season hash aliases. The target is the pane that script already opened.
+ERA2010_HASH_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("scoring", "standings", "Scoring"),
+    ("scoring-env", "standings", "Scoring env"),
+    ("share", "standings", "Share"),
+    ("universes", "standings", "Universes"),
+    ("universe-ranks", "standings", "Universe ranks"),
+    ("universe-brackets", "standings", "Universe brackets"),
+    ("universe-replay", "standings", "Universe replay"),
+    ("luck", "standings", "Luck"),
+    ("allpro", "standings", "All-pro"),
+    ("allbench", "standings", "All-bench"),
+    ("power", "standings", "Power"),
+    ("heat", "standings", "Heat"),
+    ("race", "standings", "Race"),
+    ("desk", "standings", "Desk"),
+    ("median-tax", "standings", "Median tax"),
+    ("matchups", "weeks", "Matchups"),
+    ("trades", "moves", "Trades"),
+    ("wire", "moves", "Wire"),
+)
+
+_WEEK_RE = re.compile(r"^/seasons/(\d+)/week/(\d+)$")
+_GAME_RE = re.compile(r"^/seasons/(\d+)/week/(\d+)/([^/]+)$")
+_MEMBER_RE = re.compile(r"^/members/([^/]+)$")
+_COUNTING_TAIL = (
+    "PTS is fantasy points on posted weeks. "
+    "Counting columns sum player_week_counting_stats on those weeks; "
+    "a scored week with no counting row adds zero. Bold marks the points leader."
+)
+
+
+@dataclass(frozen=True)
+class EraAlias:
+    id: str
+    pane: str
+    label: str
+
+
+def _era2010_average(points: object, games: int) -> Decimal | None:
+    if points is None or games <= 0:
+        return None
+    return Decimal(str(points)) / Decimal(games)
+
+
+def _era2010_identity(
+    display: object,
+    team: object,
+    manager_id: object,
+    *,
+    with_avatar: bool = True,
+) -> dict[str, object]:
+    name = str(display or "").strip()
+    team_name = None if team is None else str(team)
+    franchise = flavor_team(name, team_name) or name or "Bye"
+    face = None
+    if with_avatar and manager_id is not None and str(manager_id).strip() != "":
+        face = avatar_url(str(manager_id))
+    return {
+        "franchise": franchise,
+        "owner": name if franchise != name else "",
+        "href": _path("/members", manager_id),
+        "avatar": face,
+    }
+
+
+def _era2010_pos(request: Request, key: str) -> str:
+    raw = request.query_params.get(key) or "QB"
+    return raw if raw in _ERA2010_POS else "QB"
+
+
+def _plain_href(path: str, pairs: Sequence[tuple[str, str]]) -> str:
+    items = [(key, value) for key, value in pairs if key != "theme" and value]
+    if not items:
+        return path
+    return path + "?" + urlencode(items)
+
+
+def _themed_href(path: str, pairs: Sequence[tuple[str, str]]) -> str:
+    items = [(key, value) for key, value in pairs if key != "theme" and value]
+    items.append(("theme", "era2010"))
+    return path + "?" + urlencode(items)
+
+
+def _board_cell(
+    text: str,
+    *,
+    numeric: bool = False,
+    href: str = "",
+    mark: str = "",
+) -> dict[str, object]:
+    return {"text": text, "numeric": numeric, "href": href, "mark": mark}
+
+
+def _int_text(value: object) -> str:
+    if value is None or value == "":
+        return "0"
+    return str(int(Decimal(str(value))))
+
+
+def _pair_text(left: object, right: object) -> str:
+    return f"{_int_text(left)}-{_int_text(right)}"
+
+
+def _td_sum(row: Mapping[str, object]) -> Decimal:
+    return Decimal(str(row.get("rush_td") or 0)) + Decimal(str(row.get("rec_td") or 0))
+
+
+def _player_label(name: object, position: object) -> str:
+    text = "" if name is None else str(name).strip()
+    if not text:
+        return "—"
+    if str(position or "") == "DEF":
+        return text
+    return _short_name(text)
+
+
+def _plain_board(
+    caption: str,
+    columns: Sequence[tuple[str, str, bool, str]],
+    rows: Sequence[Mapping[str, object]],
+    note: str,
+    more_href: str | None = None,
+) -> dict[str, object]:
+    body: list[dict[str, object]] = []
+    for row in rows:
+        hrefs = row.get("_href") or {}
+        marks = row.get("_mark") or {}
+        if not isinstance(hrefs, Mapping) or not isinstance(marks, Mapping):
+            raise ValueError("row links must be mappings")
+        cells = []
+        for key, _label, numeric, formatter in columns:
+            href = hrefs.get(key) or ""
+            mark = marks.get(key) or ""
+            cells.append(
+                _board_cell(
+                    FORMATTERS[formatter](row.get(key), "era2010"),
+                    numeric=numeric,
+                    href=str(href),
+                    mark=str(mark),
+                )
+            )
+        body.append({"cells": cells})
+    board: dict[str, object] = {
+        "caption": caption,
+        "columns": [
+            {"key": key, "label": label, "numeric": numeric}
+            for key, label, numeric, _formatter in columns
+        ],
+        "rows": body,
+        "note": note,
+    }
+    if more_href:
+        board["more_href"] = more_href
+    return board
+
+
+def _cap_rows(
+    rows: Sequence[Mapping[str, object]],
+    limit: int | None,
+) -> tuple[list[Mapping[str, object]], bool]:
+    if limit is None:
+        return list(rows), False
+    if len(rows) > limit:
+        return list(rows[:limit]), True
+    return list(rows), False
+
+
+def _counting_heads(position: str) -> list[tuple[str, bool]]:
+    if position == "QB":
+        return [("Player", False), ("YDS", True), ("TD-INT", True), ("PTS", True)]
+    if position == "RB":
+        return [("Player", False), ("RUSH", True), ("REC", True), ("TD", True), ("PTS", True)]
+    if position in ("WR", "TE"):
+        return [("Player", False), ("REC", True), ("YDS", True), ("TD", True), ("PTS", True)]
+    if position == "K":
+        return [("Player", False), ("FG", True), ("XP", True), ("PTS", True)]
+    return [("Team", False), ("YDS", True), ("PA", True), ("SCK", True), ("TO", True), ("PTS", True)]
+
+
+def _counting_note(position: str) -> str:
+    if position == "QB":
+        lead = "YDS is passing yards. TD-INT is passing touchdowns and interceptions. "
+    elif position == "RB":
+        lead = "RUSH is rushing yards. REC is receptions. TD is rushing plus receiving touchdowns. "
+    elif position in ("WR", "TE"):
+        lead = "REC is receptions. YDS is receiving yards. TD is receiving plus rushing touchdowns. "
+    elif position == "K":
+        lead = "FG and XP are makes-attempts. "
+    else:
+        lead = (
+            "YDS is yards allowed. PA is points allowed. SCK is sacks. "
+            "TO is interceptions plus fumble recoveries. "
+        )
+    return lead + _COUNTING_TAIL
+
+
+def _counting_values(row: Mapping[str, object], mark: str) -> list[dict[str, object]]:
+    position = str(row.get("position") or "")
+    player = _board_cell(
+        _player_label(row.get("player_name"), position),
+        href=_path("/players", row.get("player_id")),
+    )
+    points = _board_cell(
+        FORMATTERS["num2"](row.get("points"), "era2010"),
+        numeric=True,
+        mark=mark,
+    )
+    if position == "QB":
+        middle = [
+            _board_cell(_int_text(row.get("pass_yd")), numeric=True),
+            _board_cell(_pair_text(row.get("pass_td"), row.get("pass_int")), numeric=True),
+        ]
+    elif position == "RB":
+        middle = [
+            _board_cell(_int_text(row.get("rush_yd")), numeric=True),
+            _board_cell(_int_text(row.get("rec")), numeric=True),
+            _board_cell(_int_text(_td_sum(row)), numeric=True),
+        ]
+    elif position in ("WR", "TE"):
+        middle = [
+            _board_cell(_int_text(row.get("rec")), numeric=True),
+            _board_cell(_int_text(row.get("rec_yd")), numeric=True),
+            _board_cell(_int_text(_td_sum(row)), numeric=True),
+        ]
+    elif position == "K":
+        middle = [
+            _board_cell(_pair_text(row.get("fgm"), row.get("fga")), numeric=True),
+            _board_cell(_pair_text(row.get("xpm"), row.get("xpa")), numeric=True),
+        ]
+    else:
+        turnovers = Decimal(str(row.get("def_int") or 0)) + Decimal(str(row.get("fum_rec") or 0))
+        middle = [
+            _board_cell(_int_text(row.get("yds_allow")), numeric=True),
+            _board_cell(_int_text(row.get("pts_allow")), numeric=True),
+            _board_cell(_int_text(row.get("sack")), numeric=True),
+            _board_cell(_int_text(turnovers), numeric=True),
+        ]
+    return [player, *middle, points]
+
+
+def _stat_module(
+    *,
+    anchor: str,
+    title: str,
+    caption: str,
+    headers: Sequence[tuple[str, bool]],
+    rows: Sequence[Mapping[str, object]],
+    note: str,
+    more_href: str | None,
+    tabs: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    high = _max_number(row.get("points") for row in rows)
+    body = []
+    for row in rows:
+        mark = "is-leader" if _same(row.get("points"), high) else ""
+        body.append({"cells": _counting_values(row, mark) if anchor == "mod-counting" else _week_high_cells(row, mark)})
+    return {
+        "anchor": anchor,
+        "title": title,
+        "tabs": list(tabs),
+        "board": {
+            "caption": caption,
+            "columns": [
+                {"key": label, "label": label, "numeric": numeric} for label, numeric in headers
+            ],
+            "rows": body,
+            "note": "None posted. " + note if not rows else note,
+            "more_href": more_href,
+        },
+    }
+
+
+def _week_high_cells(row: Mapping[str, object], mark: str) -> list[dict[str, object]]:
+    position = str(row.get("position") or "")
+    week = row.get("week")
+    year = row.get("year")
+    week_href = ""
+    if year is not None and week is not None:
+        week_href = f"/seasons/{int(year)}/week/{int(week)}"
+    return [
+        _board_cell(
+            _player_label(row.get("player_name"), position),
+            href=_path("/players", row.get("player_id")),
+        ),
+        _board_cell(_int_text(week), numeric=True, href=week_href),
+        _board_cell(
+            FORMATTERS["num2"](row.get("points"), "era2010"),
+            numeric=True,
+            mark=mark,
+        ),
+    ]
+
+
+def _module_tabs(
+    path: str,
+    sticky: Sequence[tuple[str, str]],
+    active: str,
+    own_key: str,
+    other: Sequence[tuple[str, str]],
+) -> list[dict[str, object]]:
+    tabs = []
+    for code, label in ERA2010_POSITIONS:
+        pairs = list(sticky) + list(other) + [(own_key, code)]
+        tabs.append(
+            {
+                "label": label,
+                "href": _plain_href(path, pairs),
+                "active": code == active,
+            }
+        )
+    return tabs
+
+
+def era2010_modules(
+    request: Request,
+    year: int,
+    path: str,
+    sticky: Sequence[tuple[str, str]],
+) -> list[dict[str, object]]:
+    """Two CBS-style top-10 boards. Position tabs and View all are real links."""
+    cpos = _era2010_pos(request, "cpos")
+    wpos = _era2010_pos(request, "wpos")
+    counting_all = request.query_params.get("crows") == "all"
+    weeks_all = request.query_params.get("wrows") == "all"
+    other_week = [("wpos", wpos)] + ([("wrows", "all")] if weeks_all else [])
+    other_count = [("cpos", cpos)] + ([("crows", "all")] if counting_all else [])
+    counting_rows, counting_more = _cap_rows(
+        queries.era2010_counting_leaders(year, cpos, None if counting_all else ERA2010_TOP + 1),
+        None if counting_all else ERA2010_TOP,
+    )
+    high_rows, high_more = _cap_rows(
+        queries.era2010_week_highs(year, wpos, None if weeks_all else ERA2010_TOP + 1),
+        None if weeks_all else ERA2010_TOP,
+    )
+    high_rows = [dict(row, year=year) for row in high_rows]
+    count_label = dict(ERA2010_POSITIONS)[cpos]
+    week_label = dict(ERA2010_POSITIONS)[wpos]
+    counting_more_href = None
+    if counting_more:
+        counting_more_href = _themed_href(
+            path,
+            list(sticky) + [("cpos", cpos), ("crows", "all"), ("wpos", wpos)]
+            + ([("wrows", "all")] if weeks_all else []),
+        )
+    high_more_href = None
+    if high_more:
+        high_more_href = _themed_href(
+            path,
+            list(sticky) + [("wpos", wpos), ("wrows", "all"), ("cpos", cpos)]
+            + ([("crows", "all")] if counting_all else []),
+        )
+    return [
+        _stat_module(
+            anchor="mod-counting",
+            title=f"{year} stat line",
+            caption=f"{year} {count_label}",
+            headers=_counting_heads(cpos),
+            rows=counting_rows,
+            note=_counting_note(cpos),
+            more_href=counting_more_href,
+            tabs=_module_tabs(path, sticky, cpos, "cpos", other_week),
+        ),
+        _stat_module(
+            anchor="mod-weeks",
+            title=f"{year} week highs",
+            caption=f"{year} {week_label} weeks",
+            headers=[("Team" if wpos == "DEF" else "Player", False), ("Wk", True), ("PTS", True)],
+            rows=high_rows,
+            note=(
+                "PTS is fantasy points for that posted week. Bold marks the high. "
+                "Skill-player names are initial and surname. Defenses keep their stored name."
+            ),
+            more_href=high_more_href,
+            tabs=_module_tabs(path, sticky, wpos, "wpos", other_count),
+        ),
+    ]
+
+
+def _side_won(home_points: object, away_points: object, side: str) -> bool:
+    if home_points is None or away_points is None:
+        return False
+    home = float(home_points)  # type: ignore[arg-type]
+    away = float(away_points)  # type: ignore[arg-type]
+    if round(home, 4) == round(away, 4):
+        return False
+    if side == "home":
+        return home > away
+    return away > home
+
+
+def _player_cell(row: Mapping[str, object]) -> dict[str, object]:
+    position = str(row.get("position") or "")
+    slot = str(row.get("slot") or position or "")
+    club = row.get("nfl_team") or ""
+    return {
+        "slot": slot,
+        "name": _player_label(row.get("player_name"), position),
+        "position": position,
+        "club": "" if club is None else str(club),
+        "points": _points(row.get("points")),
+        "href": _path("/players", row.get("player_id")),
+    }
+
+
+def _roster_maps(
+    rows: Sequence[Mapping[str, object]],
+) -> tuple[dict[object, list[dict[str, object]]], dict[object, list[dict[str, object]]]]:
+    started: dict[object, list[Mapping[str, object]]] = {}
+    bench: dict[object, list[Mapping[str, object]]] = {}
+    for row in rows:
+        target = started if row.get("started") else bench
+        target.setdefault(row.get("manager_id"), []).append(row)
+    packed_started: dict[object, list[dict[str, object]]] = {}
+    packed_bench: dict[object, list[dict[str, object]]] = {}
+    for manager, items in started.items():
+        ordered = sorted(
+            items,
+            key=lambda item: (
+                queries.SLOT_ORDER.get(str(item.get("slot") or ""), 40),
+                str(item.get("slot") or ""),
+                -(float(item.get("points") or 0)),
+            ),
+        )
+        packed_started[manager] = [_player_cell(item) for item in ordered]
+    for manager, items in bench.items():
+        ordered = sorted(
+            items,
+            key=lambda item: (
+                -(float(item.get("points") or 0)),
+                str(item.get("player_name") or ""),
+            ),
+        )
+        packed_bench[manager] = [_player_cell(item) for item in ordered]
+    return packed_started, packed_bench
+
+
+def _era_side(
+    name: object,
+    team: object,
+    manager_id: object,
+    points: object,
+    won: bool,
+    cells: Sequence[dict[str, object]],
+    bench: Sequence[dict[str, object]],
+) -> dict[str, object]:
+    identity = _era2010_identity(name, team, manager_id)
+    identity["score"] = _points(points)
+    identity["won"] = won
+    identity["cells"] = list(cells)
+    identity["bench"] = list(bench)
+    return identity
+
+
+def _era_card(
+    row: Mapping[str, object],
+    year: int,
+    week: int,
+    started: Mapping[object, Sequence[dict[str, object]]],
+    bench: Mapping[object, Sequence[dict[str, object]]],
+) -> dict[str, object]:
+    home_id = row.get("home_manager_id")
+    away_id = row.get("away_manager_id")
+    href = ""
+    if row.get("id"):
+        href = f"/seasons/{year}/week/{week}/{quote(str(row['id']), safe='')}"
+    return {
+        "href": href,
+        "kind": str(row.get("kind") or "regular"),
+        "home": _era_side(
+            row.get("home_name"),
+            row.get("home_team_name"),
+            home_id,
+            row.get("home_points"),
+            _side_won(row.get("home_points"), row.get("away_points"), "home"),
+            started.get(home_id, ()),
+            bench.get(home_id, ()),
+        ),
+        "away": _era_side(
+            row.get("away_name"),
+            row.get("away_team_name"),
+            away_id,
+            row.get("away_points"),
+            _side_won(row.get("home_points"), row.get("away_points"), "away"),
+            started.get(away_id, ()),
+            bench.get(away_id, ()),
+        ),
+    }
+
+
+def _era_groups(cards: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+    order: list[str] = []
+    grouped: dict[str, list[Mapping[str, object]]] = {}
+    for card in cards:
+        kind = str(card.get("kind") or "regular")
+        if kind not in grouped:
+            order.append(kind)
+            grouped[kind] = []
+        grouped[kind].append(card)
+    multi = len(order) > 1
+    groups = []
+    for kind in order:
+        label = ""
+        if multi or kind != "regular":
+            label = str(queries.KIND_LABELS.get(kind, kind))
+        groups.append({"label": label, "cards": grouped[kind]})
+    return groups
+
+
+def era2010_week_cards(
+    year: int,
+    week: int,
+    *,
+    lineups: bool,
+    matchup_id: str | None = None,
+) -> dict[str, object] | None:
+    rows = queries.era2010_week_matchups(year, week)
+    if not rows:
+        return None
+    chosen = rows
+    if matchup_id is not None:
+        chosen = [row for row in rows if str(row["id"]) == matchup_id]
+        if not chosen:
+            return None
+    started: Mapping[object, Sequence[dict[str, object]]] = {}
+    bench: Mapping[object, Sequence[dict[str, object]]] = {}
+    if lineups:
+        started, bench = _roster_maps(queries.era2010_week_roster(year, week))
+        if matchup_id is None:
+            bench = {}
+    cards = [_era_card(row, year, week, started, bench) for row in chosen]
+    siblings = []
+    if matchup_id is not None:
+        for row in rows:
+            home = _era2010_identity(row.get("home_name"), row.get("home_team_name"), row.get("home_manager_id"))
+            away = _era2010_identity(row.get("away_name"), row.get("away_team_name"), row.get("away_manager_id"))
+            siblings.append(
+                {
+                    "href": f"/seasons/{year}/week/{week}/{quote(str(row['id']), safe='')}",
+                    "label": f"{home['franchise']} vs {away['franchise']}",
+                    "current": str(row["id"]) == matchup_id,
+                }
+            )
+    return {"groups": _era_groups(cards), "siblings": siblings, "card": cards[0]}
+
+
+def _era2010_document(
+    request: Request,
+    *,
+    title: str,
+    nav: str,
+    year: int | None,
+    weeks: Sequence[int],
+    template: str,
+    lead: str,
+    aside: str,
+    context: Mapping[str, object],
+) -> HTMLResponse:
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    active = FragmentView("page", "Page", template)
+    week_nav = tuple(
+        WeekLink(
+            int(week),
+            f"/seasons/{year}/week/{int(week)}?" + urlencode((("theme", "era2010"),)),
+        )
+        for week in weeks
+    )
+    frame = Frame(
+        theme="era2010",
+        title=title,
+        nav=nav,
+        pager="",
+        fragments=(active,),
+        active=active,
+        slots=(("lead", lead), ("aside", aside)),
+        path=request.url.path,
+        nav_links=_nav_links("era2010", year),
+        theme_choices=tuple(ThemeChoice(theme_id, THEME_LABELS[theme_id]) for theme_id in THEMES),
+        week_nav=week_nav,
+        dead_labels=(),
+    )
+    payload: dict[str, object] = {**dict(context), "frame": frame, "title": title, "nav": nav}
+    return _templates.TemplateResponse(request, "shells/era2010.html", payload)
+
+
+def _era2010_home(request: Request) -> HTMLResponse:
+    year = queries.latest_scored_year()
+    current = queries.season_row(year) if year is not None else None
+    weeks = queries.scored_weeks(year) if year is not None else []
+    week = weeks[-1] if weeks else None
+    groups: list[dict[str, object]] = []
+    franchises: object = []
+    modules: object = []
+    board = None
+    avg_note = None
+    if year is not None and week is not None:
+        bundle = era2010_week_cards(year, week, lineups=False)
+        if bundle is not None:
+            groups = list(bundle["groups"])  # type: ignore[arg-type]
+    if year is not None:
+        board = _standings_board(year, "era2010")
+        franchises = board.pop("franchises", [])
+        modules = era2010_modules(request, year, "/", ())
+        avg_note = ERA2010_AVG_NOTE
+    return _era2010_document(
+        request,
+        title="Nu Choate League",
+        nav="home",
+        year=year,
+        weeks=weeks,
+        template="era2010/home.html",
+        lead="fragments/season_lead.html" if current is not None else "era2010/league_lead.html",
+        aside="fragments/season_aside.html" if year is not None else "era2010/league_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current or {},
+            "groups": groups,
+            "board": board,
+            "franchises": franchises,
+            "modules": modules,
+            "avg_note": avg_note,
+        },
+    )
+
+
+def _era2010_week(request: Request, year: int, week: int) -> HTMLResponse | None:
+    current = queries.season_row(year)
+    if current is None:
+        return None
+    bundle = era2010_week_cards(year, week, lineups=True)
+    if bundle is None:
+        return None
+    return _era2010_document(
+        request,
+        title=f"{year} week {week}",
+        nav="seasons",
+        year=year,
+        weeks=queries.scored_weeks(year),
+        template="era2010/week.html",
+        lead="era2010/week_lead.html",
+        aside="fragments/season_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current,
+            "groups": bundle["groups"],
+            "lineups": True,
+        },
+    )
+
+
+def _era2010_game(request: Request, year: int, week: int, matchup_id: str) -> HTMLResponse | None:
+    current = queries.season_row(year)
+    if current is None:
+        return None
+    bundle = era2010_week_cards(year, week, lineups=True, matchup_id=matchup_id)
+    if bundle is None:
+        return None
+    card = bundle["card"]
+    assert isinstance(card, Mapping)
+    home = card["home"]
+    away = card["away"]
+    assert isinstance(home, Mapping) and isinstance(away, Mapping)
+    return _era2010_document(
+        request,
+        title=f"{home['franchise']} vs {away['franchise']}",
+        nav="seasons",
+        year=year,
+        weeks=queries.scored_weeks(year),
+        template="era2010/gamecenter.html",
+        lead="era2010/game_lead.html",
+        aside="fragments/season_aside.html",
+        context={
+            "year": year,
+            "week": week,
+            "current": current,
+            "card": card,
+            "siblings": bundle["siblings"],
+            "lineups": True,
+        },
+    )
+
+
+def _era2010_league(request: Request) -> HTMLResponse:
+    rows = queries.career()
+    names = queries.era2010_latest_franchises()
+    year = queries.latest_scored_year()
+    chips = []
+    body: list[dict[str, object]] = []
+    high_titles = _max_number(row.get("titles") for row in rows)
+    for row in rows:
+        display = str(row.get("display_name") or "")
+        identity = _era2010_identity(display, names.get(str(row["manager_id"])), row.get("manager_id"))
+        wins = int(row.get("wins") or 0)
+        losses = int(row.get("losses") or 0)
+        ties = int(row.get("ties") or 0)
+        identity = dict(identity)
+        identity["record"] = f"{wins}-{losses}-{ties}"
+        chips.append(identity)
+        marks: dict[str, str] = {}
+        if high_titles and _same(row.get("titles"), high_titles):
+            marks["franchise"] = "is-leader"
+        body.append(
+            {
+                "franchise": identity["franchise"],
+                "record": f"{wins}-{losses}-{ties}",
+                "win_pct": row.get("win_pct"),
+                "points_for": row.get("points_for"),
+                "titles": int(row.get("titles") or 0),
+                "_href": {"franchise": identity["href"]},
+                "_mark": marks,
+            }
+        )
+    board = _plain_board(
+        "League",
+        (
+            ("franchise", "Franchise", False, "text"),
+            ("record", "W-L-T", True, "text"),
+            ("win_pct", "Pct", True, "num3"),
+            ("points_for", "PF", True, "num2"),
+            ("titles", "Titles", True, "int"),
+        ),
+        body,
+        "W-L-T is the career official record. Pct is that winning percentage. PF is career points for. Bold marks the most titles.",
+    )
+    return _era2010_document(
+        request,
+        title="League",
+        nav="members",
+        year=year,
+        weeks=[],
+        template="fragments/board.html",
+        lead="era2010/league_lead.html",
+        aside="era2010/league_aside.html",
+        context={
+            "year": year,
+            "current": queries.season_row(year) if year is not None else {},
+            "board": board,
+            "franchises": chips,
+            "franchise_cards": True,
+        },
+    )
+
+
+def _era2010_member(request: Request, manager_id: str) -> HTMLResponse | None:
+    person = queries.career_one(manager_id)
+    if person is None:
+        return None
+    seasons = queries.finishes(manager_id)
+    display = str(person.get("display_name") or manager_id)
+    latest_team = seasons[-1].get("team_name") if seasons else None
+    identity = _era2010_identity(display, latest_team, manager_id)
+    streak_row = queries.era2010_member_streak(manager_id)
+    streak = ""
+    if streak_row and streak_row.get("result") in {"win", "loss", "tie"}:
+        letter = {"win": "W", "loss": "L", "tie": "T"}[str(streak_row["result"])]
+        streak = (
+            f"{letter}{int(streak_row['length'])} since "
+            f"{int(streak_row['start_year'])} W{int(streak_row['start_week'])}"
+        )
+    wins = int(person.get("wins") or 0)
+    losses = int(person.get("losses") or 0)
+    ties = int(person.get("ties") or 0)
+    season_rows: list[dict[str, object]] = []
+    for row in seasons:
+        season_wins = int(row.get("wins") or 0)
+        season_losses = int(row.get("losses") or 0)
+        season_ties = int(row.get("ties") or 0)
+        franchise = _era2010_identity(display, row.get("team_name"), manager_id)["franchise"]
+        marks = {"franchise": "is-leader"} if row.get("champion") else {}
+        season_rows.append(
+            {
+                "year": int(row["year"]),
+                "franchise": franchise,
+                "record": f"{season_wins}-{season_losses}-{season_ties}",
+                "win_pct": row.get("win_pct"),
+                "points_for": row.get("points_for"),
+                "_href": {"year": f"/seasons/{int(row['year'])}"},
+                "_mark": marks,
+            }
+        )
+    board = _plain_board(
+        "Seasons",
+        (
+            ("year", "Year", True, "int"),
+            ("franchise", "Franchise", False, "text"),
+            ("record", "W-L-T", True, "text"),
+            ("win_pct", "Pct", True, "num3"),
+            ("points_for", "PF", True, "num2"),
+        ),
+        season_rows,
+        "Franchise is the team name that season. Bold marks a league champion.",
+    )
+    return _era2010_document(
+        request,
+        title=str(identity["franchise"]),
+        nav="members",
+        year=queries.latest_scored_year(),
+        weeks=[],
+        template="era2010/my_team.html",
+        lead="era2010/my_team_lead.html",
+        aside="era2010/member_aside.html",
+        context={
+            "avatar": identity["avatar"],
+            "owner": display,
+            "franchise": identity["franchise"],
+            "record": f"{wins}-{losses}-{ties}",
+            "pct": FORMATTERS["num3"](person.get("win_pct"), "era2010"),
+            "pf": FORMATTERS["num2"](person.get("points_for"), "era2010"),
+            "titles": int(person.get("titles") or 0),
+            "streak": streak,
+            "board": board,
+            "my_team": {"href": f"/members/{quote(manager_id, safe='')}"},
+        },
+    )
+
+
+def _era2010_handle(request: Request, route: tuple[object, ...]) -> HTMLResponse | None:
+    kind = route[0]
+    if kind == "home":
+        return _era2010_home(request)
+    if kind == "league":
+        return _era2010_league(request)
+    if kind == "week":
+        return _era2010_week(request, int(route[1]), int(route[2]))
+    if kind == "game":
+        return _era2010_game(request, int(route[1]), int(route[2]), str(route[3]))
+    if kind == "member":
+        return _era2010_member(request, str(route[1]))
+    return None
+
+
+def era2010_dispatch(request: Request) -> HTMLResponse | None:
+    """Era2010 documents for home, week, gamecenter, League, and My Team.
+
+    Returns None when this request is not one of those pages, or when the
+    season or manager is missing so the legacy route can answer the 404.
+    """
+    path = request.url.path
+    if path.startswith("/static"):
+        return None
+    from .era2010_c2b import c2b_response
+
+    extra = c2b_response(request, path)
+    if extra is not None:
+        return extra
+    if path == "/":
+        route: tuple[object, ...] | None = ("home",)
+    elif path == "/members":
+        route = ("league",)
+    else:
+        game = _GAME_RE.match(path)
+        week = _WEEK_RE.match(path)
+        member = _MEMBER_RE.match(path)
+        if game:
+            route = ("game", int(game.group(1)), int(game.group(2)), game.group(3))
+        elif week:
+            route = ("week", int(week.group(1)), int(week.group(2)))
+        elif member:
+            route = ("member", member.group(1))
+        else:
+            route = None
+    if route is None:
+        return None
+    conn = queries.connect()
+    token = queries.bind_connection(conn)
+    try:
+        return _era2010_handle(request, route)
+    finally:
+        queries.unbind_connection(token)
+        conn.close()
+
+
+# --- C1b era90 completion (#103). Players, records chapters, members, versus. ---
+# Modern documents stay on page(). These helpers run only when the theme is
+# era90. Ranking pages use the A3 page size and numeral row. The index shows
+# ten rows (Eagle's TOP 10). The published query order is not sorted again.
+
+ERA90_TOP = 10
+ERA90_GLOSSARY = "A leader is bold. A record is bold type, not a filled cell."
+_ERA90_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
+_ERA90_MOUNTS = frozenset(
+    {
+        "records/chapter.html",
+        "player.html",
+        "player_log.html",
+        "player_splits.html",
+        "member.html",
+        "versus_pair.html",
+        "trade.html",
+        "wire.html",
+    }
+)
+_ERA90_SORT = {
+    "players-career-rankings": "starter points, then VORP, then name",
+    "players-career": "starter points, then VORP, then name",
+    "players-season-rankings": "newest year first, then points on starts",
+    "players-wire-season": "FA VORP",
+    "players-wire-career": "FA VORP",
+    "players-wire-unowned": "points while unowned",
+    "players-counting-career": "rush yards plus receiving yards plus pass yards, then name",
+    "players-counting-season": "newest year first, then rush, receiving, and pass yards",
+}
+
+
+def _era90_href(href: str) -> str:
+    """Shell links keep the theme on the href so a first click does not depend on the cookie."""
+    if not href.startswith("/") or href.startswith("//"):
+        return href
+    parts = urlsplit(href)
+    pairs = [(key, value) for key, value in _query_pairs(parts.query) if key != "theme"]
+    pairs.append(("theme", "era90"))
+    return urlunsplit(("", "", parts.path, urlencode(pairs), parts.fragment))
+
+
+def _era90_player_label(name: object, position: object, team: object = "") -> str:
+    """Era identity string. ``Portis, Clinton WAS RB`` is last name, first name, team, position."""
+    text = "" if name is None else str(name).strip()
+    if not text:
+        return "—"
+    pos = "" if position is None else str(position).strip()
+    club = "" if team is None else str(team).strip()
+    if pos == "DEF" or " " not in text:
+        label = text
+    else:
+        first, last = text.rsplit(" ", 1)
+        label = f"{last}, {first}"
+    bits = [label]
+    if club:
+        bits.append(club)
+    if pos:
+        bits.append(pos)
+    return " ".join(bits)
+
+
+def _era90_cell(
+    text: object,
+    *,
+    numeric: bool = False,
+    href: str = "",
+    mark: str = "",
+) -> dict[str, object]:
+    return {
+        "text": "—" if text is None or text == "" else str(text),
+        "numeric": numeric,
+        "href": href,
+        "mark": mark,
+    }
+
+
+def _era90_table(
+    caption: str,
+    columns: Sequence[tuple[str, str, bool]],
+    body: Sequence[Sequence[dict[str, object]]],
+    note: str,
+) -> dict[str, object]:
+    return {
+        "caption": caption,
+        "columns": [
+            {"key": key, "label": label, "numeric": numeric}
+            for key, label, numeric in columns
+        ],
+        "rows": [{"cells": list(cells)} for cells in body],
+        "note": note,
+    }
+
+
+def _era90_numeral_tokens(pages: int) -> list[int | None]:
+    from .fragments import numeral_tokens
+
+    if pages < 1:
+        return []
+    # Every numeral is a link. numeral_tokens(1, pages) is only the shape
+    # (including the ellipsis). The template does not treat 1 as the current page.
+    return list(numeral_tokens(1, pages))
+
+
+def _era90_pages(total: int, page_size: int) -> int:
+    if total <= 0:
+        return 1
+    return (total + page_size - 1) // page_size
+
+
+_era90_mount_env = None
+_era90_mount_source: object | None = None
+
+
+def _era90_mounted_body(name: str, context: Mapping[str, object]) -> str:
+    """Render a modern template's body block and nothing else.
+
+    The overlay answers ``base.html`` with an empty shell, so ``{% extends %}``
+    yields the block the legacy page already uses. The modern file is not copied.
+    The overlay is kept so the compiled body is reused on the next request.
+    """
+    global _era90_mount_env, _era90_mount_source
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    env = _templates.env
+    if _era90_mount_env is None or _era90_mount_source is not env:
+        loader = ChoiceLoader(
+            [DictLoader({"base.html": "{% block body %}{% endblock %}"}), env.loader]
+        )
+        _era90_mount_env = env.overlay(loader=loader)
+        _era90_mount_source = env
+    html = _era90_mount_env.get_template(name).render(dict(context))
+    # The shared week-table macro ships a click handler for the modern sort.
+    # Era pages do not load that sort. The rows stay in the HTML either way.
+    return _ERA90_SCRIPT.sub("", html)
+
+
+def _era90_year_links(name: str, context: Mapping[str, object]) -> list[dict[str, object]]:
+    player = context.get("player")
+    if not isinstance(player, Mapping) or not player.get("player_id"):
+        return []
+    years = context.get("log_years") or []
+    if not isinstance(years, Sequence) or isinstance(years, (str, bytes)):
+        return []
+    player_id = player["player_id"]
+    if name == "player.html":
+        route = "log"
+        selected = None
+        mark = False
+    elif name == "player_log.html":
+        route = "log"
+        selected = context.get("selected_year")
+        mark = True
+    elif name == "player_splits.html":
+        route = "splits"
+        selected = context.get("selected_year")
+        mark = True
+    else:
+        return []
+    items: list[dict[str, object]] = []
+    if name != "player.html":
+        items.append(
+            {
+                "href": _era90_href(f"/players/{player_id}/{route}"),
+                "label": "All",
+                "current": mark and selected is None,
+            }
+        )
+    for year in years:
+        number = int(year)
+        items.append(
+            {
+                "href": _era90_href(f"/players/{player_id}/{route}?year={number}"),
+                "label": str(number),
+                "current": mark and selected == number,
+            }
+        )
+    return items
+
+
+def _era90_identity(name: str, context: Mapping[str, object]) -> str:
+    if name not in {"player.html", "player_log.html", "player_splits.html"}:
+        return ""
+    player = context.get("player")
+    if not isinstance(player, Mapping):
+        return ""
+    bio = context.get("bio") if isinstance(context.get("bio"), Mapping) else {}
+    team = "" if not isinstance(bio, Mapping) else bio.get("nfl_team") or ""
+    return _era90_player_label(player.get("player_name"), player.get("position"), team)
+
+
+def _num1(value: object) -> str:
+    if value is None or value == "":
+        return "—"
+    return f"{Decimal(str(value)):.1f}"
+
+
+def _yards(row: Mapping[str, object]) -> str:
+    total = Decimal(0)
+    for key in ("rush_yd", "rec_yd", "pass_yd"):
+        if row.get(key) is not None:
+            total += Decimal(str(row.get(key) or 0))
+    return str(int(total))
+
+
+def _era90_rank_rows(
+    rows: Sequence[Mapping[str, object]],
+    board: str,
+    *,
+    offset: int,
+) -> tuple[list[tuple[str, str, bool]], list[list[dict[str, object]]]]:
+    """Small grid for one page. Columns are the sort keys plus the person."""
+    columns: list[tuple[str, str, bool]]
+    if board in {"players-counting-career", "players-counting-season"}:
+        columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("yds", "Yds", True)]
+        if board == "players-counting-season":
+            columns.insert(1, ("year", "Year", True))
+    elif board == "players-wire-unowned":
+        columns = [
+            ("rk", "Rk", True),
+            ("year", "Year", True),
+            ("player", "Player", False),
+            ("pos", "Pos", False),
+            ("pts", "Pts", True),
+        ]
+    elif board.startswith("players-wire"):
+        columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("vorp", "FA VORP", True)]
+        if board != "players-wire-career":
+            columns.insert(1, ("year", "Year", True))
+    else:
+        columns = [
+            ("rk", "Rk", True),
+            ("player", "Player", False),
+            ("pos", "Pos", False),
+            ("pf", "PF", True),
+            ("vorp", "VORP", True),
+        ]
+        if board == "players-season-rankings":
+            columns.insert(1, ("year", "Year", True))
+    body: list[list[dict[str, object]]] = []
+    for index, row in enumerate(rows):
+        rank = offset + index + 1
+        mark = "is-leader" if rank == 1 else ""
+        label = _era90_player_label(row.get("player_name"), row.get("position"))
+        href = _path("/players", row.get("player_id"))
+        cells = {
+            "rk": _era90_cell(rank, numeric=True),
+            "year": _era90_cell(row.get("year") or "", numeric=True, href=_path("/seasons", row.get("year")) if row.get("year") else ""),
+            "player": _era90_cell(label, href=href, mark=mark),
+            "pos": _era90_cell(row.get("position") or "—"),
+            "pf": _era90_cell(
+                _num1(row.get("started_points") if board == "players-season-rankings" else row.get("starter_points")),
+                numeric=True,
+            ),
+            "vorp": _era90_cell(
+                _num1(row.get("fa_vorp") if board.startswith("players-wire") else row.get("started_vorp")),
+                numeric=True,
+            ),
+            "pts": _era90_cell(_num1(row.get("fa_points")), numeric=True),
+            "yds": _era90_cell(_yards(row), numeric=True),
+        }
+        body.append([cells[key] for key, _label, _numeric in columns])
+    return columns, body
+
+
+def _era90_ranking_section(
+    board: str,
+    label: str,
+    rows: Sequence[Mapping[str, object]],
+    total: int,
+) -> dict[str, object]:
+    from .fragments import DEFAULT_PAGE_SIZE
+
+    shown = list(rows)[:ERA90_TOP]
+    columns, body = _era90_rank_rows(shown, board, offset=0)
+    sort = _ERA90_SORT.get(board, "the published order")
+    if board == "players-season-rankings":
+        keys = "Points on starts are the sort key."
+    elif board == "players-wire-unowned":
+        keys = "Points while unowned are the sort key."
+    elif board.startswith("players-wire"):
+        keys = "FA VORP is the sort key."
+    elif "counting" in board:
+        keys = "Yards are the sort key."
+    else:
+        keys = "PF and VORP are the sort keys."
+    note = (
+        f"First {len(shown)} of {total}, {sort}. "
+        f"The numerals open the rest, {DEFAULT_PAGE_SIZE} rows to a page, in that same order. "
+        f"{keys} The other columns stay on the player page and on Modern."
+    )
+    return {
+        "label": label,
+        "board": _era90_table(label, columns, body, note) if shown else None,
+        "tokens": _era90_numeral_tokens(_era90_pages(total, DEFAULT_PAGE_SIZE)),
+        "href_base": f"/boards/{board}",
+    }
+
+
+def _era90_players(context: Mapping[str, object]) -> dict[str, object]:
+    order = [
+        ("players-career-rankings", "Career"),
+        ("players-season-rankings", "Season"),
+        ("players-wire-season", "Wire season"),
+        ("players-wire-career", "Wire career"),
+        ("players-wire-unowned", "Never rostered"),
+        ("players-counting-career", "Counting career"),
+        ("players-counting-season", "Counting season"),
+    ]
+    teasers = context.get("teasers") or {}
+    if not isinstance(teasers, Mapping):
+        teasers = {}
+    sections = []
+    for name, label in order:
+        pack = teasers.get(name) or {}
+        if not isinstance(pack, Mapping) or not pack.get("total"):
+            continue
+        sections.append(_era90_ranking_section(name, label, pack.get("rows") or [], int(pack["total"])))
+    return {
+        "sections": sections,
+        "has_players": bool(context.get("has_players")),
+        "vol_partial": bool(context.get("vol_partial")),
+    }
+
+
+def _era90_members(context: Mapping[str, object]) -> dict[str, object]:
+    rows = [row for row in (context.get("career") or []) if isinstance(row, Mapping)]
+    high_pf = _max_number(row.get("points_for") for row in rows)
+    high_titles = _max_number(row.get("titles") for row in rows)
+    body: list[list[dict[str, object]]] = []
+    for row in rows:
+        marks_name = ""
+        if high_titles is not None and _same(row.get("titles"), high_titles) and int(row.get("titles") or 0) > 0:
+            marks_name = "is-leader"
+        pf_mark = "is-record" if high_pf is not None and _same(row.get("points_for"), high_pf) else ""
+        body.append(
+            [
+                _era90_cell(row.get("display_name") or "", href=_path("/members", row.get("manager_id")), mark=marks_name),
+                _era90_cell(int(row.get("wins") or 0), numeric=True),
+                _era90_cell(int(row.get("losses") or 0), numeric=True),
+                _era90_cell(tie_dash(row.get("ties"), "era90"), numeric=True),
+                _era90_cell(_num1(row.get("points_for")), numeric=True, mark=pf_mark),
+                _era90_cell(int(row.get("titles") or 0), numeric=True),
+            ]
+        )
+    note = (
+        "W, L, and T are the official line. A zero tie is shown as -. "
+        "PF is points for. Titles are championships. "
+        "H2H, median, playoff, and the rest of the career line are on the member page. "
+        + ERA90_GLOSSARY
+    )
+    board = _era90_table(
+        "All-time",
+        (
+            ("manager", "Manager", False),
+            ("w", "W", True),
+            ("l", "L", True),
+            ("t", "T", True),
+            ("pf", "PF", True),
+            ("titles", "Titles", True),
+        ),
+        body,
+        note,
+    ) if body else None
+    return {"board": board}
+
+
+def _era90_versus(context: Mapping[str, object]) -> dict[str, object]:
+    managers = list(context.get("managers") or [])
+    grid = list(context.get("grid") or [])
+    columns: list[tuple[str, str, bool]] = [("manager", "", False)]
+    for index, manager in enumerate(managers):
+        short = str(manager.get("display_name") or "")[:3]
+        columns.append((f"c{index}", short, True))
+    body: list[list[dict[str, object]]] = []
+    for row in grid:
+        manager = row.get("manager") or {}
+        cells = [
+            _era90_cell(
+                manager.get("display_name") or "",
+                href=_path("/members", manager.get("manager_id")),
+            )
+        ]
+        for cell in row.get("cells") or []:
+            if cell.get("self"):
+                cells.append(_era90_cell("—", numeric=True))
+                continue
+            if not cell.get("games") and not cell.get("deals"):
+                cells.append(_era90_cell("—", numeric=True))
+                continue
+            text = str(cell.get("record") or "—")
+            deals = int(cell.get("deals") or 0)
+            if deals:
+                text = f"{text} · {deals}"
+            cells.append(_era90_cell(text, numeric=True, href=str(cell.get("href") or "")))
+        body.append(cells)
+    notes = []
+    for note in context.get("notes") or []:
+        if not isinstance(note, Mapping):
+            continue
+        notes.append(
+            {
+                "label": note.get("label") or "",
+                "href": str(note.get("href") or ""),
+                "left_name": note.get("left_name") or "",
+                "right_name": note.get("right_name") or "",
+                "detail": note.get("detail") or "",
+            }
+        )
+    note = (
+        "Each figure is the regular-season W-L-T from the row manager's side. "
+        "A number after the dot is how many times that pair has traded. "
+        + ERA90_GLOSSARY
+    )
+    board = _era90_table("Versus", columns, body, note) if body else None
+    return {"notes": notes, "board": board}
+
+
+def _era90_c1b(name: str, context: Mapping[str, object]) -> dict[str, object] | None:
+    if name == "players.html":
+        return _era90_players(context)
+    if name == "members.html":
+        return _era90_members(context)
+    if name == "versus.html":
+        return _era90_versus(context)
+    if name not in _ERA90_MOUNTS:
+        return None
+    glossary = ERA90_GLOSSARY if name == "records/chapter.html" else ""
+    return {
+        "mounted_html": _era90_mounted_body(name, context),
+        "era_identity": _era90_identity(name, context),
+        "year_numerals": _era90_year_links(name, context),
+        "glossary": glossary,
+    }
+
+
+def era90_board_document(request: Request, board: str) -> HTMLResponse:
+    """One era90 ranking page. Player boards are 50-row numeral pages. Other boards mount the fragment."""
+    from .fragments import DEFAULT_PAGE_SIZE, board_by_name, paginate, render_fragment, requested_page
+
+    spec = board_by_name(board)
+    if board == "players-career" or board in _ERA90_SORT:
+        if board == "players-career":
+            loaded = spec.loader(request)
+            window = loaded["pager"]
+            page_rows = list(window.rows)
+            page = int(window.page)
+            pages = int(window.pages)
+            total = int(window.total)
+            page_size = int(window.page_size)
+        else:
+            payload = queries.players_board_payload(board)
+            if payload is None:
+                raise StarletteHTTPException(status_code=404, detail=f"No board {board}.")
+            window = paginate(payload["rows"], page=requested_page(request), page_size=DEFAULT_PAGE_SIZE)
+            page_rows = list(window.rows)
+            page = window.page
+            pages = window.pages
+            total = window.total
+            page_size = window.page_size
+        columns, body = _era90_rank_rows(page_rows, board, offset=(page - 1) * page_size)
+        sort = _ERA90_SORT.get(board, "the published order")
+        blurb = (
+            f"{total} rows, {page_size} to a page, {sort}. "
+            f"Page {page} of {pages}. Rank is the place in that order. "
+            "The other columns stay on the player page and on Modern."
+        )
+        cheer = None
+        if page == 1 and page_rows:
+            top = page_rows[0]
+            cheer = {
+                "lead": "Leader",
+                "name": _era90_player_label(top.get("player_name"), top.get("position")),
+                "href": _era90_href(_path("/players", top.get("player_id"))),
+            }
+        context = {
+            "blurb": blurb,
+            "cheer": cheer,
+            "board": _era90_table(spec.title, columns, body, ERA90_GLOSSARY) if page_rows else None,
+            "tokens": _era90_numeral_tokens(pages),
+            "href_base": f"/boards/{board}",
+            "page": page,
+        }
+        return _era90_response(
+            request,
+            title=spec.title,
+            nav=spec.nav,
+            template="era90/ranking.html",
+            context=context,
+            year=None,
+            weeks=[],
+        )
+    context = {
+        "mounted_html": render_fragment(request, board),
+        "era_identity": "",
+        "year_numerals": [],
+        "glossary": "",
+    }
+    return _era90_response(
+        request,
+        title=spec.title,
+        nav=spec.nav,
+        template="era90/mount.html",
+        context=context,
+        year=None,
+        weeks=[],
+    )

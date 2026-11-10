@@ -1,0 +1,74 @@
+{%- from "fragments/pager.html" import numeral_row -%}
+{%- from "fragments/stat_table.html" import stat_table -%}
+<section class="board" id="players-career" data-fragment="/fragments/players-career" data-board="/boards/players-career">
+<h2>Career rankings</h2>
+<p class="note">{{ pager.total }} players. {{ pager.page_size }} per page, by starter points, then VORP, then name. Page {{ pager.page }} of {{ pager.pages }}.</p>
+{% if vol_partial %}
+<p class="note">* 2026 is in progress. The live week is left out until the median team total reaches 40.</p>
+{% endif %}
+{% if pager.pages > 1 %}
+{{ numeral_row(pager.page, pager.pages, "/boards/players-career?page={n}") }}
+{% endif %}
+{%- set ns = namespace(rows=[]) -%}
+{%- for row in pager.rows -%}
+{%- set player = ({"href": "/players/" ~ row.player_id, "text": row.player_name} if row.player_id and row.player_name else {"text": row.player_name or "—"}) -%}
+{%- set cells = [
+    player,
+    {"text": row.position or "—"},
+    {"text": row.seasons|int, "extra_class": "num"},
+    {"text": (row.starts or 0)|int, "extra_class": "num"},
+    {"text": ("%.1f"|format(row.starter_points)) if row.starter_points is not none else "", "extra_class": "num", "data_value": row.starter_points if row.starter_points is not none else ""},
+    {"text": ("%.1f"|format(row.avg)) if row.avg is not none else "", "extra_class": "num", "data_value": row.avg if row.avg is not none else ""},
+    {"text": ("%.1f"|format(row.started_vorp)) if row.started_vorp is not none else "", "extra_class": "num", "data_value": row.started_vorp if row.started_vorp is not none else ""},
+    {"text": ("%.0f"|format(row.own_pct * 100) ~ "%") if row.own_pct is not none else "", "extra_class": "num", "data_value": row.own_pct if row.own_pct is not none else "", "title": (row.rostered_weeks or 0)|int ~ " of " ~ (row.lineup_weeks or 0)|int ~ " posted lineup weeks"},
+    {"text": (row.times_drafted or 0)|int, "extra_class": "num"},
+    {"text": (row.times_added or 0)|int, "extra_class": "num"},
+    {"text": (row.times_traded or 0)|int, "extra_class": "num"},
+    {"text": (row.managers or 0)|int, "extra_class": "num"},
+    {"text": (row.rings or 0)|int, "extra_class": "num"},
+    {"text": (row.title_starts or 0)|int, "extra_class": "num"},
+    {"text": (row.champ_roster_weeks or 0)|int, "extra_class": "num"},
+    {"text": (row.vol_weeks|int ~ ("*" if row.vol_partial else "")) if row.vol_weeks is not none else "", "extra_class": "num", "data_value": row.vol_weeks if row.vol_weeks is not none else ""},
+    {"text": ("%.1f"|format(row.vol_mean)) if row.vol_mean is not none else "", "extra_class": "num", "data_value": row.vol_mean if row.vol_mean is not none else ""},
+    {"text": ("%.1f"|format(row.vol_stddev)) if row.vol_stddev is not none else "", "extra_class": "num", "data_value": row.vol_stddev if row.vol_stddev is not none else ""},
+    {"text": ("%.2f"|format(row.vol_cv)) if row.vol_cv is not none else "", "extra_class": "num", "data_value": row.vol_cv if row.vol_cv is not none else ""},
+    {"text": ("%.0f"|format(row.vol_boom * 100) ~ "%") if row.vol_boom is not none else "", "extra_class": "num", "data_value": row.vol_boom if row.vol_boom is not none else ""},
+    {"text": row.age_years if row.age_years is not none else "", "extra_class": "num", "data_value": row.age_years if row.age_years is not none else "", "title": ("born " ~ row.birth_date) if row.birth_date else none},
+    {"text": row.height or "", "extra_class": "num"},
+    {"text": row.weight_lb if row.weight_lb is not none else "", "extra_class": "num", "data_value": row.weight_lb if row.weight_lb is not none else ""},
+    {"text": row.rookie_year if row.rookie_year is not none else "", "extra_class": "num", "data_value": row.rookie_year if row.rookie_year is not none else ""},
+] -%}
+{%- set ns.rows = ns.rows + [{"data_pos": row.position or "", "cells": cells}] -%}
+{%- endfor -%}
+{%- set board = {
+    "table_class": "sticky-head",
+    "columns": [
+        {"label": "Player"},
+        {"label": "Pos"},
+        {"label": "Yrs", "extra_class": "num"},
+        {"label": "Starts", "extra_class": "num"},
+        {"label": "PF", "extra_class": "num"},
+        {"label": "Avg", "extra_class": "num"},
+        {"label": "VORP", "extra_class": "num", "title": "VORP on starts. Unowned weeks stay in Left on the wire."},
+        {"label": "Own", "extra_class": "num", "title": "Rostered weeks divided by posted lineup weeks in seasons with a stored week"},
+        {"label": "Draft", "extra_class": "num"},
+        {"label": "Adds", "extra_class": "num"},
+        {"label": "Trades", "extra_class": "num"},
+        {"label": "Mgrs", "extra_class": "num", "title": "Distinct managers on rostered weeks"},
+        {"label": "Rings", "extra_class": "num"},
+        {"label": "Title", "extra_class": "num", "title": "Starts for the champion in a playoff week on or after playoff_start_week"},
+        {"label": "CWk", "extra_class": "num", "title": "Weeks rostered by a season champion, bench included"},
+        {"label": "Wk", "extra_class": "num", "title": "Scored weeks in the volatility sample"},
+        {"label": "Mean", "extra_class": "num", "title": "Mean of scored weeks"},
+        {"label": "SD", "extra_class": "num", "title": "Sample standard deviation"},
+        {"label": "CV", "extra_class": "num", "title": "Sample SD / mean"},
+        {"label": "Boom", "extra_class": "num", "title": "Weeks at least 1.5× the career mean"},
+        {"label": "Age", "extra_class": "num", "title": "Completed years from birth_date as of today. The catalog age integer is not stored."},
+        {"label": "Ht", "extra_class": "num", "title": "Height from the Sleeper catalog"},
+        {"label": "Wt", "extra_class": "num", "title": "Weight in pounds from the Sleeper catalog"},
+        {"label": "Rookie", "extra_class": "num", "title": "Sleeper metadata.rookie_year. Not derived from years_exp."},
+    ],
+    "rows": ns.rows,
+} -%}
+{{ stat_table(board) }}
+</section>

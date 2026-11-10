@@ -1,0 +1,13 @@
+{% from "fragments/stat_table.html" import stat_table %}
+<p class="stat-note">Ten names on each board, or the whole list when it is shorter. Each numeral is its own link. Fifty rows is one page of the published order. Nothing on this page is hidden behind a script.</p>
+{% if vol_partial %}
+<p class="stat-note">2026 is in progress. The live week is left out until the median team total reaches 40.</p>
+{% endif %}
+{% if not has_players %}
+<p class="stat-note">No player records yet. Load dumps into Postgres first.</p>
+{% endif %}
+{% for section in sections %}
+<h2>{{ section.label }}</h2>
+{% if section.board %}{{ stat_table(section.board) }}{% endif %}
+<p class="numeral-row"><span class="numeral-label">Pages</span>{% for token in section.tokens %}{% if token is none %} <span class="numeral-gap" aria-hidden="true">…</span>{% else %} <a class="numeral" href="{{ section.href_base }}?page={{ token }}&theme=era90">{{ token }}</a>{% endif %}{% endfor %}</p>
+{% endfor %}

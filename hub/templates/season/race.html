@@ -1,0 +1,29 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+    {% if race %}
+    <h2 id="race">Points race</h2>
+    <div class="score-chart">
+        <svg viewBox="0 0 {{ race.width }} {{ race.height }}" role="img" aria-label="Cumulative points by manager">
+            {% for tick in race.y_ticks %}
+            <line class="grid" x1="{{ race.left }}" y1="{{ tick.y }}" x2="{{ race.left + race.plot_w }}" y2="{{ tick.y }}"></line>
+            <text class="tick" x="{{ race.left - 6 }}" y="{{ tick.y }}" text-anchor="end" dominant-baseline="middle">{{ "%.0f"|format(tick.value) }}</text>
+            {% endfor %}
+            {% for series in race.series %}
+            <path class="line race" d="{{ series.path }}" style="stroke: hsl({{ series.hue }} 55% 58%)"></path>
+            {% endfor %}
+            {% for tick in race.x_ticks %}
+            <a href="/seasons/{{ current.year }}/week/{{ tick.week }}">
+                <text class="tick" x="{{ tick.x }}" y="{{ race.height - 2 }}" text-anchor="middle">{{ tick.week }}</text>
+            </a>
+            {% endfor %}
+        </svg>
+    </div>
+    <p class="chart-legend race-legend">
+        {% for series in race.series %}
+        <span><span class="hue" style="--hue: {{ series.hue }}"></span><a href="/members/{{ series.manager_id }}">{{ series.display_name }}</a></span>
+        {% endfor %}
+    </p>
+    {% endif %}

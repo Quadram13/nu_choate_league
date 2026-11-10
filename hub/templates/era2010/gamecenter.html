@@ -1,0 +1,7 @@
+{% if siblings %}
+<p class="sibling-row">
+    {% for sib in siblings %}<a href="{{ frame.carry(sib.href) }}"{% if sib.current %} class="is-on" aria-current="page"{% endif %}>{{ sib.label }}</a> {% endfor %}
+</p>
+{% endif %}
+{% include "era2010/score_card.html" %}
+{% if lineups %}<p class="stat-note">Club badges use players.nfl_team, the catalog abbreviation. Position badges use the catalog position on the lineup row. The slot is the lineup slot. Names are initial and surname, and defenses keep their stored name.</p>{% endif %}

@@ -1,0 +1,126 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if waiver_roi.coverage %}
+<h2 id="waiver-roi">Waiver priority</h2>
+{{ waiver_coverage(waiver_roi.coverage) }}
+{% if waiver_roi.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            <th class="num" title="Completed waiver adds that stored a priority">Claims</th>
+            <th class="num" title="Sum of priority + 1">Pri units</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+            <th class="num" title="VORP divided by priority units">Per pri</th>
+            <th class="num" title="Average league processing order. Seq 0 ran first.">Avg seq</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
+            <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+            <td class="num" data-value="{{ row.avg_seq if row.avg_seq is not none else '' }}">{% if row.avg_seq is not none %}{{ "%.1f"|format(row.avg_seq) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if waiver_roi.career %}
+<div data-grain="career">
+<h3>2024–2025</h3>
+<p class="note">Pooled claims. Per pri is pooled VORP divided by pooled priority units.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Seasons</th>
+            <th class="num">Claims</th>
+            <th class="num">Pri units</th>
+            <th class="num">VORP</th>
+            <th class="num">Per pri</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.career %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.seasons }}">{{ row.seasons|int }}</td>
+            <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
+            <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if roster_shape.career %}
+<h2 id="roster-shape">Roster shape</h2>
+{{ roster_note(roster_shape.league_ir_slots) }}
+{% if roster_shape.seasons %}
+<h3>By season</h3>
+<div class="standings-wrap">
+<table class="js-sort js-fold" data-fold="12">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th>Manager</th>
+            {{ roster_head(roster_shape.show_other) }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in roster_shape.seasons %}
+        <tr data-year="{{ row.year }}">
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            {{ roster_cells(row, roster_shape.show_other) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+<div data-grain="career">
+<h3>Career</h3>
+<p class="note">Career shares divide career starter points. They are the ratio of the sums, so a career share can differ from the average of the seasons.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            {{ roster_head(roster_shape.show_other) }}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in roster_shape.career %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            {{ roster_cells(row, roster_shape.show_other) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}

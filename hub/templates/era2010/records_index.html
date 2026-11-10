@@ -1,0 +1,29 @@
+{% if holders %}
+<section class="module" id="holders">
+    <h2>Who owns the book</h2>
+    <ul class="chapter-grid">
+        {% for row in holders %}
+        <li class="chapter-card{% if row.leader %} is-leader{% endif %}">
+            <a href="{{ frame.carry(row.href) }}">{{ row.name }}</a>
+            <p class="card-line">{{ row.total }} distinction weeks</p>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+<section class="module">
+    <h2>Chapters</h2>
+    <ul class="chapter-grid">
+        {% for chapter in chapters %}
+        <li class="chapter-card">
+            <a href="{{ frame.carry(chapter.href) }}">{{ chapter.title }}</a>
+            <p class="card-line">{{ chapter.taste }}</p>
+            <p class="sibling-row">
+                {% for anchor in chapter.anchors %}
+                <a href="{{ frame.carry(chapter.href ~ '#' ~ anchor.id) }}">{{ anchor.label }}</a>
+                {% endfor %}
+            </p>
+        </li>
+        {% endfor %}
+    </ul>
+</section>

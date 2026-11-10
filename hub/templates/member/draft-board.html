@@ -1,0 +1,55 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if draft_board.career %}
+<h2 id="draft-board">Draft board</h2>
+<p class="note">
+    Sums of every draft, including the in-progress season. Rest-of-season numbers for that season cover the weeks played.
+    A hit is 8 or more starts and above that round’s VORP.
+    Hit% is hits divided by picks. The career rate pools the picks. It is the ratio of the sums, so it can differ from the average of the seasons.
+    The career row is the database sum of these seasons. Displayed VORP is rounded to 0.01, so adding the rounded seasons can miss the career row by 0.01.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num">Picks</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
+            <th class="num" title="Hits divided by picks">Hit%</th>
+            <th class="num" title="Starter points versus the round average">vsPts</th>
+            <th class="num" title="VORP versus the round average">vsRnd</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft_board.seasons %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ row.year }}#draft">{{ row.year }}</a></td>
+            <td class="num" data-value="{{ row.picks }}">{{ row.picks|int }}</td>
+            <td class="num" data-value="{{ row.hits }}">{{ row.hits|int }}</td>
+            <td class="num" data-value="{{ row.hit_rate if row.hit_rate is not none else '' }}">{% if row.hit_rate is not none %}{{ "%.1f"|format(row.hit_rate * 100) }}%{% else %}—{% endif %}</td>
+            {{ signed_cell(row.vs_round) }}
+            {{ signed_cell(row.vs_vorp) }}
+            {{ signed_cell(row.ros_vorp) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% set row = draft_board.career %}
+    <tfoot>
+        <tr>
+            <td>Career</td>
+            <td class="num">{{ row.picks|int }}</td>
+            <td class="num">{{ row.hits|int }}</td>
+            <td class="num">{% if row.hit_rate is not none %}{{ "%.1f"|format(row.hit_rate * 100) }}%{% else %}—{% endif %}</td>
+            {{ signed_cell(row.vs_round) }}
+            {{ signed_cell(row.vs_vorp) }}
+            {{ signed_cell(row.ros_vorp) }}
+        </tr>
+    </tfoot>
+</table>
+</div>
+{% endif %}

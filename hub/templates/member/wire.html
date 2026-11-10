@@ -1,0 +1,72 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if wire.adds or wire.misses or wire.totals.adds %}
+<h2 id="wire">Wire</h2>
+<p class="note">
+    Adds are starter VORP on that roster after the add.
+    {% if wire.totals.adds %}{{ wire.totals.adds|int }} add{{ "s" if wire.totals.adds != 1 else "" }}{% if wire.totals.ros_vorp is not none %} · {{ "%+.1f"|format(wire.totals.ros_vorp) }} VORP{% endif %}{% endif %}.
+    A miss gap is league VORP from the claim week, bench weeks included.
+</p>
+{% if wire.adds or wire.misses %}
+<div class="notable-grid wire-grid">
+    {% if wire.adds %}
+    <section>
+        <h3>Best adds</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th class="num">VORP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.adds %}
+                <tr>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                        <span class="team">{{ row.kind }}{% if row.bid_label %} {{ row.bid_label }}{% endif %}</span>
+                    </td>
+                    <td class="num plus">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if wire.misses %}
+    <section>
+        <h3>Costliest misses</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Missed</th>
+                    <th>Got</th>
+                    <th class="num" title="League VORP from the claim week, bench weeks included. Missed player minus the player you got.">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in wire.misses %}
+                <tr>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>
+                        {% if row.missed_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.missed_transaction_id }}">{{ row.missed_player }}</a>{% elif row.missed_player_id %}<a href="/players/{{ row.missed_player_id }}">{{ row.missed_player }}</a>{% else %}{{ row.missed_player }}{% endif %}
+                        <span class="team">{{ row.flag }}</span>
+                    </td>
+                    <td>{% if row.won_transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.won_transaction_id }}">{{ row.won_player }}</a>{% elif row.won_player_id %}<a href="/players/{{ row.won_player_id }}">{{ row.won_player }}</a>{% else %}{{ row.won_player or "—" }}{% endif %}</td>
+                    <td class="num plus">{% if row.vorp_gap is not none %}{{ "%+.1f"|format(row.vorp_gap) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}

@@ -1,0 +1,75 @@
+{% if modules %}{% include "era2010/modules.html" %}{% endif %}
+<section class="module" id="boards">
+    <h2>Full boards</h2>
+    <p class="stat-note">Each board is its own page. The fragment link is the same rows without this shell. Neither link needs script.</p>
+    <ul class="board-links">
+        {% for board in boards %}
+        <li data-fragment="{{ board.fragment }}" data-board="{{ board.href }}">
+            <a href="{{ frame.carry(board.href) }}">View all {{ board.label }}</a>
+            <span class="meta">{{ board.total }}</span>
+            <a href="{{ frame.carry(board.fragment) }}">Fragment</a>
+        </li>
+        {% endfor %}
+        <li><a href="{{ frame.carry('/boards/players-career') }}">Career pages of 50</a></li>
+    </ul>
+    <script>
+    (function () {
+        if (typeof fetch !== "function" || typeof DOMParser !== "function") return;
+        document.addEventListener("click", function (event) {
+            if (event.defaultPrevented || event.button !== 0) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            var node = event.target;
+            if (node && node.nodeType !== 1) node = node.parentElement;
+            var link = node && node.closest ? node.closest("a") : null;
+            if (!link || !link.getAttribute("href")) return;
+            var box = link.closest("[data-fragment]");
+            if (!box) return;
+            var board = box.getAttribute("data-board");
+            var fragment = box.getAttribute("data-fragment");
+            if (!board || !fragment) return;
+            var url;
+            try { url = new URL(link.getAttribute("href"), window.location.href); }
+            catch (error) { return; }
+            if (url.pathname !== board) return;
+            event.preventDefault();
+            fetch(fragment + url.search, { headers: { Accept: "text/html" }, credentials: "same-origin" })
+                .then(function (res) {
+                    if (!res.ok) throw new Error(String(res.status));
+                    return res.text();
+                })
+                .then(function (html) {
+                    var parsed = new DOMParser().parseFromString(html, "text/html");
+                    var next = parsed.querySelector("[data-fragment]");
+                    if (!next || next.getAttribute("data-fragment") !== fragment) {
+                        window.location.assign(link.href);
+                        return;
+                    }
+                    box.innerHTML = next.innerHTML;
+                })
+                .catch(function () { window.location.assign(link.href); });
+        });
+    })();
+    </script>
+</section>
+<section class="module" id="cards">
+    <h2>Player cards</h2>
+    <p class="stat-note">Career summary rows. Season line is the latest stored season. Weeks are the four most recent stored weeks. No projections.</p>
+    <ul class="player-cards">
+        {% for card in cards %}
+        <li>
+            <a class="card-name" href="{{ frame.carry('/players/' ~ card.row.player_id) }}">{{ card.row.player_name }}</a>
+            <span class="pos-badge">{{ card.row.position or "—" }}</span>
+            {% if card.season %}
+            <p class="card-line">{{ card.season.year }} · {{ (card.season.starts or 0)|int }} starts · {{ "%.1f"|format(card.season.started_points or 0) }} PF{% if card.season.owner_name %} · {{ card.season.owner_name }}{% endif %}</p>
+            {% endif %}
+            {% if card.weeks %}
+            <ol class="card-weeks">
+                {% for week in card.weeks %}
+                <li><a href="{{ frame.carry('/seasons/' ~ week.year ~ '/week/' ~ week.week) }}">{{ week.year }} W{{ week.week }}</a> {{ "%.1f"|format(week.points or 0) }}{% if week.manager_name %} {{ week.manager_name }}{% endif %}</li>
+                {% endfor %}
+            </ol>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>

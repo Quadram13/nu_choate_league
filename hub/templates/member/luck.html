@@ -1,0 +1,17 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if luck %}
+<h2 id="luck">Luck</h2>
+<p class="note">
+    Regular-season H2H.
+    {{ (luck.lucky_wins or 0)|int }} bottom-half win{{ "s" if luck.lucky_wins != 1 else "" }}
+    · {{ (luck.unlucky_losses or 0)|int }} top-half loss{{ "es" if luck.unlucky_losses != 1 else "" }}
+    · net {{ "%+d"|format((luck.net_luck or 0)|int) }}
+    {% if luck.wins_vs_expected is not none %} · {{ "%+.1f"|format(luck.wins_vs_expected) }} vs expected{% endif %}.
+    Every such game. The H2H enjoyer and Scored and lost chips count the weekly mark, the most extreme one that week.
+</p>
+{% endif %}

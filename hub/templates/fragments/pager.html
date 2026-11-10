@@ -1,0 +1,14 @@
+{# Numeral row shared by every shell. Era week nav is this macro:
+   {{ numeral_row(week, last_week, "/seasons/" ~ year ~ "/week/{n}", "Results") }}
+   The current numeral is strong, not a link. Other numerals are real hrefs.
+   None from numeral_tokens is an ellipsis, not a link. No script. #}
+{% macro numeral_row(current, last, href, label="") -%}
+<nav class="numeral-row" aria-label="{{ label or 'Pages' }}">{%- if label %} <span class="numeral-label">{{ label }}</span>{% endif -%}
+{%- for token in numeral_tokens(current, last) -%}
+{%- if token is none %} <span class="numeral-gap" aria-hidden="true">…</span>
+{%- elif token == current %} <strong class="numeral" aria-current="page">{{ token }}</strong>
+{%- else %} <a class="numeral" href="{{ href.replace('{n}', token|string) }}">{{ token }}</a>
+{%- endif -%}
+{%- endfor -%}
+</nav>
+{%- endmacro %}

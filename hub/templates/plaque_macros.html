@@ -65,7 +65,7 @@
 {% endif %}
 {% endmacro %}
 
-{% macro plaque_free(kicker, who="", figure="", meta="", polarity="", href="", hue=none, who_id=none) %}
+{% macro plaque_free(kicker, who="", figure="", meta="", polarity="", href="", hue=none, who_id=none, year_links=none, meta_href="") %}
 <article class="plaque{% if polarity %} plaque-{{ polarity }}{% endif %}">
     <p class="plaque-kicker">{{ kicker }}</p>
     {% if who %}
@@ -76,7 +76,11 @@
         {% if href %}<a href="{{ href }}">{{ figure }}</a>{% else %}{{ figure }}{% endif %}
     </p>
     {% endif %}
-    {% if meta %}<p class="plaque-meta">{{ meta }}</p>{% endif %}
+    {% if year_links %}
+    <p class="plaque-meta">{% for y in year_links %}{% if not loop.first %} · {% endif %}<a href="/seasons/{{ y }}">{{ y }}</a>{% endfor %}</p>
+    {% elif meta %}
+    <p class="plaque-meta">{% if meta_href %}<a href="{{ meta_href }}">{{ meta }}</a>{% else %}{{ meta }}{% endif %}</p>
+    {% endif %}
 </article>
 {% endmacro %}
 
@@ -132,7 +136,7 @@
 {% set jersey = row.team_name | flavor_team(name) %}
 {% set record = row.record if row.record is defined else ((row.wins or 0)|int ~ "-" ~ (row.losses or 0)|int ~ "-" ~ (row.ties or 0)|int) %}
 <article class="plaque team-card" id="m-{{ row.manager_id }}">
-    <p class="plaque-kicker">{{ year }}{% if row.rank %} · #{{ row.rank }}{% endif %}{% if jersey %} · {{ jersey }}{% endif %}</p>
+    <p class="plaque-kicker">{% if year %}<a href="/seasons/{{ year }}">{{ year }}</a>{% endif %}{% if row.rank %} · #{{ row.rank }}{% endif %}{% if jersey %} · {% if row.manager_id %}<a href="/seasons/{{ year }}#m-{{ row.manager_id }}" title="{{ jersey }}">{{ jersey }}</a>{% else %}{{ jersey }}{% endif %}{% endif %}</p>
     <p class="plaque-who">{{ person_link(row.manager_id, name, row.hue if row.hue is defined else none) }}</p>
     <p class="plaque-figure"><a href="/seasons/{{ year }}">{{ record }}</a></p>
     <p class="plaque-meta">

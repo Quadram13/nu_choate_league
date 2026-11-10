@@ -1,0 +1,17 @@
+{% from "fragments/stat_table.html" import stat_table %}
+<section class="scoreboard">
+    {% if year and week %}
+    <h2><a href="{{ frame.carry('/seasons/' ~ year ~ '/week/' ~ week) }}">Week {{ week }}</a></h2>
+    {% endif %}
+    {% for group in groups %}
+    {% if group.label %}<h3 class="group-label">{{ group.label }}</h3>{% endif %}
+    {% for card in group.cards %}{% include "era2010/score_card.html" %}{% endfor %}
+    {% endfor %}
+    {% if not groups %}<p class="stat-note">None posted.</p>{% endif %}
+</section>
+{% if board %}
+<section class="standings-module">
+    <h2>Standings</h2>
+    {{ stat_table(board) }}
+</section>
+{% endif %}

@@ -1,0 +1,33 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+    {% if power %}
+    <h2 id="power">All-play ranking</h2>
+    <p class="note">Running all-play win% through the latest regular week.</p>
+    <div class="standings-wrap">
+    <table class="js-sort">
+        <thead>
+            <tr>
+                <th class="num">#</th>
+                <th>Manager</th>
+                <th data-type="num">All-play</th>
+                <th class="num">Win%</th>
+                <th class="num">Move</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in power %}
+            <tr>
+                <td class="num">{{ row.power_rank }}</td>
+                <td>{% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}{{ person(row.manager_id, row.display_name) }}</td>
+                <td data-value="{{ row.win_pct if row.win_pct is not none else '' }}">{{ row.record or "—" }}</td>
+                <td class="num">{% if row.win_pct is not none %}{{ "%.1f"|format(row.win_pct * 100) }}%{% else %}—{% endif %}</td>
+                <td class="num" data-value="{{ row.move }}">{% if row.move > 0 %}+{{ row.move }}{% elif row.move < 0 %}{{ row.move }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}

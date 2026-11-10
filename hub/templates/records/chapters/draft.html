@@ -1,0 +1,127 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<h2 id="draft">Draft</h2>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons">Season boards</a></p>
+<div class="notable-grid">
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_hits %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/draft#p{{ row.overall }}">{{ row.year }} R{{ row.round }}</a></td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft_misses %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/draft#p{{ row.overall }}">{{ row.year }} R{{ row.round }}</a></td>
+                    <td>{{ pick_link(row.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% if drafts %}
+<h3>Best drafts</h3>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th>Year</th>
+            <th>Manager</th>
+            <th class="num">vsRnd</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
+            <th class="num">VORP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in drafts %}
+        <tr data-year="{{ row.year }}">
+            <td class="num">{{ loop.index }}</td>
+            <td class="num"><a href="/seasons/{{ row.year }}#draft">{{ row.year }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+            <td class="num">{{ row.hits }} / {{ row.picks }}</td>
+            <td class="num">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if draft_capital %}
+<div data-grain="career">
+<h2 id="draft-capital">Career draft capital</h2>
+<p class="note">Sums across every draft, including the in-progress season. vsPts is starter points against the round. vsRnd is VORP against the round. A hit is 8 or more starts and above that round’s VORP. Hit% is career hits divided by career picks. Titles are championships. Displayed VORP is rounded to 0.01.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Picks</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
+            <th class="num" title="Hits divided by picks">Hit%</th>
+            <th class="num" title="Starter points versus the round average">vsPts</th>
+            <th class="num" title="VORP versus the round average">vsRnd</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+            <th class="num">Titles</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft_capital %}
+        <tr>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td class="num" data-value="{{ row.picks }}">{{ (row.picks or 0)|int }}</td>
+            <td class="num" data-value="{{ row.hits }}">{{ (row.hits or 0)|int }}</td>
+            <td class="num" data-value="{{ row.hit_rate if row.hit_rate is not none else '' }}">{% if row.hit_rate is not none %}{{ "%.1f"|format(row.hit_rate * 100) }}%{% else %}—{% endif %}</td>
+            {{ signed_cell(row.vs_round) }}
+            {{ signed_cell(row.vs_vorp) }}
+            {{ signed_cell(row.ros_vorp) }}
+            <td class="num" data-value="{{ row.titles or 0 }}">{{ (row.titles or 0)|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endif %}

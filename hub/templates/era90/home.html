@@ -1,0 +1,12 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if year %}<p class="kicker"><span>{{ year }}</span> fantasy football</p>{% endif %}
+{% if ticker %}
+<p class="commwire">CommWire: {% for item in ticker %}{% if item.href %}<a href="{{ item.href }}">{{ item.text }}</a>{% else %}{{ item.text }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+{% endif %}
+{% if cheer %}
+<p class="cheer">{{ cheer.lead }} {% if cheer.href %}<a href="{{ cheer.href }}">{{ cheer.name }}</a>{% else %}{{ cheer.name }}{% endif %}</p>
+{% endif %}
+{% for board in boards %}
+{{ stat_table(board) }}
+{% endfor %}
+{% if not boards %}<p class="stat-note">No standings posted.</p>{% endif %}

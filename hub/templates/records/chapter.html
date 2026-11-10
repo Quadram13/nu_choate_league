@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Record book</h1>
+<p class="lede"><a href="/records{{ year_qs }}">Index</a> · {{ chapter.title }}</p>
+{% include "records/_nav.html" %}
+<p class="jump sticky-jump">
+    {% for anchor in chapter.anchors %}
+    <a href="#{{ anchor.id }}">{{ anchor.label }}</a>
+    {% endfor %}
+</p>
+<p class="jump js-year-filter" data-url="records"{% if selected_year %} data-year="{{ selected_year }}"{% endif %} hidden></p>
+{% include chapter_template %}
+{% include "records/_nav.html" %}
+{% endblock %}

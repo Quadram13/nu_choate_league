@@ -1,0 +1,7 @@
+{% from "plaque_macros.html" import person_link %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+{% macro record(wins, losses, ties) %}
+{{ (wins or 0)|int }}-{{ (losses or 0)|int }}{% if ties %}-{{ ties|int }}{% endif %}
+{% endmacro %}

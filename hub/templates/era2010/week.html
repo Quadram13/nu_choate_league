@@ -1,0 +1,6 @@
+{% for group in groups %}
+{% if group.label %}<h2 class="group-label">{{ group.label }}</h2>{% endif %}
+{% for card in group.cards %}{% include "era2010/score_card.html" %}{% endfor %}
+{% endfor %}
+{% if not groups %}<p class="stat-note">None posted.</p>{% endif %}
+{% if lineups %}<p class="stat-note">Club badges use players.nfl_team, the catalog abbreviation. Position badges use the catalog position on the lineup row. The slot is the lineup slot. Names are initial and surname, and defenses keep their stored name.</p>{% endif %}

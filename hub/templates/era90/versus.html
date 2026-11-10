@@ -1,0 +1,14 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if notes %}
+<h2>Series notes</h2>
+<ul class="plain-list">
+{% for note in notes %}
+<li>{{ note.label }} <a href="{{ frame.carry(note.href) }}">{{ note.left_name }} vs {{ note.right_name }}</a>{% if note.detail %} {{ note.detail }}{% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if board %}
+{{ stat_table(board) }}
+{% else %}
+<p class="stat-note">No versus records yet.</p>
+{% endif %}

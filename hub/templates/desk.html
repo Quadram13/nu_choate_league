@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "link_macros.html" import season_years %}
 {% from "plaque_macros.html" import person_link %}
 {% macro person(id, name, hue=none) %}
 {{ person_link(id, name, hue) }}
@@ -19,6 +20,7 @@
     </label>
     <span class="lede">Schedule desk</span>
 </p>
+{{ season_years(seasons, current.year, '/desk') }}
 <p class="note">Your weekly scores vs the column’s opponents.</p>
 {% if desk %}
 <div class="standings-wrap">
@@ -27,7 +29,7 @@
         <tr>
             <th></th>
             {% for col in desk.managers %}
-            <th class="num" title="{{ col.display_name }}">{{ col.display_name[:3] }}</th>
+            <th class="num" title="{{ col.display_name }}"><a href="/members/{{ col.manager_id }}">{{ col.display_name[:3] }}</a></th>
             {% endfor %}
         </tr>
     </thead>

@@ -1,0 +1,24 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if chapter_href or prev or next %}
+<p class="sibling-row">
+    {% if chapter_href %}<a href="{{ frame.carry(chapter_href) }}">Back</a>{% endif %}
+    {% if prev %}<a href="{{ frame.carry('/records/' ~ prev.slug) }}">{{ prev.title }}</a>{% endif %}
+    {% if next %}<a href="{{ frame.carry('/records/' ~ next.slug) }}">{{ next.title }}</a>{% endif %}
+</p>
+{% endif %}
+{% if anchors %}
+<ul class="pos-tabs">
+    {% for anchor in anchors %}<li><a id="{{ anchor.id }}" href="#{{ anchor.id }}">{{ anchor.label }}</a></li>{% endfor %}
+</ul>
+{% endif %}
+{% if years %}
+<p class="sibling-row">
+    {% for year in years %}<a href="{{ frame.carry('/players/' ~ player_id ~ '/log?year=' ~ year) }}">{{ year }}</a> {% endfor %}
+</p>
+{% endif %}
+{% for section in sections %}
+<section class="module"{% if section.anchor %} id="{{ section.anchor }}"{% endif %}>
+    {{ stat_table(section) }}
+</section>
+{% endfor %}
+{% if not sections %}<p class="stat-note">None posted.</p>{% endif %}

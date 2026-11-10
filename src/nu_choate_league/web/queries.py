@@ -1425,7 +1425,21 @@ def season_schedule(year: int) -> dict[str, Any]:
     }
 
 
-def season_page(year: int) -> dict[str, Any] | None:
+SEASON_PANES = frozenset(
+    {"standings", "weeks", "playoffs", "moves", "draft", "lineups", "stacks"}
+)
+
+
+def season_page(year: int, *, pane: str = "standings") -> dict[str, Any] | None:
+    """Shell plus the active pane.
+
+    First paint is the standings core (table, scoring, desk, median tax,
+    all-pro). Universes, all-play, heat, the points race, and the other
+    panes' boards load through ``season_board`` when that pane or fragment
+    is requested. Header chips still need draft, wire, and trades.
+    """
+    if pane not in SEASON_PANES:
+        pane = "standings"
     current = season_row(year)
     if current is None:
         return None
@@ -1433,32 +1447,24 @@ def season_page(year: int) -> dict[str, Any] | None:
     player_seasons = _player_seasons_year(year)
     through = current.get("through_week")
     draft = _season_draft(year)
-    lineups = _season_lineups(year)
     trades = _season_trades(year)
     wire = _season_wire(year)
-    return {
+    data: dict[str, Any] = {
         "current": current,
         "seasons": list_seasons(),
         "standings": table,
         "teams": len(table),
         "now_week": int(through) if through else None,
+        "pane": pane,
         "schedule": season_schedule(year),
-        "universes": _season_universes(year),
-        "notables": _season_notables(year),
+        "path": _playoff_path(year),
         "trades": trades,
         "wire": wire,
         "draft": draft,
-        "lineups": lineups,
         "scoring": _season_scoring(year),
         "scoring_env": _scoring_environment_year(year),
-        "power": _power_board(year),
-        "heat": _week_rank_heat(year),
-        "race": _points_race_chart(year),
         "desk": _schedule_desk(year),
-        "marks": week_marks_season(year),
         "median_tax": median_tax(year),
-        "path": _playoff_path(year),
-        "ranks": universe_ranks(year),
         "luck_plaques": luck_plaques(table, href=f"/seasons/{year}"),
         "all_pro": _honor_pack(
             player_seasons,
@@ -1472,8 +1478,55 @@ def season_page(year: int) -> dict[str, Any] | None:
             skip_empty=True,
         ),
         "highlights": _season_highlight_chips(year, draft=draft, wire=wire, trades=trades),
-        "stacks": _season_stacks(year),
     }
+    if pane == "weeks":
+        data["notables"] = _season_notables(year)
+        data["marks"] = week_marks_season(year)
+    elif pane == "lineups":
+        data["lineups"] = _season_lineups(year)
+    elif pane == "stacks":
+        data["stacks"] = _season_stacks(year)
+    return data
+
+
+def season_board(year: int, name: str) -> dict[str, Any] | None:
+    """One deferred season board. Does not load the rest of the season page."""
+    current = season_row(year)
+    if current is None:
+        return None
+    through = current.get("through_week")
+    data: dict[str, Any] = {
+        "current": current,
+        "now_week": int(through) if through else None,
+    }
+    if name == "universes":
+        data["universes"] = _season_universes(year)
+        data["ranks"] = universe_ranks(year)
+    elif name == "power":
+        data["power"] = _power_board(year)
+    elif name == "heat":
+        data["heat"] = _week_rank_heat(year)
+    elif name == "race":
+        data["race"] = _points_race_chart(year)
+    elif name == "weeks":
+        data["schedule"] = season_schedule(year)
+        data["notables"] = _season_notables(year)
+        data["marks"] = week_marks_season(year)
+    elif name == "playoffs":
+        data["schedule"] = season_schedule(year)
+        data["path"] = _playoff_path(year)
+    elif name == "moves":
+        data["trades"] = _season_trades(year)
+        data["wire"] = _season_wire(year)
+    elif name == "draft":
+        data["draft"] = _season_draft(year)
+    elif name == "lineups":
+        data["lineups"] = _season_lineups(year)
+    elif name == "stacks":
+        data["stacks"] = _season_stacks(year)
+    else:
+        return None
+    return data
 
 
 def _season_scoring(year: int) -> dict[str, Any] | None:
@@ -3845,7 +3898,33 @@ def career_one(manager_id: str) -> dict[str, Any] | None:
     )
 
 
-def member_page(manager_id: str) -> dict[str, Any] | None:
+MEMBER_SECTIONS = frozenset(
+    {
+        "h2h",
+        "draft",
+        "wire",
+        "trades",
+        "draft-board",
+        "partners",
+        "waiver-roi",
+        "roster-shape",
+        "lineups",
+        "luck",
+        "highs",
+        "consistency",
+        "clutch",
+    }
+)
+
+
+def member_page(manager_id: str, *, section: str | None = None) -> dict[str, Any] | None:
+    """Lead (identity, seasons, hardware) plus at most one below-fold board.
+
+    ``section`` is empty on first paint. Head-to-head rows stay loaded because
+    the lede names the rival and the favorite. The table itself stays deferred.
+    """
+    if section not in MEMBER_SECTIONS:
+        section = ""
     person = career_one(manager_id)
     if person is None:
         return None
@@ -3864,29 +3943,11 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
     split = _member_record_split(manager_id)
     person["h2h_record"] = split["h2h"]
     person["median_record"] = split["median"]
-    return {
+    data: dict[str, Any] = {
         "member": person,
         "finishes": _member_finishes(manager_id),
         "h2h": h2h,
-        "draft": _member_draft(manager_id),
-        "draft_board": _member_draft_board(manager_id),
-        "wire": _member_wire(manager_id),
-        "trades": _member_trades(manager_id),
-        "trade_partners": _member_trade_partners(manager_id),
-        "waiver_roi": _member_waiver_roi(manager_id),
-        "roster_shape": _member_roster_shape(manager_id),
-        "lineups": _member_lineups(manager_id),
-        "luck": fetchone(
-            """
-            SELECT
-                lucky_wins, unlucky_losses, net_luck,
-                underdog_wins, favorite_losses, expected_wins, wins_vs_expected
-            FROM v_luck_career
-            WHERE manager_id = %(manager_id)s
-            """,
-            {"manager_id": manager_id},
-        ),
-        "highs": _member_highs(manager_id),
+        "section": section or "",
         "chairs": fetchone(
             """
             SELECT first_chair, last_chair, benched_first_chair
@@ -3908,9 +3969,41 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "kind_order": list(MARK_KIND_ORDER),
         "labels": MARK_LABELS,
         "meta": MARK_META,
-        "volatility": _manager_volatility_bundle(manager_id),
-        "clutch": _manager_clutch_bundle(manager_id),
     }
+    if section == "draft":
+        data["draft"] = _member_draft(manager_id)
+    elif section == "wire":
+        data["wire"] = _member_wire(manager_id)
+    elif section == "trades":
+        data["trades"] = _member_trades(manager_id)
+    elif section == "draft-board":
+        data["draft_board"] = _member_draft_board(manager_id)
+    elif section == "partners":
+        data["trade_partners"] = _member_trade_partners(manager_id)
+    elif section == "waiver-roi":
+        data["waiver_roi"] = _member_waiver_roi(manager_id)
+    elif section == "roster-shape":
+        data["roster_shape"] = _member_roster_shape(manager_id)
+    elif section == "lineups":
+        data["lineups"] = _member_lineups(manager_id)
+    elif section == "luck":
+        data["luck"] = fetchone(
+            """
+            SELECT
+                lucky_wins, unlucky_losses, net_luck,
+                underdog_wins, favorite_losses, expected_wins, wins_vs_expected
+            FROM v_luck_career
+            WHERE manager_id = %(manager_id)s
+            """,
+            {"manager_id": manager_id},
+        )
+    elif section == "highs":
+        data["highs"] = _member_highs(manager_id)
+    elif section == "consistency":
+        data["volatility"] = _manager_volatility_bundle(manager_id)
+    elif section == "clutch":
+        data["clutch"] = _manager_clutch_bundle(manager_id)
+    return data
 
 
 def _member_marks(manager_id: str, display_name: str | None = None) -> dict[str, Any] | None:
@@ -7242,69 +7335,17 @@ def scoring_sheet(year: int) -> dict[str, Any] | None:
 
 
 def records_page() -> dict[str, Any]:
-    packed = marks_page()
-    streaks = _record_longest_streaks()
-    return {
-        "high_weeks": high_weeks(),
-        "low_weeks": low_weeks(),
-        "blowouts": blowouts(),
-        "closest": closest_games(),
-        "trades": lopsided_trades(),
-        "draft_hits": _record_draft_picks(worst=False),
-        "draft_misses": _record_draft_picks(worst=True),
-        "drafts": _record_drafts(),
-        "wire_adds": _record_wire_adds(),
-        "wire_misses": _record_wire_misses(),
-        "wire_unclaimed": _fa_week_leaders(limit=10),
-        "wire_unclaimed_seasons": _fa_best_week_by_season(),
-        "wire_fa_leaders": _fa_season_leaders(limit=10),
-        "bench_weeks": _record_bench_weeks(),
-        "bench_seasons": _record_bench_seasons(),
-        "win_streaks": streaks["win"],
-        "loss_streaks": streaks["loss"],
-        "current_streaks": current_streaks(),
-        "season_pf": _record_season_pf(),
-        "season_all_play": _record_season_all_play(),
-        "season_luck": _record_season_luck(),
-        "season_pine": _record_bench_seasons(),
-        "playoff_weeks": _record_playoff_weeks(),
-        "playoff_wins": _record_playoff_career(),
-        "chairs": _record_chairs(),
-        "holders": packed["holders"],
-        "labels": packed["labels"],
-        "kind_order": packed["kind_order"],
-        "meta": packed["meta"],
-        "median_tax": median_tax(),
-        "platform": _platform_split_table(),
-        "title_droughts": _title_droughts(),
-        "season_pct": _record_season_pct(),
-        "title_games": _record_title_games(),
-        "fa_adds": _record_fa_adds(),
-        "wire_eras": _wire_eras(),
-        "coaches": management_career(),
-        "draft_capital": _record_draft_capital(),
-        "trade_partners": _record_trade_partners(),
-        "waiver_roi": _record_waiver_roi(),
-        "roster_shape": _record_roster_shape(),
-        "awards": _record_awards(),
-        "journeymen": _record_journeymen(),
-        "most_traded": _record_most_traded(),
-        "rings": _record_rings(),
-        "counting_leaders": _record_counting_leaders(),
-        "counting_summaries": _record_counting_summaries(),
-        "positional_finish_leaders": _record_positional_finishes(),
-        "league_week_records": _record_league_weeks(),
-        "scoring_seasons": _scoring_environment_table(),
-        "consistency": _record_consistency(),
-        "one_score": _record_one_score_career(),
-        "blowout_record": _record_blowout_career(),
-        "pythagorean": _record_pythagorean(),
-        "clutch_cuts": _clutch_cuts(),
-        "stacks": _record_stacks(),
-        "lineup_counting": _record_lineup_counting(),
-        "playoff_history": _record_playoff_history(),
-        "universe_replay": _record_universe_replay(),
-    }
+    """Full record book: the chapter loaders, then the holder facts.
+
+    season_pine repeats the bench-season board. The template never reads it,
+    so one call fills both keys.
+    """
+    data: dict[str, Any] = {}
+    for spec in _RECORD_CHAPTER_SPECS:
+        data.update(spec["load"]())
+    data.update(marks_page())
+    data["season_pine"] = data["bench_seasons"]
+    return data
 
 
 def _record_season_pf(limit: int = 10) -> dict[str, list[dict[str, Any]]]:
@@ -9964,4 +10005,1427 @@ def _universe_replay_year(
         "runner_up_name": official["runner_up_name"],
         "boards": boards,
         "any_champion_differs": any_champion_differs,
+    }
+
+# --- B2 record chapters (#97). Append-only loaders.
+# records_page() composes these. A chapter route calls one loader.
+# The index calls records_index_page() and does not build the other boards.
+
+
+def _load_records_awards() -> dict[str, Any]:
+    return {"awards": _record_awards()}
+
+
+def _load_records_season() -> dict[str, Any]:
+    return {
+        "season_pf": _record_season_pf(),
+        "season_all_play": _record_season_all_play(),
+        "season_luck": _record_season_luck(),
+        "season_pct": _record_season_pct(),
+    }
+
+
+def _load_records_clutch() -> dict[str, Any]:
+    return {
+        "consistency": _record_consistency(),
+        "pythagorean": _record_pythagorean(),
+        "one_score": _record_one_score_career(),
+        "blowout_record": _record_blowout_career(),
+        "clutch_cuts": _clutch_cuts(),
+    }
+
+
+def _load_records_playoff() -> dict[str, Any]:
+    return {
+        "playoff_weeks": _record_playoff_weeks(),
+        "playoff_wins": _record_playoff_career(),
+        "title_games": _record_title_games(),
+    }
+
+
+def _load_records_chairs() -> dict[str, Any]:
+    return {"chairs": _record_chairs()}
+
+
+def _load_records_environment() -> dict[str, Any]:
+    return {
+        "median_tax": median_tax(),
+        "platform": _platform_split_table(),
+        "wire_eras": _wire_eras(),
+        "fa_adds": _record_fa_adds(),
+        "high_weeks": high_weeks(),
+        "low_weeks": low_weeks(),
+        "league_week_records": _record_league_weeks(),
+        "scoring_seasons": _scoring_environment_table(),
+    }
+
+
+def _load_records_games() -> dict[str, Any]:
+    return {"blowouts": blowouts(), "closest": closest_games()}
+
+
+def _load_records_trades() -> dict[str, Any]:
+    return {
+        "trades": lopsided_trades(),
+        "most_traded": _record_most_traded(),
+        "journeymen": _record_journeymen(),
+        "trade_partners": _record_trade_partners(),
+    }
+
+
+def _load_records_rings() -> dict[str, Any]:
+    return {"rings": _record_rings()}
+
+
+def _load_records_draft() -> dict[str, Any]:
+    return {
+        "draft_hits": _record_draft_picks(worst=False),
+        "draft_misses": _record_draft_picks(worst=True),
+        "drafts": _record_drafts(),
+        "draft_capital": _record_draft_capital(),
+    }
+
+
+def _load_records_roster() -> dict[str, Any]:
+    return {
+        "waiver_roi": _record_waiver_roi(),
+        "roster_shape": _record_roster_shape(),
+    }
+
+
+def _load_records_wire() -> dict[str, Any]:
+    return {
+        "wire_adds": _record_wire_adds(),
+        "wire_misses": _record_wire_misses(),
+        "wire_unclaimed": _fa_week_leaders(limit=10),
+        "wire_unclaimed_seasons": _fa_best_week_by_season(),
+        "wire_fa_leaders": _fa_season_leaders(limit=10),
+    }
+
+
+def _load_records_lineups() -> dict[str, Any]:
+    return {
+        "bench_weeks": _record_bench_weeks(),
+        "bench_seasons": _record_bench_seasons(),
+        "lineup_counting": _record_lineup_counting(),
+    }
+
+
+def _load_records_counting() -> dict[str, Any]:
+    summaries = _record_counting_summaries()
+    return {
+        "counting_leaders": _record_counting_leaders(),
+        "positional_finish_leaders": _record_positional_finishes(),
+        "counting_summaries": summaries,
+    }
+
+
+def _load_records_coach() -> dict[str, Any]:
+    return {"coaches": management_career()}
+
+
+def _load_records_streaks() -> dict[str, Any]:
+    streaks = _record_longest_streaks()
+    return {
+        "win_streaks": streaks["win"],
+        "loss_streaks": streaks["loss"],
+        "current_streaks": current_streaks(),
+        "title_droughts": _title_droughts(),
+    }
+
+
+def _load_records_stacks() -> dict[str, Any]:
+    return {"stacks": _record_stacks()}
+
+
+def _load_records_playoff_history() -> dict[str, Any]:
+    return {"playoff_history": _record_playoff_history()}
+
+
+def _load_records_universe() -> dict[str, Any]:
+    return {"universe_replay": _record_universe_replay()}
+
+
+def _record_num(value: Any, spec: str) -> str | None:
+    if value is None:
+        return None
+    return format(float(value), spec)
+
+
+def _taste_awards() -> str:
+    # Same rows as the Season awards board, latest decided champion.
+    for row in reversed(_record_awards()):
+        if row.get("champion"):
+            return f"{row['year']} champion {row['champion']}"
+    return "Champion, runner-up, scoring title, and last place by year."
+
+
+def _taste_season() -> str:
+    # Most PF board, first row. limit=1 keeps the same ORDER BY.
+    rows = _record_season_pf(limit=1)["high"]
+    if not rows:
+        return "Finished-season points, winning percentage, all-play, and luck."
+    row = rows[0]
+    points = _record_num(row.get("points_for"), ".1f")
+    return f"Most PF: {row['display_name']} {row['year']} · {points}"
+
+
+def _taste_clutch() -> str:
+    # Steadiest seasons, first row.
+    rows = _record_consistency(limit=1)["steady"]
+    if not rows:
+        return "Consistency, Pythagorean wins, one-score record, and blowout record."
+    row = rows[0]
+    cv = _record_num(row.get("cv"), ".2f")
+    return f"Steadiest: {row['display_name']} {row['year']} · CV {cv}"
+
+
+def _taste_playoff() -> str:
+    rows = _record_playoff_weeks(limit=1)
+    if not rows:
+        return "Highest playoff week, career playoff wins, and title-game margins."
+    row = rows[0]
+    points = _record_num(row.get("points"), ".1f")
+    return f"Highest playoff week: {row['display_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_chairs() -> str:
+    rows = _record_chairs(limit=1)["first"]
+    if not rows:
+        return "Varsity Letter, Varsity Farmer, and Beat the Freeze weeks."
+    row = rows[0]
+    return f"Most Varsity Letter weeks: {row['display_name']} · {int(row['first_chair'])}"
+
+
+def _taste_environment() -> str:
+    # Highest weeks, first row. The other environment boards stay on the chapter.
+    rows = high_weeks(limit=1)
+    if not rows:
+        return "Median tax, platforms, waiver eras, week highs and lows, and the scoring environment."
+    row = rows[0]
+    points = _record_num(row.get("points"), ".2f")
+    return f"Highest week: {row['display_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_games() -> str:
+    rows = blowouts(limit=1)
+    if not rows:
+        return "Biggest blowouts and closest games."
+    row = rows[0]
+    if row["points"] >= row["opp_points"]:
+        winner, loser = row["manager_name"], row["opponent_name"]
+    else:
+        winner, loser = row["opponent_name"], row["manager_name"]
+    margin = _record_num(row.get("abs_margin"), ".1f")
+    return f"Biggest blowout: {winner} over {loser}, {row['year']} W{row['week']} · {margin}"
+
+
+def _taste_trades() -> str:
+    rows = lopsided_trades(limit=1)
+    if not rows:
+        return "Lopsided trades, most traded, journeymen, and trade partners."
+    row = rows[0]
+    gap = _record_num(row["verdict"].get("gap"), ".0f")
+    return f"Most lopsided: {row['home']['name']} over {row['away']['name']}, {row['year']} W{row['week']} · {gap}"
+
+
+def _taste_rings() -> str:
+    # First row of the rings board (champ weeks, then title starts).
+    rows = _record_rings()["rows"]
+    if not rows:
+        return "Championship-roster weeks, title starts, and rings."
+    row = rows[0]
+    return f"{row['player_name']} · {int(row['champ_roster_weeks'])} champ weeks"
+
+
+def _taste_draft() -> str:
+    rows = _record_draft_picks(worst=False, limit=1)
+    if not rows or rows[0].get("vs_vorp") is None:
+        return "Best and worst picks versus round, best drafts, and career draft capital."
+    row = rows[0]
+    edge = _record_num(row.get("vs_vorp"), "+.1f")
+    return f"Best vs round: {row['player_name']} {row['year']} · {edge}"
+
+
+def _taste_roster() -> str:
+    # Career waiver board, first row (per-priority order).
+    rows = _record_waiver_roi()["career"]
+    if not rows or rows[0].get("vorp_per_priority") is None:
+        return "Waiver priority and roster shape."
+    row = rows[0]
+    per = _record_num(row.get("vorp_per_priority"), "+.1f")
+    return f"Per priority: {row['manager_name']} · {per}"
+
+
+def _taste_wire() -> str:
+    rows = _record_wire_adds(limit=1)
+    if not rows or rows[0].get("ros_vorp") is None:
+        return "Best adds, costliest misses, and what was left on the wire."
+    row = rows[0]
+    vorp = _record_num(row.get("ros_vorp"), "+.1f")
+    return f"Best add: {row['player_name']} · {vorp}"
+
+
+def _taste_lineups() -> str:
+    rows = _record_bench_weeks(limit=1)
+    if not rows or rows[0].get("left_on_bench") is None:
+        return "Worst bench weeks and seasons, and lineup counting."
+    row = rows[0]
+    left = _record_num(row.get("left_on_bench"), ".0f")
+    return f"Worst week: {row['manager_name']} {row['year']} W{row['week']} · \u2212{left}"
+
+
+def _taste_counting() -> str:
+    # The counting scans are the expensive part of the old book. The index
+    # names the boards and leaves the numbers on the chapter page.
+    return "Single-week highs, weekly positional finishes, and season and career sums."
+
+
+def _taste_coach() -> str:
+    rows = management_career(limit=1)
+    if not rows or rows[0].get("management_pct") is None:
+        return "Actual points over optimal lineups."
+    row = rows[0]
+    pct = _record_num(float(row["management_pct"]) * 100, ".1f")
+    return f"{row['display_name']} · {pct}%"
+
+
+def _taste_streaks() -> str:
+    rows = _record_longest_streaks(limit=1)["win"]
+    if not rows:
+        return "Win streaks, loss streaks, current streaks, and title droughts."
+    row = rows[0]
+    return f"Longest win streak: {row['display_name']} · {int(row['length'])}"
+
+
+def _taste_stacks() -> str:
+    # Same statement as the best-weeks board, one row. Skips the compare and coverage queries.
+    rows = _stack_weeks("kind = 'regular'", limit=1)
+    if not rows or rows[0].get("combined_points") is None:
+        return "Best stack weeks, season leaders, and the league comparison."
+    row = rows[0]
+    points = _record_num(row.get("combined_points"), ".2f")
+    return f"Best week: {row['manager_name']} {row['year']} W{row['week']} · {points}"
+
+
+def _taste_playoff_history() -> str:
+    return "Seed, result, and every series for each finished season."
+
+
+def _taste_universe() -> str:
+    # The bracket query is the slow statement in the old book. It stays on the chapter.
+    return "Both simulated brackets for every finished season."
+
+
+_RECORD_CHAPTER_SPECS: tuple[dict[str, Any], ...] = (
+    {
+        "slug": "awards",
+        "title": "Season awards",
+        "template": "records/chapters/awards.html",
+        "anchors": (("awards", "Season awards"),),
+        "load": _load_records_awards,
+        "taste": _taste_awards,
+    },
+    {
+        "slug": "season",
+        "title": "Season",
+        "template": "records/chapters/season.html",
+        "anchors": (("season", "Season"),),
+        "load": _load_records_season,
+        "taste": _taste_season,
+    },
+    {
+        "slug": "clutch",
+        "title": "Consistency and clutch",
+        "template": "records/chapters/clutch.html",
+        "anchors": (
+            ("clutch", "Consistency and clutch"),
+            ("consistency", "Weekly consistency"),
+            ("pythagorean", "Pythagorean wins"),
+            ("one-score", "One-score record"),
+            ("blowout-record", "Blowout record"),
+        ),
+        "load": _load_records_clutch,
+        "taste": _taste_clutch,
+    },
+    {
+        "slug": "playoff",
+        "title": "Playoff",
+        "template": "records/chapters/playoff.html",
+        "anchors": (("playoff", "Playoff"),),
+        "load": _load_records_playoff,
+        "taste": _taste_playoff,
+    },
+    {
+        "slug": "chairs",
+        "title": "Weekly honors",
+        "template": "records/chapters/chairs.html",
+        "anchors": (("chairs", "Weekly honors"),),
+        "load": _load_records_chairs,
+        "taste": _taste_chairs,
+    },
+    {
+        "slug": "environment",
+        "title": "Weeks and scoring environment",
+        "template": "records/chapters/environment.html",
+        "anchors": (
+            ("median", "Median tax"),
+            ("platform", "Platform split"),
+            ("eras", "Waiver era vs FAAB era"),
+            ("high", "Highest weeks"),
+            ("low", "Lowest weeks"),
+            ("league-high", "League weeks"),
+            ("league-low", "Lowest totals"),
+            ("league-mean", "Highest means"),
+            ("environment", "Scoring environment"),
+        ),
+        "load": _load_records_environment,
+        "taste": _taste_environment,
+    },
+    {
+        "slug": "games",
+        "title": "Blowouts and closest games",
+        "template": "records/chapters/games.html",
+        "anchors": (
+            ("blowouts", "Biggest blowouts"),
+            ("closest", "Closest games"),
+        ),
+        "load": _load_records_games,
+        "taste": _taste_games,
+    },
+    {
+        "slug": "trades",
+        "title": "Trades",
+        "template": "records/chapters/trades.html",
+        "anchors": (
+            ("trades", "Most lopsided trades"),
+            ("traded", "Most traded"),
+            ("journeymen", "Journeymen"),
+            ("partners", "Trade partners"),
+        ),
+        "load": _load_records_trades,
+        "taste": _taste_trades,
+    },
+    {
+        "slug": "rings",
+        "title": "Rings",
+        "template": "records/chapters/rings.html",
+        "anchors": (("rings", "Rings"),),
+        "load": _load_records_rings,
+        "taste": _taste_rings,
+    },
+    {
+        "slug": "draft",
+        "title": "Draft",
+        "template": "records/chapters/draft.html",
+        "anchors": (
+            ("draft", "Draft"),
+            ("draft-capital", "Career draft capital"),
+        ),
+        "load": _load_records_draft,
+        "taste": _taste_draft,
+    },
+    {
+        "slug": "roster",
+        "title": "Waivers and roster shape",
+        "template": "records/chapters/roster.html",
+        "anchors": (
+            ("waiver-roi", "Waiver priority"),
+            ("roster-shape", "Roster shape"),
+        ),
+        "load": _load_records_roster,
+        "taste": _taste_roster,
+    },
+    {
+        "slug": "wire",
+        "title": "Wire",
+        "template": "records/chapters/wire.html",
+        "anchors": (
+            ("wire", "Wire"),
+            ("wire-left", "Left on the wire"),
+        ),
+        "load": _load_records_wire,
+        "taste": _taste_wire,
+    },
+    {
+        "slug": "lineups",
+        "title": "Bench and lineup counting",
+        "template": "records/chapters/lineups.html",
+        "anchors": (
+            ("lineups", "Bench"),
+            ("lineup-counting", "Lineup counting"),
+        ),
+        "load": _load_records_lineups,
+        "taste": _taste_lineups,
+    },
+    {
+        "slug": "counting",
+        "title": "Counting stats",
+        "template": "records/chapters/counting.html",
+        "anchors": (
+            ("counting", "Counting stats"),
+            ("finishes", "Weekly positional finishes"),
+            ("counting-season", "Season counting"),
+            ("counting-career", "Career counting"),
+        ),
+        "load": _load_records_counting,
+        "taste": _taste_counting,
+    },
+    {
+        "slug": "coach",
+        "title": "Coaching",
+        "template": "records/chapters/coach.html",
+        "anchors": (("coach", "Coaching"),),
+        "load": _load_records_coach,
+        "taste": _taste_coach,
+    },
+    {
+        "slug": "streaks",
+        "title": "Streaks",
+        "template": "records/chapters/streaks.html",
+        "anchors": (
+            ("wins", "Longest win streaks"),
+            ("losses", "Longest loss streaks"),
+            ("current", "Current streaks"),
+            ("drought", "Title droughts"),
+        ),
+        "load": _load_records_streaks,
+        "taste": _taste_streaks,
+    },
+    {
+        "slug": "stacks",
+        "title": "Stacks",
+        "template": "records/chapters/stacks.html",
+        "anchors": (("stacks", "Stacks"),),
+        "load": _load_records_stacks,
+        "taste": _taste_stacks,
+    },
+    {
+        "slug": "playoff-history",
+        "title": "Playoff history",
+        "template": "records/chapters/playoff-history.html",
+        "anchors": (("playoff-history", "Playoff history"),),
+        "load": _load_records_playoff_history,
+        "taste": _taste_playoff_history,
+    },
+    {
+        "slug": "universe-replay",
+        "title": "Universe brackets",
+        "template": "records/chapters/universe-replay.html",
+        "anchors": (("universe-replay", "Universe brackets"),),
+        "load": _load_records_universe,
+        "taste": _taste_universe,
+    },
+)
+
+
+def _check_record_chapters() -> None:
+    slugs: set[str] = set()
+    anchors: set[str] = set()
+    for spec in _RECORD_CHAPTER_SPECS:
+        if spec["slug"] in slugs:
+            raise RuntimeError(f"duplicate record chapter {spec['slug']}")
+        slugs.add(spec["slug"])
+        for anchor_id, _label in spec["anchors"]:
+            if anchor_id in anchors:
+                raise RuntimeError(f"duplicate record anchor {anchor_id}")
+            anchors.add(anchor_id)
+
+
+_check_record_chapters()
+
+
+def _chapter_link(spec: dict[str, Any] | None) -> dict[str, str] | None:
+    if spec is None:
+        return None
+    return {"slug": spec["slug"], "title": spec["title"]}
+
+
+def record_chapter_view(slug: str) -> dict[str, Any] | None:
+    """One chapter: its loader output, plus prev/next for the shell."""
+    specs = _RECORD_CHAPTER_SPECS
+    for index, spec in enumerate(specs):
+        if spec["slug"] != slug:
+            continue
+        prev_spec = specs[index - 1] if index else None
+        next_spec = specs[index + 1] if index + 1 < len(specs) else None
+        return {
+            "template": spec["template"],
+            "chapter": {
+                "slug": spec["slug"],
+                "title": spec["title"],
+                "anchors": [{"id": anchor_id, "label": label} for anchor_id, label in spec["anchors"]],
+            },
+            "prev": _chapter_link(prev_spec),
+            "next": _chapter_link(next_spec),
+            "context": spec["load"](),
+        }
+    return None
+
+
+def records_index_page() -> dict[str, Any]:
+    """Holders plus one cheap taste per chapter. Does not build the other boards."""
+    data = marks_page()
+    chapters: list[dict[str, Any]] = []
+    anchor_chapters: dict[str, str] = {}
+    for spec in _RECORD_CHAPTER_SPECS:
+        anchors = [{"id": anchor_id, "label": label} for anchor_id, label in spec["anchors"]]
+        for anchor in anchors:
+            anchor_chapters[anchor["id"]] = spec["slug"]
+        chapters.append(
+            {
+                "slug": spec["slug"],
+                "title": spec["title"],
+                "taste": spec["taste"](),
+                "anchors": anchors,
+            }
+        )
+    data["chapters"] = chapters
+    data["anchor_chapters"] = anchor_chapters
+    return data
+
+
+# ---------------------------------------------------------------------------
+# B1 player anatomy (#96). Append-only. The profile, game log, and splits
+# pages read these marks. Nothing here writes, and nothing above is edited.
+#
+# Season "led the league" is the maximum on a finished season (v_finished_seasons).
+# The in-progress year is not marked: the record book leaves it off those boards.
+# Career gold is the maximum across players. Italic is the maximum among players
+# whose last rostered year is the latest year on v_players_index_career, and
+# only when that player does not also hold the all-time mark.
+# TEAM_* counting rows are NFL team totals and are excluded, matching the
+# record-book boards. A tie with the maximum is a mark. Starts can tie when
+# several players started every week; that tie is real and is marked.
+# ---------------------------------------------------------------------------
+
+
+def _anatomy_tied(value: Any, leader: Any, places: int | None) -> bool:
+    if value is None or leader is None:
+        return False
+    if places is None:
+        return int(value) == int(leader)
+    return round(float(value), places) == round(float(leader), places)
+
+
+def _anatomy_ok(leader: Any, *, positive: bool) -> bool:
+    if leader is None:
+        return False
+    if not positive:
+        return True
+    return float(leader) > 0
+
+
+def _anatomy_career_kind(
+    value: Any,
+    all_time: Any,
+    active: Any,
+    places: int | None,
+    *,
+    positive: bool,
+) -> str:
+    if _anatomy_tied(value, all_time, places) and _anatomy_ok(all_time, positive=positive):
+        return "record"
+    if _anatomy_tied(value, active, places) and _anatomy_ok(active, positive=positive):
+        return "active"
+    return ""
+
+
+def _anatomy_counting_specs() -> tuple[list[str], list[tuple[str, bool, int, str]]]:
+    sums: list[str] = []
+    rates: list[tuple[str, bool, int, str]] = []
+    seen: set[str] = set()
+    for _slug, column, _label, _unit, descending, min_games, gate in _COUNTING_SUMMARY_BOARDS:
+        if not column.isidentifier():
+            continue
+        if column.endswith("_pg"):
+            rates.append((column, bool(descending), int(min_games), str(gate)))
+        elif column not in seen:
+            seen.add(column)
+            sums.append(column)
+    return sums, rates
+
+
+def _anatomy_rate_filter(min_games: int, gate: str) -> str:
+    parts = ["player_id NOT LIKE 'TEAM_%%'"]
+    if gate == "DEF":
+        parts.append("position = 'DEF'")
+    elif gate and gate.isidentifier():
+        parts.append(f"{gate} > 0")
+    if min_games:
+        parts.append(f"games >= {int(min_games)}")
+    return " AND ".join(parts)
+
+
+def player_anatomy(player_id: str) -> dict[str, Any]:
+    """Fantasy points and leader marks for one player's profile tables.
+
+    Summary marks use v_players_index_season / v_players_index_career.
+    Counting marks use the same columns and gates as the record-book
+    counting boards. Columns with no board are not marked and not linked.
+    """
+    sums, rates = _anatomy_counting_specs()
+    finished_rows = fetchall(
+        """
+        SELECT year
+        FROM v_finished_seasons
+        WHERE regular_season_complete
+        ORDER BY year
+        """
+    )
+    finished = [int(row["year"]) for row in finished_rows]
+    active_rows = fetchall(
+        """
+        SELECT player_id
+        FROM v_players_index_career
+        WHERE last_year = (SELECT max(last_year) FROM v_players_index_career)
+        """
+    )
+    active_ids = [row["player_id"] for row in active_rows]
+    summary_caps = {
+        int(row["year"]): row
+        for row in fetchall(
+            """
+            SELECT
+                year,
+                max(starts) AS starts,
+                max(started_points) AS started_points,
+                max(points) AS points,
+                max(started_vorp) AS started_vorp
+            FROM v_players_index_season
+            WHERE year = ANY(%(years)s)
+            GROUP BY year
+            """,
+            {"years": finished},
+        )
+    }
+    mine = fetchall(
+        """
+        SELECT year, starts, started_points, points, started_vorp
+        FROM v_players_index_season
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    career = fetchone(
+        """
+        SELECT starts, starter_points, started_vorp, last_year
+        FROM v_players_index_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    career_caps = fetchone(
+        """
+        SELECT
+            max(starts) AS starts,
+            max(starter_points) AS starter_points,
+            max(started_vorp) AS started_vorp,
+            max(starts) FILTER (WHERE player_id = ANY(%(active)s)) AS active_starts,
+            max(starter_points) FILTER (WHERE player_id = ANY(%(active)s)) AS active_starter_points,
+            max(started_vorp) FILTER (WHERE player_id = ANY(%(active)s)) AS active_started_vorp
+        FROM v_players_index_career
+        """,
+        {"active": active_ids},
+    ) or {}
+    fant = fetchone(
+        """
+        SELECT
+            max(total) AS all_time,
+            max(total) FILTER (WHERE player_id = ANY(%(active)s)) AS active
+        FROM (
+            SELECT player_id, sum(points) AS total
+            FROM v_players_index_season
+            GROUP BY player_id
+        ) totals
+        """,
+        {"active": active_ids},
+    ) or {}
+    summary_fields = (
+        ("starts", None, True),
+        ("started_points", 2, True),
+        ("points", 2, True),
+        ("started_vorp", 2, False),
+    )
+    summary_season: dict[int, dict[str, str]] = {}
+    fantasy: dict[int, float] = {}
+    fantasy_total = 0.0
+    fantasy_seen = False
+    for row in mine:
+        year = int(row["year"])
+        if row["points"] is not None:
+            fantasy[year] = float(row["points"])
+            fantasy_total += float(row["points"])
+            fantasy_seen = True
+        cap = summary_caps.get(year)
+        if cap is None:
+            continue
+        marks: dict[str, str] = {}
+        for key, places, positive in summary_fields:
+            if _anatomy_tied(row.get(key), cap.get(key), places) and _anatomy_ok(
+                cap.get(key), positive=positive
+            ):
+                marks[key] = "leader"
+        if marks:
+            summary_season[year] = marks
+    summary_career: dict[str, str] = {}
+    if career is not None:
+        summary_career["starts"] = _anatomy_career_kind(
+            career.get("starts"),
+            career_caps.get("starts"),
+            career_caps.get("active_starts"),
+            None,
+            positive=True,
+        )
+        summary_career["started_points"] = _anatomy_career_kind(
+            career.get("starter_points"),
+            career_caps.get("starter_points"),
+            career_caps.get("active_starter_points"),
+            2,
+            positive=True,
+        )
+        summary_career["started_vorp"] = _anatomy_career_kind(
+            career.get("started_vorp"),
+            career_caps.get("started_vorp"),
+            career_caps.get("active_started_vorp"),
+            2,
+            positive=False,
+        )
+        summary_career = {key: kind for key, kind in summary_career.items() if kind}
+    if fantasy_seen:
+        fant_kind = _anatomy_career_kind(
+            fantasy_total,
+            fant.get("all_time"),
+            fant.get("active"),
+            2,
+            positive=True,
+        )
+        if fant_kind:
+            summary_career["points"] = fant_kind
+    sum_sql = ",\n".join(
+        f"max({column}) FILTER (WHERE player_id NOT LIKE 'TEAM_%%') AS {column}"
+        for column in sums
+    )
+    rate_sql_bits: list[str] = []
+    for column, descending, min_games, gate in rates:
+        fn = "max" if descending else "min"
+        alias = f"{column}_{'high' if descending else 'low'}"
+        rate_sql_bits.append(
+            f"{fn}({column}) FILTER (WHERE {_anatomy_rate_filter(min_games, gate)}) AS {alias}"
+        )
+    rate_sql = ",\n".join(rate_sql_bits)
+    select_bits = ",\n".join(bit for bit in (sum_sql, rate_sql) if bit)
+    counting_caps = {
+        int(row["year"]): row
+        for row in fetchall(
+            f"""
+            SELECT year,
+            {select_bits}
+            FROM v_player_counting_season
+            WHERE year = ANY(%(years)s)
+            GROUP BY year
+            """,
+            {"years": finished},
+        )
+    } if select_bits and finished else {}
+    active_sum = ",\n".join(
+        "max({column}) FILTER (WHERE player_id NOT LIKE 'TEAM_%%' AND player_id = ANY(%(active)s)) AS active_{column}".format(
+            column=column
+        )
+        for column in sums
+    )
+    active_rate_bits = []
+    for column, descending, min_games, gate in rates:
+        fn = "max" if descending else "min"
+        alias = f"active_{column}_{'high' if descending else 'low'}"
+        active_rate_bits.append(
+            "{fn}({column}) FILTER (WHERE {filt} AND player_id = ANY(%(active)s)) AS {alias}".format(
+                fn=fn,
+                column=column,
+                filt=_anatomy_rate_filter(min_games, gate),
+                alias=alias,
+            )
+        )
+    career_select = ",\n".join(
+        bit for bit in (sum_sql, rate_sql, active_sum, ",\n".join(active_rate_bits)) if bit
+    )
+    counting_career_caps = fetchone(
+        f"""
+        SELECT
+        {career_select}
+        FROM v_player_counting_career
+        """,
+        {"active": active_ids},
+    ) if career_select else None
+    counting_career_caps = counting_career_caps or {}
+    mine_seasons = fetchall(
+        """
+        SELECT *
+        FROM v_player_counting_season
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    mine_career = fetchone(
+        """
+        SELECT *
+        FROM v_player_counting_career
+        WHERE player_id = %(player_id)s
+        """,
+        {"player_id": player_id},
+    )
+    counting_season: dict[int, dict[str, str]] = {}
+    if not str(player_id).startswith("TEAM_"):
+        for row in mine_seasons:
+            year = int(row["year"])
+            cap = counting_caps.get(year)
+            if cap is None:
+                continue
+            marks = {}
+            for column in sums:
+                if _anatomy_tied(row.get(column), cap.get(column), None) and _anatomy_ok(
+                    cap.get(column), positive=True
+                ):
+                    marks[column] = "leader"
+            for column, descending, min_games, gate in rates:
+                if gate == "DEF" and row.get("position") != "DEF":
+                    continue
+                if min_games and int(row.get("games") or 0) < min_games:
+                    continue
+                alias = f"{column}_{'high' if descending else 'low'}"
+                if _anatomy_tied(row.get(column), cap.get(alias), 4):
+                    marks[column] = "leader"
+            if marks:
+                counting_season[year] = marks
+    counting_career: dict[str, str] = {}
+    if mine_career is not None and not str(player_id).startswith("TEAM_"):
+        for column in sums:
+            kind = _anatomy_career_kind(
+                mine_career.get(column),
+                counting_career_caps.get(column),
+                counting_career_caps.get(f"active_{column}"),
+                None,
+                positive=True,
+            )
+            if kind:
+                counting_career[column] = kind
+        for column, descending, min_games, gate in rates:
+            if gate == "DEF" and mine_career.get("position") != "DEF":
+                continue
+            if min_games and int(mine_career.get("games") or 0) < min_games:
+                continue
+            alias = f"{column}_{'high' if descending else 'low'}"
+            kind = _anatomy_career_kind(
+                mine_career.get(column),
+                counting_career_caps.get(alias),
+                counting_career_caps.get(f"active_{alias}"),
+                4,
+                positive=False,
+            )
+            if kind:
+                counting_career[column] = kind
+    linked = list(sums)
+    for column, _descending, _min_games, _gate in rates:
+        if column not in linked:
+            linked.append(column)
+    return {
+        "summary_season": summary_season,
+        "summary_career": summary_career,
+        "counting_season": counting_season,
+        "counting_career": counting_career,
+        "fantasy": fantasy,
+        "fantasy_total": fantasy_total if fantasy_seen else None,
+        "linked_columns": linked,
+    }
+
+
+# --- C1a era90 portal facts (#100). Read-only. Nothing above is edited. ---
+
+_ERA_MONTHS = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
+
+
+def era90_last_updated() -> str | None:
+    """The date the load stamped onto the player catalog.
+
+    There is no ``load_ledger`` relation. ``players.catalog_as_of`` is the
+    catalog file date ``load`` writes on every player row. The maximum is
+    that stamp, which is the same value on every row after a load.
+    """
+    row = fetchone("SELECT max(catalog_as_of) AS as_of FROM players")
+    as_of = None if row is None else row.get("as_of")
+    if as_of is None or not hasattr(as_of, "month"):
+        return None
+    return f"{as_of.day} {_ERA_MONTHS[as_of.month - 1]} {as_of.year}"
+
+
+def era90_ticker(year: int | None) -> list[dict[str, str]]:
+    """Week results and record alerts for the static CommWire line."""
+    items: list[dict[str, str]] = []
+    if year is not None:
+        games = fetchall(
+            """
+            SELECT
+                m.week,
+                m.id,
+                hm.display_name AS home_name,
+                am.display_name AS away_name,
+                m.home_points,
+                m.away_points
+            FROM matchups m
+            LEFT JOIN managers hm ON hm.id = m.home_manager_id
+            LEFT JOIN managers am ON am.id = m.away_manager_id
+            JOIN seasons s ON s.year = m.year
+            WHERE m.year = %(year)s
+              AND m.week = (
+                  SELECT max(pw.week)
+                  FROM v_posted_weeks pw
+                  WHERE pw.year = %(year)s
+              )
+              AND m.kind IN ('regular', 'playoff', 'consolation')
+              AND (s.through_week IS NULL OR m.week <= s.through_week)
+              AND (m.home_points <> 0 OR m.away_points <> 0)
+            ORDER BY m.kind, m.id
+            """,
+            {"year": year},
+        )
+        for game in games:
+            home_pts = game.get("home_points")
+            away_pts = game.get("away_points")
+            if home_pts is None or away_pts is None:
+                continue
+            home_name = game.get("home_name") or "Home"
+            away_name = game.get("away_name") or "Away"
+            week = int(game["week"])
+            if float(home_pts) > float(away_pts):
+                text = f"W{week} {home_name} {float(home_pts):.1f}"
+            elif float(away_pts) > float(home_pts):
+                text = f"W{week} {away_name} {float(away_pts):.1f}"
+            else:
+                text = f"W{week} {home_name} tied {away_name}"
+            items.append(
+                {
+                    "text": text,
+                    "href": f"/seasons/{year}/week/{week}/{game['id']}",
+                }
+            )
+    highs = high_weeks(1)
+    if highs:
+        row = highs[0]
+        items.append(
+            {
+                "text": f"Record week {row['display_name']} {float(row['points']):.1f}",
+                "href": f"/seasons/{row['year']}/week/{row['week']}",
+            }
+        )
+    closes = closest_games(1)
+    if closes:
+        row = closes[0]
+        items.append(
+            {
+                "text": (
+                    f"Closest {row['manager_name']} vs {row['opponent_name']} "
+                    f"{float(row['abs_margin']):.2f}"
+                ),
+                "href": f"/seasons/{row['year']}/week/{row['week']}/{row['matchup_id']}",
+            }
+        )
+    return items
+
+
+# --- C2a era2010 (#101). Read-only module queries. Landed columns only. ---
+
+_ERA2010_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+
+def era2010_season_streaks(year: int) -> dict[str, str]:
+    """Trailing official result run through the end of one season.
+
+    Regular games and played median games, in week order, median after the
+    head-to-head game in that week. Ties stay in the run. The letter is W, L,
+    or T plus the length. A manager with no counted game is absent.
+    """
+    rows = fetchall(
+        """
+        SELECT manager_id, result
+        FROM v_games
+        WHERE year = %(year)s
+          AND kind IN ('regular', 'vs_median')
+          AND result IN ('win', 'loss', 'tie')
+        ORDER BY manager_id, week,
+            CASE kind WHEN 'regular' THEN 0 ELSE 1 END,
+            matchup_id
+        """,
+        {"year": year},
+    )
+    letters = {"win": "W", "loss": "L", "tie": "T"}
+    streaks: dict[str, str] = {}
+    current: str | None = None
+    last: str | None = None
+    length = 0
+
+    def close() -> None:
+        if current is None or last is None:
+            return
+        streaks[current] = f"{letters[last]}{length}"
+
+    for row in rows:
+        manager = str(row["manager_id"])
+        result = str(row["result"])
+        if manager != current:
+            close()
+            current = manager
+            last = result
+            length = 1
+            continue
+        if result == last:
+            length += 1
+        else:
+            last = result
+            length = 1
+    close()
+    return streaks
+
+
+def era2010_latest_franchises() -> dict[str, str]:
+    """Latest non-blank team name per manager. The franchise string we store."""
+    rows = fetchall(
+        """
+        SELECT DISTINCT ON (manager_id) manager_id, team_name
+        FROM team_seasons
+        WHERE team_name IS NOT NULL AND btrim(team_name) <> ''
+        ORDER BY manager_id, year DESC
+        """
+    )
+    return {str(row["manager_id"]): str(row["team_name"]).strip() for row in rows}
+
+
+def era2010_member_streak(manager_id: str) -> dict[str, Any] | None:
+    """Career trailing streak from v_streaks. is_current means it reaches that manager's last counted game."""
+    return fetchone(
+        """
+        SELECT result, length, start_year, start_week
+        FROM v_streaks
+        WHERE manager_id = %(manager_id)s AND is_current
+        LIMIT 1
+        """,
+        {"manager_id": manager_id},
+    )
+
+
+def era2010_week_matchups(year: int, week: int) -> list[dict[str, Any]]:
+    return _week_games(year, week)
+
+
+def era2010_week_roster(year: int, week: int) -> list[dict[str, Any]]:
+    """Lineup rows for one week, with the catalog club abbreviation.
+
+    players.nfl_team is the club on the player catalog, not the club during
+    that week. Callers say so on the page.
+    """
+    return fetchall(
+        """
+        SELECT
+            s.manager_id,
+            s.player_id,
+            s.player_name,
+            s.position,
+            s.slot,
+            s.started,
+            s.points,
+            NULLIF(btrim(p.nfl_team), '') AS nfl_team
+        FROM v_player_weeks s
+        LEFT JOIN players p ON p.id = s.player_id
+        WHERE s.year = %(year)s AND s.week = %(week)s
+        """,
+        {"year": year, "week": week},
+    )
+
+
+def _era2010_position(position: str) -> str:
+    return position if position in _ERA2010_POSITIONS else "QB"
+
+
+def era2010_counting_leaders(
+    year: int,
+    position: str,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Season box score for one position, ordered by fantasy points.
+
+    Weeks are posted weeks that have a player_week_scores row. Counting
+    columns sum player_week_counting_stats on those weeks. A scored week with
+    no counting row contributes zero, via coalesce on the sum.
+    """
+    position = _era2010_position(position)
+    limit_sql = "LIMIT %(limit)s" if limit is not None else ""
+    return fetchall(
+        f"""
+        SELECT
+            s.player_id,
+            max(s.player_name) AS player_name,
+            max(s.position) AS position,
+            sum(s.points) AS points,
+            coalesce(sum(c.pass_yd), 0) AS pass_yd,
+            coalesce(sum(c.pass_td), 0) AS pass_td,
+            coalesce(sum(c.pass_int), 0) AS pass_int,
+            coalesce(sum(c.rush_yd), 0) AS rush_yd,
+            coalesce(sum(c.rush_td), 0) AS rush_td,
+            coalesce(sum(c.rec), 0) AS rec,
+            coalesce(sum(c.rec_yd), 0) AS rec_yd,
+            coalesce(sum(c.rec_td), 0) AS rec_td,
+            coalesce(sum(c.fgm), 0) AS fgm,
+            coalesce(sum(c.fga), 0) AS fga,
+            coalesce(sum(c.xpm), 0) AS xpm,
+            coalesce(sum(c.xpa), 0) AS xpa,
+            coalesce(sum(c.sack), 0) AS sack,
+            coalesce(sum(c.def_int), 0) AS def_int,
+            coalesce(sum(c.fum_rec), 0) AS fum_rec,
+            coalesce(sum(c.pts_allow), 0) AS pts_allow,
+            coalesce(sum(c.yds_allow), 0) AS yds_allow
+        FROM player_week_scores s
+        JOIN v_posted_weeks pw
+            ON pw.year = s.year AND pw.week = s.week
+        LEFT JOIN player_week_counting_stats c
+            ON c.year = s.year AND c.week = s.week AND c.player_id = s.player_id
+        WHERE s.year = %(year)s
+          AND s.position = %(position)s
+        GROUP BY s.player_id
+        ORDER BY sum(s.points) DESC NULLS LAST, max(s.player_name), s.player_id
+        {limit_sql}
+        """,
+        {"year": year, "position": position, "limit": limit},
+    )
+
+
+def era2010_week_highs(
+    year: int,
+    position: str,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Single posted weeks for one position, highest fantasy points first."""
+    position = _era2010_position(position)
+    limit_sql = "LIMIT %(limit)s" if limit is not None else ""
+    return fetchall(
+        f"""
+        SELECT s.player_id, s.player_name, s.position, s.week, s.points
+        FROM player_week_scores s
+        JOIN v_posted_weeks pw
+            ON pw.year = s.year AND pw.week = s.week
+        WHERE s.year = %(year)s
+          AND s.position = %(position)s
+        ORDER BY s.points DESC, s.week, s.player_name, s.player_id
+        {limit_sql}
+        """,
+        {"year": year, "position": position, "limit": limit},
+    )
+
+
+# --- D1 players split (#105). Append-only. players_index() above is unchanged. ---
+#
+# The summary shows a prefix of each board. 50 matches the fragment page size
+# (fragments.DEFAULT_PAGE_SIZE): one printed page of a ~520-row career log, and
+# the same cut the ticket names. Wire boards are already a top-15 SQL limit, so
+# their summary is the first 5 of that list rather than another 50.
+# This module does not import fragments (fragments imports queries).
+
+PLAYERS_SUMMARY_LIMIT = 50
+PLAYERS_WIRE_TEASER = 5
+
+_PLAYER_SPLIT_BOARDS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "players-career-rankings",
+        "path": ("career",),
+        "back": "/players#rankings",
+        "label": "Career",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": True,
+    },
+    {
+        "name": "players-season-rankings",
+        "path": ("seasons",),
+        "back": "/players#rankings",
+        "label": "Season",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": True,
+    },
+    {
+        "name": "players-wire-season",
+        "path": ("wire_leaders",),
+        "back": "/players#wire",
+        "label": "Wire season",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-wire-career",
+        "path": ("wire_career",),
+        "back": "/players#wire",
+        "label": "Wire career",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-wire-unowned",
+        "path": ("wire_unowned",),
+        "back": "/players#wire",
+        "label": "Never rostered",
+        "limit": PLAYERS_WIRE_TEASER,
+        "partial": False,
+    },
+    {
+        "name": "players-counting-career",
+        "path": ("counting", "career"),
+        "back": "/players#counting",
+        "label": "Counting career",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": False,
+    },
+    {
+        "name": "players-counting-season",
+        "path": ("counting", "seasons"),
+        "back": "/players#counting",
+        "label": "Counting season",
+        "limit": PLAYERS_SUMMARY_LIMIT,
+        "partial": False,
+    },
+)
+
+
+def player_split_board_specs() -> tuple[dict[str, Any], ...]:
+    """Board catalog for the D1 fragment registry. Order is the index order."""
+    return _PLAYER_SPLIT_BOARDS
+
+
+def _player_board_rows(data: dict[str, Any], spec: dict[str, Any]) -> list[dict[str, Any]]:
+    node: Any = data
+    for key in spec["path"]:
+        node = node[key]
+    return node
+
+
+def _player_board_meta(spec: dict[str, Any]) -> dict[str, Any]:
+    name = spec["name"]
+    return {
+        "board_name": name,
+        "board_href": f"/boards/{name}",
+        "fragment_href": f"/fragments/{name}",
+        "back_href": spec["back"],
+        "label": spec["label"],
+    }
+
+
+def _player_partial(rows: list[dict[str, Any]]) -> bool:
+    return any(row.get("vol_partial") for row in rows)
+
+
+def players_summary() -> dict[str, Any]:
+    """Index context. Same rows as players_index(), sliced. Does not drop a board."""
+    data = players_index()
+    teasers: dict[str, dict[str, Any]] = {}
+    for spec in _PLAYER_SPLIT_BOARDS:
+        rows = _player_board_rows(data, spec)
+        shown = rows[: spec["limit"]]
+        teasers[spec["name"]] = {
+            "rows": shown,
+            "total": len(rows),
+            "vol_partial": _player_partial(shown) if spec["partial"] else False,
+            **_player_board_meta(spec),
+        }
+    return {
+        "teasers": teasers,
+        "board_order": [spec["name"] for spec in _PLAYER_SPLIT_BOARDS],
+        "wire_gap": data["wire_gap"],
+        "vol_partial": _player_partial(data["career"]),
+        "has_players": bool(
+            data["career"]
+            or data["seasons"]
+            or data["wire_leaders"]
+            or data["wire_career"]
+            or data["wire_unowned"]
+        ),
+        "summary_limit": PLAYERS_SUMMARY_LIMIT,
+        "wire_teaser_limit": PLAYERS_WIRE_TEASER,
+    }
+
+
+def era2010_index_cards(player_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Recent weeks and the latest season line for the players index cards.
+
+    Landed columns only. No projections. Empty when the index has no ids.
+    """
+    if not player_ids:
+        return {}
+    weeks = fetchall(
+        """
+        SELECT
+            p.player_id,
+            p.year,
+            p.week,
+            p.points,
+            p.started,
+            p.manager_id,
+            m.display_name AS manager_name
+        FROM v_pool_weeks p
+        LEFT JOIN managers m ON m.id = p.manager_id
+        WHERE p.player_id = ANY(%(ids)s)
+        ORDER BY p.player_id, p.year DESC, p.week DESC
+        """,
+        {"ids": player_ids},
+    )
+    seasons = fetchall(
+        """
+        SELECT
+            player_id, year, starts, started_points, owner_name, manager_id, own_pct
+        FROM v_player_season
+        WHERE player_id = ANY(%(ids)s)
+        ORDER BY player_id, year DESC
+        """,
+        {"ids": player_ids},
+    )
+    found: dict[str, dict[str, Any]] = {}
+    for row in seasons:
+        key = str(row["player_id"])
+        if key not in found:
+            found[key] = {"season": row, "weeks": []}
+    for row in weeks:
+        key = str(row["player_id"])
+        bucket = found.setdefault(key, {"season": None, "weeks": []})
+        if len(bucket["weeks"]) < 4:
+            bucket["weeks"].append(row)
+    return found
+
+
+def players_board_payload(name: str) -> dict[str, Any] | None:
+    """Every row of one board, plus the summary links. None if the name is not ours."""
+    spec = next((item for item in _PLAYER_SPLIT_BOARDS if item["name"] == name), None)
+    if spec is None:
+        return None
+    data = players_index()
+    rows = _player_board_rows(data, spec)
+    siblings: list[dict[str, Any]] = []
+    for item in _PLAYER_SPLIT_BOARDS:
+        entry = _player_board_meta(item)
+        entry["current"] = item["name"] == name
+        siblings.append(entry)
+    return {
+        "rows": rows,
+        "total": len(rows),
+        "teaser": False,
+        "vol_partial": _player_partial(rows) if spec["partial"] else False,
+        "wire_gap": data["wire_gap"],
+        "siblings": siblings,
+        **_player_board_meta(spec),
     }

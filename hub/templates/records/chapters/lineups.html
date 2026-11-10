@@ -1,0 +1,100 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+<h2 id="lineups">Bench</h2>
+<p class="note">Points left on the bench vs optimal. Season totals wait until the regular season is finished. <a href="/seasons">Season heatmaps</a></p>
+<div class="notable-grid">
+    <section>
+        <h3>Worst weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th class="num">Left</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bench_weeks %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}">{{ row.year }} W{{ row.week }}</a>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <section>
+        <h3>Worst seasons</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Year</th>
+                    <th>Manager</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bench_seasons %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="num"><a href="/seasons/{{ row.year }}#lineups">{{ row.year }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.1f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+
+{% if lineup_counting and lineup_counting.boards %}
+<h2 id="lineup-counting">Lineup counting</h2>
+<p class="note">Most rushing, receiving, and passing yards by one starting lineup in a posted regular-season week. A starter is a lineup slot with started set and a slot other than BN or IR. Yards sum player_week_counting_stats for those players. A starter with no counting row adds zero. The starters cell says how many of those slots had a counting row when the two counts differ. Quarterback rushing yards are in the rushing total. Kickers and defenses stay in the lineup and usually add zero. Playoff and consolation lineups stay off the board, with the other week records. Posted weeks of an in-progress season stay on, because this is a week record. Player career and single-season counting records are the boards earlier on this page. Kicking there is field goals made. Defense is sacks, defensive interceptions, and points or yards allowed per game for a team defense with at least four counting games.</p>
+{% if lineup_counting.outside %}
+{% for row in lineup_counting.outside %}
+<p class="note">Higher {{ row.label|lower }} off this board: {{ row.kind_label }} <a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>, {{ person(row.manager_id, row.manager_name) }}, {{ row.yards|int }}.</p>
+{% endfor %}
+{% endif %}
+<div class="notable-grid">
+    {% for board in lineup_counting.boards %}
+    <section>
+        <h3>{{ board.label }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>When</th>
+                    <th>Manager</th>
+                    <th class="num">Yds</th>
+                    <th class="num">Starters</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                <tr data-year="{{ row.year }}">
+                    <td class="num">{{ loop.index }}</td>
+                    <td><a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a></td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num">{{ row.yards|int }}</td>
+                    <td class="num">{{ row.starters|int }}{% if row.counted_starters != row.starters %} · {{ row.counted_starters|int }} counted{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+</div>
+{% endif %}

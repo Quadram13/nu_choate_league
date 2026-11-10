@@ -1,0 +1,12 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% for module in modules %}
+<section class="module" id="{{ module.anchor }}">
+    <h2>{{ module.title }}</h2>
+    <ul class="pos-tabs">
+        {% for tab in module.tabs %}<li{% if tab.active %} class="is-on"{% endif %}><a href="{{ frame.carry(tab.href) }}"{% if tab.active %} aria-current="page"{% endif %}>{{ tab.label }}</a></li>{% endfor %}
+    </ul>
+    <div class="module-board">
+        {{ stat_table(module.board) }}
+    </div>
+</section>
+{% endfor %}

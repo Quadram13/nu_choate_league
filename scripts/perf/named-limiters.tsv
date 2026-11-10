@@ -1,0 +1,3 @@
+page	reason
+/boards/players-season-rankings	D1 full sortable season table. Median 1659439 bytes and 0.183s over n=7 (0.169-0.248s). The board is every row so the header sort covers the set.
+/boards/players-counting-season	D1 full sortable counting-by-season table. Median 2347264 bytes and 0.311s over n=7 (0.267-0.367s). The board is every row so the header sort covers the set.

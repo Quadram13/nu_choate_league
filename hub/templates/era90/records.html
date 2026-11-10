@@ -1,0 +1,14 @@
+{% if holders %}
+<h2>Who owns the book</h2>
+<ul class="plain-list">
+{% for row in holders %}
+<li><a href="{{ row.href }}">{{ row.text }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
+{% for chapter in chapters %}
+<h2><a href="{{ chapter.href }}">{{ chapter.title }}</a></h2>
+<p class="stat-note">{{ chapter.taste }}</p>
+<p class="numeral-row">{% for anchor in chapter.anchors %}<a id="{{ anchor.id }}" href="{{ chapter.href }}#{{ anchor.id }}">{{ anchor.label }}</a> {% endfor %}</p>
+{% endfor %}
+<p class="stat-note">A leader is bold. A record is bold type, not a filled cell.</p>

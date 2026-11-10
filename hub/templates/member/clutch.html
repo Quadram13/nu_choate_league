@@ -1,0 +1,76 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if clutch %}
+<h2 id="clutch">Clutch</h2>
+<p class="note">
+    Regular-season head-to-head.
+    {% if clutch.career %}
+    One-score is a game decided by {{ clutch.career.one_score_margin|int }} or fewer.
+    Blowout is a game decided by {{ clutch.career.blowout_margin|int }} or more.
+    {% endif %}
+    {% if clutch.career and clutch.career.exponent is not none %}
+    Pythagorean wins use exponent {{ "%.1f"|format(clutch.career.exponent) }} on points for and against: games × PF^x / (PF^x + PA^x).
+    {% endif %}
+    vsPy is actual wins, a tie counting half, minus Pythagorean wins.
+    vsExp is the all-play lens.
+    Gap is vsPy minus vsExp.
+    The career Pythagorean row is refit on career points.
+    {% if clutch.career and clutch.career.includes_partial %}The career row includes in-progress 2026.{% endif %}
+    <a href="/records/clutch#clutch">Record book</a>.
+</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th data-type="num">H2H</th>
+            <th data-type="num">1-score</th>
+            <th data-type="num">Blowout</th>
+            <th class="num">PF</th>
+            <th class="num">PA</th>
+            <th class="num">Pyth</th>
+            <th class="num">vsPy</th>
+            <th class="num">vsExp</th>
+            <th class="num" title="vsPy minus vsExp">Gap</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in clutch.seasons %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ row.year }}#standings">{{ row.year }}</a>{% if row.partial_season %}*{% endif %}</td>
+            <td data-value="{{ row.actual_wins if row.actual_wins is not none else '' }}">{{ row.h2h or "—" }}</td>
+            <td data-value="{{ row.one_score_win_pct if row.one_score_win_pct is not none else '' }}">{{ row.one_score or "—" }}</td>
+            <td data-value="{{ row.blowout_win_pct if row.blowout_win_pct is not none else '' }}">{{ row.blowout or "—" }}</td>
+            <td class="num">{% if row.points_for is not none %}{{ "%.2f"|format(row.points_for) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.pythagorean_wins if row.pythagorean_wins is not none else '' }}">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.wins_vs_pythagorean if row.wins_vs_pythagorean is not none else '' }}">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.wins_vs_expected if row.wins_vs_expected is not none else '' }}">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+            <td class="num" data-value="{{ row.lens_gap if row.lens_gap is not none else '' }}">{% if row.lens_gap is not none %}{{ "%+.1f"|format(row.lens_gap) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if clutch.career %}
+    {% set row = clutch.career %}
+    <tfoot>
+        <tr>
+            <td>Career{% if row.includes_partial %}*{% endif %}</td>
+            <td>{{ row.h2h or "—" }}</td>
+            <td>{{ row.one_score or "—" }}</td>
+            <td>{{ row.blowout or "—" }}</td>
+            <td class="num">{% if row.points_for is not none %}{{ "%.2f"|format(row.points_for) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.points_against is not none %}{{ "%.2f"|format(row.points_against) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.pythagorean_wins is not none %}{{ "%.1f"|format(row.pythagorean_wins) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.wins_vs_pythagorean is not none %}{{ "%+.1f"|format(row.wins_vs_pythagorean) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.lens_gap is not none %}{{ "%+.1f"|format(row.lens_gap) }}{% else %}—{% endif %}</td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+{% endif %}

@@ -1,0 +1,366 @@
+/* 1998 league hub.
+   Page gray #eeeeee and the white center card are LFFL.
+   The card's 468px is LFFL's banner width. Left rail 178px is Eagle's
+   measured column. Right rail 196px is the narrow outside column.
+   Navy #000066, greens #003300 and #006600, link #0000ff and #0000af,
+   visited #990099, maroon #660000 are the Eagle and LFFL tokens.
+   The layout is one borderless table. This sheet does not use a
+   flexible box or a grid layout. Stat cells stay on white, with no
+   header fill, no stripe, and no leader-cell color. */
+
+body {
+    margin: 12px 0;
+    background: #eeeeee;
+    color: #000;
+    font-family: Times, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+h1 {
+    margin: 0 0 8px;
+    color: #000066;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+h2 {
+    margin: 12px 0 4px;
+    color: #000066;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+a {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+a:visited {
+    color: #990099;
+}
+
+table.portal {
+    width: 842px;
+    margin-left: auto;
+    margin-right: auto;
+    border: 0;
+    border-collapse: collapse;
+    background: transparent;
+}
+
+table.portal td {
+    border: 0;
+    vertical-align: top;
+}
+
+.band {
+    background: #660000;
+    color: #fff;
+    border-bottom: 4px solid #000066;
+}
+
+.league-name,
+.commissioner {
+    margin: 0 0 4px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.theme-switch {
+    margin: 0;
+}
+
+.band a,
+.band a:link,
+.band a:visited {
+    color: #fff;
+}
+
+.theme-switch a {
+    margin-right: 10px;
+}
+
+.theme-switch a.is-on,
+.theme-switch a.is-on:visited {
+    font-weight: bold;
+}
+
+.rail-left {
+    width: 178px;
+    background: #eeeeee;
+}
+
+.rail-right {
+    width: 196px;
+    background: #eeeeee;
+}
+
+.portal-main {
+    width: 468px;
+    background: #fff;
+}
+
+.portal-main a,
+.portal-main a:link {
+    color: #0000af;
+}
+
+.portal-main a:visited {
+    color: #990099;
+}
+
+.rail-left p,
+.dead-label,
+.rail-right p {
+    margin: 0 0 8px;
+    color: #000;
+}
+
+.rail-left a.is-on,
+.rail-left a.is-on:visited {
+    color: #660000;
+    font-weight: bold;
+}
+
+.rail-left p.rail-label,
+.link-box p.rail-label {
+    color: #660000;
+}
+
+.rail-left p.last-updated {
+    color: #006600;
+}
+
+.kicker {
+    margin: 0 0 8px;
+    color: #003300;
+    font-weight: bold;
+}
+
+.kicker span {
+    color: #006600;
+}
+
+.lede {
+    margin: 0 0 8px;
+    color: #000;
+    font-weight: bold;
+}
+
+.cheer {
+    margin: 0 0 8px;
+    color: red;
+    font-weight: bold;
+}
+
+.portal-main .cheer a,
+.portal-main .cheer a:link,
+.portal-main .cheer a:visited {
+    color: red;
+}
+
+.numeral-row,
+.numeral-key {
+    margin: 0 0 8px;
+}
+
+.numeral-label {
+    margin-right: 6px;
+    font-weight: bold;
+}
+
+.numeral-row a {
+    margin-right: 4px;
+}
+
+.numeral-row a.is-on,
+.numeral-row a.is-on:visited {
+    color: #660000;
+    font-weight: bold;
+}
+
+.link-box {
+    border: 1px solid #660000;
+    background: #fff;
+    padding: 8px;
+}
+
+.rail-label {
+    margin: 0 0 8px;
+    color: #660000;
+    font-weight: bold;
+}
+
+.last-updated {
+    margin: 12px 0 0;
+    color: #006600;
+}
+
+.link-list,
+.plain-list {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.link-list li,
+.plain-list li {
+    margin: 0 0 6px;
+}
+
+table.stat {
+    width: 100%;
+    margin-top: 8px;
+    border: 2px solid #000;
+    border-collapse: collapse;
+    background: #fff;
+    color: #000;
+}
+
+table.stat th,
+table.stat td {
+    border: 1px solid #000;
+    padding: 5px;
+    background: transparent;
+    color: #000;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: left;
+    vertical-align: top;
+}
+
+table.stat th {
+    font-weight: bold;
+    background: transparent;
+}
+
+table.stat .stat-n {
+    text-align: right;
+}
+
+table.stat caption {
+    caption-side: top;
+    padding: 0 0 4px;
+    color: #000066;
+    font-weight: bold;
+    text-align: left;
+}
+
+.stat-note,
+.stat-more {
+    margin: 8px 0 0;
+    color: #000;
+    font-size: 16px;
+}
+
+.is-leader,
+.is-leader a {
+    font-weight: bold;
+}
+
+.is-record,
+.is-record a,
+.pts.is-record {
+    font-weight: bold;
+}
+
+.is-active-leader,
+.is-active-leader a {
+    font-style: italic;
+}
+
+/* C1b. Mounted pages keep their tables. The era rule is the same
+   border and the same transparent cell. No filled leader cell. */
+.portal-main table {
+    width: 100%;
+    margin-top: 8px;
+    border: 2px solid #000;
+    border-collapse: collapse;
+    background: #fff;
+    color: #000;
+}
+
+.portal-main th,
+.portal-main td {
+    border: 1px solid #000;
+    padding: 5px;
+    background: transparent;
+    color: #000;
+    font-weight: normal;
+    text-align: left;
+    vertical-align: top;
+}
+
+.portal-main th {
+    font-weight: bold;
+}
+
+.portal-main td.is-leader,
+.portal-main td.is-record,
+.portal-main .is-leader,
+.portal-main .is-record,
+.portal-main .is-leader a,
+.portal-main .is-record a {
+    font-weight: bold;
+}
+
+.portal-main td.is-active-leader,
+.portal-main .is-active-leader,
+.portal-main .is-active-leader a {
+    font-style: italic;
+}
+
+.week-groups,
+.matchups {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.week-group {
+    margin: 0 0 12px;
+}
+
+.group-label {
+    margin: 10px 0 4px;
+    color: #003300;
+    font-size: 18px;
+}
+
+.matchup {
+    padding: 2px 0;
+    border-bottom: 1px solid #000;
+    background: transparent;
+}
+
+.pts {
+    margin: 0 6px;
+}
+
+.kind {
+    margin-left: 6px;
+}
+
+.commwire {
+    margin: 0 0 8px;
+    color: #000066;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .commwire {
+        animation: commwire 24s linear infinite;
+    }
+}
+
+@keyframes commwire {
+    0% { opacity: 1; }
+    50% { opacity: 0.85; }
+    100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .commwire {
+        animation: none;
+    }
+}

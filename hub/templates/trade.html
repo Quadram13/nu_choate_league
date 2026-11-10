@@ -31,7 +31,7 @@
     <div class="trade-pack-head">
         <div class="who">
             {{ person(side.id, side.name) }}
-            {% if side.team %}<span class="team">{{ side.team }}</span>{% endif %}
+            {% if side.team %}<span class="team">{% if side.id %}<a href="/seasons/{{ current.year }}#m-{{ side.id }}" title="{{ side.team }}">{{ side.team }}</a>{% else %}{{ side.team }}{% endif %}</span>{% endif %}
         </div>
         <span class="num">{% if side.vorp is not none %}{{ "%+.1f"|format(side.vorp) }}{% endif %}</span>
     </div>
@@ -57,6 +57,7 @@
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
     <a href="/seasons/{{ current.year }}#trades">trades</a>
+    <a href="/seasons/{{ current.year }}/week/{{ trade.week }}">week {{ trade.week }}</a>
     {% if trade.prev %}
     <a href="/seasons/{{ current.year }}/trades/{{ trade.prev.id }}">← {{ trade.prev.label }}</a>
     {% endif %}
@@ -64,7 +65,7 @@
     <a href="/seasons/{{ current.year }}/trades/{{ trade.next.id }}">{{ trade.next.label }} →</a>
     {% endif %}
 </p>
-<h1>{{ trade.left.name }} vs {{ trade.right.name }}</h1>
+<h1>{{ person(trade.left.id, trade.left.name) }} vs {{ person(trade.right.id, trade.right.name) }}</h1>
 <p class="lede">
     {{ current.year }} week {{ trade.week }}
     · <span class="verdict {{ trade.verdict.kind }}">{{ trade.verdict.label }}</span>

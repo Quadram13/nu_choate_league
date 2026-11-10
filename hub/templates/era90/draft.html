@@ -1,0 +1,9 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if years %}
+<p class="numeral-row">{% for item in years %}<a href="{{ item.href }}">{{ item.label }}</a> {% endfor %}</p>
+{% endif %}
+{% if board %}
+{{ stat_table(board) }}
+{% else %}
+<p class="stat-note">No draft posted.</p>
+{% endif %}

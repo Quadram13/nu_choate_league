@@ -1,0 +1,6 @@
+{% if not lines %}<p class="stat-note">No moves posted.</p>{% endif %}
+<ul class="plain-list">
+{% for line in lines %}
+<li>{% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}</li>
+{% endfor %}
+</ul>

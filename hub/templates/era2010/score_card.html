@@ -1,0 +1,25 @@
+<article class="matchup-card">
+    {% for side in (card.home, card.away) %}
+    <div class="franchise{% if side.won %} won{% endif %}">
+        <header class="franchise-head">
+            {% if side.avatar %}<img class="avatar" src="{{ side.avatar }}" alt="" width="36" height="36">{% endif %}
+            <div class="who">
+                {% if side.href %}<a href="{{ frame.carry(side.href) }}">{{ side.franchise }}</a>{% else %}<span class="franchise-name">{{ side.franchise }}</span>{% endif %}
+                {% if side.owner %}<span class="owner">{{ side.owner }}</span>{% endif %}
+            </div>
+            {% if card.href %}<a class="score{% if side.won %} won{% endif %}" href="{{ frame.carry(card.href) }}">{{ side.score }}</a>{% else %}<span class="score{% if side.won %} won{% endif %}">{{ side.score }}</span>{% endif %}
+        </header>
+        {% if side.cells %}
+        <ol class="player-cells">
+            {% for cell in side.cells %}{% include "era2010/player_cell.html" %}{% endfor %}
+        </ol>
+        {% endif %}
+        {% if side.bench %}
+        <p class="bench-label">Bench</p>
+        <ol class="player-cells">
+            {% for cell in side.bench %}{% include "era2010/player_cell.html" %}{% endfor %}
+        </ol>
+        {% endif %}
+    </div>
+    {% endfor %}
+</article>

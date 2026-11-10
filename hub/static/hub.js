@@ -92,10 +92,85 @@ function enableSeasonTabs() {
         panes.forEach((pane) => {
             pane.hidden = pane.id !== target;
         });
+        ensureSeasonPane(target);
         window.dispatchEvent(new Event("resize"));
     }
+    tabs.addEventListener("click", (event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        const link = event.target.closest ? event.target.closest("a") : null;
+        if (!link || !tabs.contains(link)) {
+            return;
+        }
+        const hash = link.dataset.tab ? `#${link.dataset.tab}` : (link.hash || "");
+        if (!hash) {
+            return;
+        }
+        event.preventDefault();
+        if (location.hash !== hash) {
+            location.hash = hash;
+        } else {
+            show(hash);
+        }
+    });
     window.addEventListener("hashchange", () => show(location.hash));
-    show(location.hash);
+    const requested = new URLSearchParams(location.search).get("pane");
+    if (!location.hash && requested) {
+        show(`#${requested}`);
+    } else {
+        show(location.hash);
+    }
+}
+
+function ensureSeasonPane(id) {
+    const pane = document.getElementById(id);
+    if (!pane || pane.dataset.loaded === "1" || typeof fetch !== "function") {
+        return;
+    }
+    const host = pane.hasAttribute("data-fragment") ? pane : pane.querySelector("[data-fragment]");
+    const fragment = host ? host.getAttribute("data-fragment") : "";
+    if (!host || !fragment) {
+        pane.dataset.loaded = "1";
+        return;
+    }
+    if (pane.dataset.loading === "1") {
+        return;
+    }
+    pane.dataset.loading = "1";
+    const year = host.getAttribute("data-year") || "";
+    const fallback = host.getAttribute("data-fallback");
+    fetch(`${fragment}?year=${encodeURIComponent(year)}`, {
+        headers: { Accept: "text/html" },
+        credentials: "same-origin",
+    }).then((res) => {
+        if (!res.ok) {
+            throw new Error(String(res.status));
+        }
+        return res.text();
+    }).then((html) => {
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        const next = parsed.querySelector("[data-fragment]");
+        if (!next || next.getAttribute("data-fragment") !== fragment) {
+            throw new Error("bad");
+        }
+        pane.innerHTML = next.innerHTML;
+        pane.dataset.loaded = "1";
+        pane.querySelectorAll("table.js-sort").forEach(enableSort);
+        pane.querySelectorAll(".bracket-tree").forEach(enableBracket);
+        const anchor = (location.hash || "").replace(/^#/, "");
+        const node = anchor ? document.getElementById(anchor) : null;
+        if (node) {
+            node.scrollIntoView();
+        }
+        window.dispatchEvent(new Event("resize"));
+    }).catch(() => {
+        if (fallback) {
+            window.location.assign(fallback);
+        }
+    }).finally(() => {
+        pane.dataset.loading = "";
+    });
 }
 
 function enableAwardTabs() {
@@ -535,3 +610,172 @@ function highlightBracket(tree, managerId) {
         path.classList.toggle("on-path", on && ids.includes(managerId));
     });
 }
+
+/* === A3 loading: fragment inline upgrade (append-only) ===
+   A [data-fragment] container's [data-board] links are real document URLs.
+   With script they are fetched as the bare fragment and swapped in place.
+   Modified clicks, other links, a missing fetch, and a failed response
+   leave the navigation alone. The address bar follows only when the page
+   is already that board, so a parent page is not rewritten into a board URL.
+*/
+(function () {
+    if (typeof fetch !== "function" || typeof DOMParser !== "function") {
+        return;
+    }
+
+    function elementTarget(event) {
+        var node = event.target;
+        if (node && node.nodeType !== 1) {
+            node = node.parentElement;
+        }
+        return node;
+    }
+
+    function boardLink(container, link) {
+        var board = container.getAttribute("data-board");
+        var fragment = container.getAttribute("data-fragment");
+        if (!board || !fragment || !link || !link.getAttribute("href")) {
+            return null;
+        }
+        var url;
+        try {
+            url = new URL(link.getAttribute("href"), window.location.href);
+        } catch (error) {
+            return null;
+        }
+        if (url.origin !== window.location.origin || url.pathname !== board) {
+            return null;
+        }
+        return { url: url, fragment: fragment, board: board };
+    }
+
+    function applyFragment(container, html, seq) {
+        if (container._a3seq !== seq) {
+            return "stale";
+        }
+        var parsed = new DOMParser().parseFromString(html, "text/html");
+        var next = parsed.querySelector("[data-fragment]");
+        if (!next || next.getAttribute("data-fragment") !== container.getAttribute("data-fragment")) {
+            return "bad";
+        }
+        container.innerHTML = next.innerHTML;
+        if (typeof enableSort === "function") {
+            container.querySelectorAll("table.js-sort").forEach(enableSort);
+        }
+        if (typeof enableBracket === "function") {
+            container.querySelectorAll(".bracket-tree").forEach(enableBracket);
+        }
+        return "ok";
+    }
+
+    function loadFragment(container, target, seq) {
+        return fetch(target, {
+            headers: { Accept: "text/html" },
+            credentials: "same-origin",
+        }).then(function (res) {
+            if (!res.ok) {
+                throw new Error(String(res.status));
+            }
+            return res.text();
+        }).then(function (html) {
+            return applyFragment(container, html, seq);
+        });
+    }
+
+    document.addEventListener("click", function (event) {
+        if (event.defaultPrevented || event.button !== 0) {
+            return;
+        }
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        var node = elementTarget(event);
+        var link = node && node.closest ? node.closest("a") : null;
+        if (!link || (link.target && link.target !== "_self")) {
+            return;
+        }
+        var container = link.closest("[data-fragment]");
+        if (!container) {
+            return;
+        }
+        var match = boardLink(container, link);
+        if (!match) {
+            return;
+        }
+        event.preventDefault();
+        var seq = (container._a3seq || 0) + 1;
+        container._a3seq = seq;
+        var target = match.fragment + match.url.search;
+        loadFragment(container, target, seq).then(function (result) {
+            if (container._a3seq !== seq || result === "stale") {
+                return;
+            }
+            if (result !== "ok") {
+                window.location.assign(link.href);
+                return;
+            }
+            if (window.location.pathname === match.board && window.history && window.history.pushState) {
+                window.history.pushState(
+                    { board: match.board },
+                    "",
+                    match.url.pathname + match.url.search,
+                );
+            }
+        }).catch(function () {
+            if (container._a3seq === seq) {
+                window.location.assign(link.href);
+            }
+        });
+    });
+
+    window.addEventListener("popstate", function () {
+        var path = window.location.pathname;
+        document.querySelectorAll("[data-fragment]").forEach(function (container) {
+            if (container.getAttribute("data-board") !== path) {
+                return;
+            }
+            var fragment = container.getAttribute("data-fragment");
+            if (!fragment) {
+                return;
+            }
+            var seq = (container._a3seq || 0) + 1;
+            container._a3seq = seq;
+            loadFragment(container, fragment + window.location.search, seq).catch(function () {
+                return null;
+            });
+        });
+    });
+})();
+
+/* === D1 players: rank recomputes on sort (append-only) ===
+   Rk is the 1-based index in the current row order. enableSort reorders the
+   body before this listener runs, because the header handler is registered
+   first and this one is on document (bubble). Fold and the year/position
+   chips do not renumber: a hidden row keeps its place in the full order.
+   Players tables opt in with class js-rk and a td.rk per row. Other sorts
+   are unchanged.
+*/
+document.addEventListener("click", function (event) {
+    var node = event.target;
+    if (node && node.nodeType !== 1) {
+        node = node.parentElement;
+    }
+    if (!node || !node.closest) {
+        return;
+    }
+    var header = node.closest("table.js-rk thead th");
+    if (!header) {
+        return;
+    }
+    var table = header.closest("table");
+    var body = table && table.tBodies && table.tBodies[0];
+    if (!body) {
+        return;
+    }
+    Array.prototype.forEach.call(body.rows, function (row, index) {
+        var cell = row.querySelector(".rk");
+        if (cell) {
+            cell.textContent = String(index + 1);
+        }
+    });
+});

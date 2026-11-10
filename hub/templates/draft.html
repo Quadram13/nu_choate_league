@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "link_macros.html" import season_years %}
 {% from "draft_macros.html" import person, pick_cell, pick_link %}
 {% block body %}
 <p class="jump">
     <a href="/seasons/{{ current.year }}">{{ current.year }} season</a>
     <a href="/seasons/{{ current.year }}#draft">draft</a>
+    <a href="/records/draft">Record book</a>
 </p>
 <p class="season-head">
     <label class="season-pick">
@@ -16,6 +18,7 @@
     </label>
     <span class="lede">Snake. Each column is one manager.</span>
 </p>
+{{ season_years(draft.years, current.year, '/draft') }}
 <h1>{{ current.year }} draft</h1>
 <p class="note">Starter VORP vs that round’s average. Green is above, red is below. A hit is 8 or more starts and above that round’s VORP.{% if draft.has_market %} Market ADP is ESPN’s average draft position on the player card, set beside the slot and the pick’s ROS VORP.{% endif %}</p>
 {% if draft.board and draft.board.rows %}

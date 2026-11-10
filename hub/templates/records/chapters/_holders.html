@@ -1,0 +1,20 @@
+{% from "trade_macros.html" import trade_card %}
+{% from "draft_macros.html" import pick_link %}
+{% from "plaque_macros.html" import holder_row, person_link %}
+{% from "scoring_macros.html" import environment_table, marks_table, share_table, league_week_board %}
+{% from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+
+{% if holders %}
+<div data-grain="career">
+<h2 id="holders">Who owns the book</h2>
+<p class="note">Career weeks in each distinction.</p>
+<div class="holder-list">
+    {% for row in holders %}
+    {{ holder_row(row, kind_order, labels, meta) }}
+    {% endfor %}
+</div>
+</div>
+{% endif %}
