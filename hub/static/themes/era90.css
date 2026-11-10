@@ -270,6 +270,47 @@ table.stat caption {
     font-style: italic;
 }
 
+/* C1b. Mounted pages keep their tables. The era rule is the same
+   border and the same transparent cell. No filled leader cell. */
+.portal-main table {
+    width: 100%;
+    margin-top: 8px;
+    border: 2px solid #000;
+    border-collapse: collapse;
+    background: #fff;
+    color: #000;
+}
+
+.portal-main th,
+.portal-main td {
+    border: 1px solid #000;
+    padding: 5px;
+    background: transparent;
+    color: #000;
+    font-weight: normal;
+    text-align: left;
+    vertical-align: top;
+}
+
+.portal-main th {
+    font-weight: bold;
+}
+
+.portal-main td.is-leader,
+.portal-main td.is-record,
+.portal-main .is-leader,
+.portal-main .is-record,
+.portal-main .is-leader a,
+.portal-main .is-record a {
+    font-weight: bold;
+}
+
+.portal-main td.is-active-leader,
+.portal-main .is-active-leader,
+.portal-main .is-active-leader a {
+    font-style: italic;
+}
+
 .week-groups,
 .matchups {
     list-style: none;

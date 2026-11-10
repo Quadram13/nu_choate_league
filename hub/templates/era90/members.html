@@ -1,0 +1,6 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if board %}
+{{ stat_table(board) }}
+{% else %}
+<p class="stat-note">No members yet. Load dumps into Postgres first.</p>
+{% endif %}

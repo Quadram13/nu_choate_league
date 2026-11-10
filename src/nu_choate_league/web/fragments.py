@@ -396,6 +396,10 @@ def board_fragment(request: Request, board: str) -> HTMLResponse:
 
 def board_document(request: Request, board: str) -> HTMLResponse:
     """The same fragment inside the modern document shell (``page()``)."""
+    from . import themes
+
+    if themes.resolve_theme(request) == "era90":
+        return themes.era90_board_document(request, board)
     spec = board_by_name(board)
     html = render_fragment(request, board)
     from .app import page

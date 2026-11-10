@@ -1,0 +1,9 @@
+{% from "fragments/stat_table.html" import stat_table %}
+{% if cheer %}
+<p class="cheer">{{ cheer.lead }} {% if cheer.href %}<a href="{{ cheer.href }}">{{ cheer.name }}</a>{% else %}{{ cheer.name }}{% endif %}</p>
+{% endif %}
+<p class="stat-note">{{ blurb }}</p>
+<p class="numeral-row"><span class="numeral-label">Pages</span>{% for token in tokens %}{% if token is none %} <span class="numeral-gap" aria-hidden="true">…</span>{% elif token == page %} <strong class="numeral" aria-current="page">{{ token }}</strong>{% else %} <a class="numeral" href="{{ href_base }}?page={{ token }}&theme=era90">{{ token }}</a>{% endif %}{% endfor %}</p>
+{% if board %}{{ stat_table(board) }}{% else %}<p class="stat-note">No rows on this page.</p>{% endif %}
+<p class="numeral-row"><span class="numeral-label">Pages</span>{% for token in tokens %}{% if token is none %} <span class="numeral-gap" aria-hidden="true">…</span>{% elif token == page %} <strong class="numeral" aria-current="page">{{ token }}</strong>{% else %} <a class="numeral" href="{{ href_base }}?page={{ token }}&theme=era90">{{ token }}</a>{% endif %}{% endfor %}</p>
+<p class="stat-note"><a href="/players?theme=era90">Players</a></p>

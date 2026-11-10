@@ -1,0 +1,12 @@
+{% if era_identity %}
+<p class="lede">{{ era_identity }}</p>
+{% endif %}
+{% if year_numerals %}
+<p class="numeral-row"><span class="numeral-label">Years</span>{% for item in year_numerals %}{% if item.current %} <strong class="numeral" aria-current="page">{{ item.label }}</strong>{% else %} <a class="numeral" href="{{ item.href }}">{{ item.label }}</a>{% endif %}{% endfor %}</p>
+{% endif %}
+{% if glossary %}
+<p class="stat-note">{{ glossary }}</p>
+{% endif %}
+<div class="mounted">
+{{ mounted_html|safe }}
+</div>

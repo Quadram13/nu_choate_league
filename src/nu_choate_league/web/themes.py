@@ -25,6 +25,7 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
+from jinja2 import ChoiceLoader, DictLoader
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
@@ -1777,6 +1778,19 @@ ERA90_FAMILY: dict[str, str] = {
     "desk.html": "era90/desk.html",
     "scoring.html": "era90/scoring.html",
     "records/index.html": "era90/records.html",
+    # C1b (#103). The modern templates stay the body. These names only
+    # leave the legacy renderer when the request theme is era90.
+    "records/chapter.html": "era90/mount.html",
+    "players.html": "era90/players.html",
+    "player.html": "era90/mount.html",
+    "player_log.html": "era90/mount.html",
+    "player_splits.html": "era90/mount.html",
+    "members.html": "era90/members.html",
+    "member.html": "era90/mount.html",
+    "versus.html": "era90/versus.html",
+    "versus_pair.html": "era90/mount.html",
+    "trade.html": "era90/mount.html",
+    "wire.html": "era90/mount.html",
 }
 
 _MOVE_LABELS = {"trade": "trade", "waiver": "waiver", "free_agent": "free agent"}
@@ -2196,7 +2210,7 @@ def _era90_records(context: Mapping[str, object]) -> dict[str, object]:
     for chapter in context.get("chapters") or []:  # type: ignore[union-attr]
         chapters.append(
             {
-                "href": f"/records/{chapter['slug']}",
+                "href": _era90_href(f"/records/{chapter['slug']}"),
                 "title": chapter.get("title") or "",
                 "taste": chapter.get("taste") or "",
                 "anchors": chapter.get("anchors") or [],
@@ -2207,7 +2221,7 @@ def _era90_records(context: Mapping[str, object]) -> dict[str, object]:
         text = str(row.get("display_name") or "")
         if row.get("total") is not None:
             text = f"{text} {int(row['total'])}"
-        holders.append({"href": f"/members/{row['manager_id']}", "text": text})
+        holders.append({"href": _era90_href(f"/members/{row['manager_id']}"), "text": text})
     return {"chapters": chapters, "holders": holders}
 
 
@@ -2236,6 +2250,9 @@ def _era90_prepare(name: str, context: Mapping[str, object], year: int | None) -
         return _era90_scoring(context)
     if name == "records/index.html":
         return _era90_records(context)
+    extra = _era90_c1b(name, context)
+    if extra is not None:
+        return extra
     return {}
 
 
@@ -3182,3 +3199,496 @@ def era2010_dispatch(request: Request) -> HTMLResponse | None:
     finally:
         queries.unbind_connection(token)
         conn.close()
+
+
+# --- C1b era90 completion (#103). Players, records chapters, members, versus. ---
+# Modern documents stay on page(). These helpers run only when the theme is
+# era90. Ranking pages use the A3 page size and numeral row. The index shows
+# ten rows (Eagle's TOP 10). The published query order is not sorted again.
+
+ERA90_TOP = 10
+ERA90_GLOSSARY = "A leader is bold. A record is bold type, not a filled cell."
+_ERA90_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
+_ERA90_MOUNTS = frozenset(
+    {
+        "records/chapter.html",
+        "player.html",
+        "player_log.html",
+        "player_splits.html",
+        "member.html",
+        "versus_pair.html",
+        "trade.html",
+        "wire.html",
+    }
+)
+_ERA90_SORT = {
+    "players-career-rankings": "starter points, then VORP, then name",
+    "players-career": "starter points, then VORP, then name",
+    "players-season-rankings": "newest year first, then points on starts",
+    "players-wire-season": "FA VORP",
+    "players-wire-career": "FA VORP",
+    "players-wire-unowned": "points while unowned",
+    "players-counting-career": "rush yards plus receiving yards plus pass yards, then name",
+    "players-counting-season": "newest year first, then rush, receiving, and pass yards",
+}
+
+
+def _era90_href(href: str) -> str:
+    """Shell links keep the theme on the href so a first click does not depend on the cookie."""
+    if not href.startswith("/") or href.startswith("//"):
+        return href
+    parts = urlsplit(href)
+    pairs = [(key, value) for key, value in _query_pairs(parts.query) if key != "theme"]
+    pairs.append(("theme", "era90"))
+    return urlunsplit(("", "", parts.path, urlencode(pairs), parts.fragment))
+
+
+def _era90_player_label(name: object, position: object, team: object = "") -> str:
+    """Era identity string. ``Portis, Clinton WAS RB`` is last name, first name, team, position."""
+    text = "" if name is None else str(name).strip()
+    if not text:
+        return "—"
+    pos = "" if position is None else str(position).strip()
+    club = "" if team is None else str(team).strip()
+    if pos == "DEF" or " " not in text:
+        label = text
+    else:
+        first, last = text.rsplit(" ", 1)
+        label = f"{last}, {first}"
+    bits = [label]
+    if club:
+        bits.append(club)
+    if pos:
+        bits.append(pos)
+    return " ".join(bits)
+
+
+def _era90_cell(
+    text: object,
+    *,
+    numeric: bool = False,
+    href: str = "",
+    mark: str = "",
+) -> dict[str, object]:
+    return {
+        "text": "—" if text is None or text == "" else str(text),
+        "numeric": numeric,
+        "href": _era90_href(href) if href else "",
+        "mark": mark,
+    }
+
+
+def _era90_table(
+    caption: str,
+    columns: Sequence[tuple[str, str, bool]],
+    body: Sequence[Sequence[dict[str, object]]],
+    note: str,
+) -> dict[str, object]:
+    return {
+        "caption": caption,
+        "columns": [
+            {"key": key, "label": label, "numeric": numeric}
+            for key, label, numeric in columns
+        ],
+        "rows": [{"cells": list(cells)} for cells in body],
+        "note": note,
+    }
+
+
+def _era90_numeral_tokens(pages: int) -> list[int | None]:
+    from .fragments import numeral_tokens
+
+    if pages < 1:
+        return []
+    # Every numeral is a link. numeral_tokens(1, pages) is only the shape
+    # (including the ellipsis). The template does not treat 1 as the current page.
+    return list(numeral_tokens(1, pages))
+
+
+def _era90_pages(total: int, page_size: int) -> int:
+    if total <= 0:
+        return 1
+    return (total + page_size - 1) // page_size
+
+
+_era90_mount_env = None
+_era90_mount_source: object | None = None
+
+
+def _era90_mounted_body(name: str, context: Mapping[str, object]) -> str:
+    """Render a modern template's body block and nothing else.
+
+    The overlay answers ``base.html`` with an empty shell, so ``{% extends %}``
+    yields the block the legacy page already uses. The modern file is not copied.
+    The overlay is kept so the compiled body is reused on the next request.
+    """
+    global _era90_mount_env, _era90_mount_source
+    if _templates is None:
+        raise RuntimeError("themes.install() was not called")
+    env = _templates.env
+    if _era90_mount_env is None or _era90_mount_source is not env:
+        loader = ChoiceLoader(
+            [DictLoader({"base.html": "{% block body %}{% endblock %}"}), env.loader]
+        )
+        _era90_mount_env = env.overlay(loader=loader)
+        _era90_mount_source = env
+    html = _era90_mount_env.get_template(name).render(dict(context))
+    # The shared week-table macro ships a click handler for the modern sort.
+    # Era pages do not load that sort. The rows stay in the HTML either way.
+    return _ERA90_SCRIPT.sub("", html)
+
+
+def _era90_year_links(name: str, context: Mapping[str, object]) -> list[dict[str, object]]:
+    player = context.get("player")
+    if not isinstance(player, Mapping) or not player.get("player_id"):
+        return []
+    years = context.get("log_years") or []
+    if not isinstance(years, Sequence) or isinstance(years, (str, bytes)):
+        return []
+    player_id = player["player_id"]
+    if name == "player.html":
+        route = "log"
+        selected = None
+        mark = False
+    elif name == "player_log.html":
+        route = "log"
+        selected = context.get("selected_year")
+        mark = True
+    elif name == "player_splits.html":
+        route = "splits"
+        selected = context.get("selected_year")
+        mark = True
+    else:
+        return []
+    items: list[dict[str, object]] = []
+    if name != "player.html":
+        items.append(
+            {
+                "href": _era90_href(f"/players/{player_id}/{route}"),
+                "label": "All",
+                "current": mark and selected is None,
+            }
+        )
+    for year in years:
+        number = int(year)
+        items.append(
+            {
+                "href": _era90_href(f"/players/{player_id}/{route}?year={number}"),
+                "label": str(number),
+                "current": mark and selected == number,
+            }
+        )
+    return items
+
+
+def _era90_identity(name: str, context: Mapping[str, object]) -> str:
+    if name not in {"player.html", "player_log.html", "player_splits.html"}:
+        return ""
+    player = context.get("player")
+    if not isinstance(player, Mapping):
+        return ""
+    bio = context.get("bio") if isinstance(context.get("bio"), Mapping) else {}
+    team = "" if not isinstance(bio, Mapping) else bio.get("nfl_team") or ""
+    return _era90_player_label(player.get("player_name"), player.get("position"), team)
+
+
+def _num1(value: object) -> str:
+    if value is None or value == "":
+        return "—"
+    return f"{Decimal(str(value)):.1f}"
+
+
+def _yards(row: Mapping[str, object]) -> str:
+    total = Decimal(0)
+    for key in ("rush_yd", "rec_yd", "pass_yd"):
+        if row.get(key) is not None:
+            total += Decimal(str(row.get(key) or 0))
+    return str(int(total))
+
+
+def _era90_rank_rows(
+    rows: Sequence[Mapping[str, object]],
+    board: str,
+    *,
+    offset: int,
+) -> tuple[list[tuple[str, str, bool]], list[list[dict[str, object]]]]:
+    """Small grid for one page. Columns are the sort keys plus the person."""
+    columns: list[tuple[str, str, bool]]
+    if board in {"players-counting-career", "players-counting-season"}:
+        columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("yds", "Yds", True)]
+        if board == "players-counting-season":
+            columns.insert(1, ("year", "Year", True))
+    elif board.startswith("players-wire"):
+        columns = [("rk", "Rk", True), ("player", "Player", False), ("pos", "Pos", False), ("vorp", "FA VORP", True)]
+        if board != "players-wire-career":
+            columns.insert(1, ("year", "Year", True))
+    else:
+        columns = [
+            ("rk", "Rk", True),
+            ("player", "Player", False),
+            ("pos", "Pos", False),
+            ("pf", "PF", True),
+            ("vorp", "VORP", True),
+        ]
+        if board == "players-season-rankings":
+            columns.insert(1, ("year", "Year", True))
+    body: list[list[dict[str, object]]] = []
+    for index, row in enumerate(rows):
+        rank = offset + index + 1
+        mark = "is-leader" if rank == 1 else ""
+        label = _era90_player_label(row.get("player_name"), row.get("position"))
+        href = _path("/players", row.get("player_id"))
+        cells = {
+            "rk": _era90_cell(rank, numeric=True),
+            "year": _era90_cell(row.get("year") or "", numeric=True, href=_path("/seasons", row.get("year")) if row.get("year") else ""),
+            "player": _era90_cell(label, href=href, mark=mark),
+            "pos": _era90_cell(row.get("position") or "—"),
+            "pf": _era90_cell(_num1(row.get("starter_points")), numeric=True),
+            "vorp": _era90_cell(
+                _num1(row.get("fa_vorp") if board.startswith("players-wire") else row.get("started_vorp")),
+                numeric=True,
+            ),
+            "yds": _era90_cell(_yards(row), numeric=True),
+        }
+        body.append([cells[key] for key, _label, _numeric in columns])
+    return columns, body
+
+
+def _era90_ranking_section(
+    board: str,
+    label: str,
+    rows: Sequence[Mapping[str, object]],
+    total: int,
+) -> dict[str, object]:
+    from .fragments import DEFAULT_PAGE_SIZE
+
+    shown = list(rows)[:ERA90_TOP]
+    columns, body = _era90_rank_rows(shown, board, offset=0)
+    sort = _ERA90_SORT.get(board, "the published order")
+    if board.startswith("players-wire"):
+        keys = "FA VORP is the sort key."
+    elif "counting" in board:
+        keys = "Yards are the sort key."
+    else:
+        keys = "PF and VORP are the sort keys."
+    note = (
+        f"First {len(shown)} of {total}, {sort}. "
+        f"The numerals open the rest, {DEFAULT_PAGE_SIZE} rows to a page, in that same order. "
+        f"{keys} The other columns stay on the player page and on Modern."
+    )
+    return {
+        "label": label,
+        "board": _era90_table(label, columns, body, note) if shown else None,
+        "tokens": _era90_numeral_tokens(_era90_pages(total, DEFAULT_PAGE_SIZE)),
+        "href_base": f"/boards/{board}",
+    }
+
+
+def _era90_players(context: Mapping[str, object]) -> dict[str, object]:
+    order = [
+        ("players-career-rankings", "Career"),
+        ("players-season-rankings", "Season"),
+        ("players-wire-season", "Wire season"),
+        ("players-wire-career", "Wire career"),
+        ("players-wire-unowned", "Never rostered"),
+        ("players-counting-career", "Counting career"),
+        ("players-counting-season", "Counting season"),
+    ]
+    teasers = context.get("teasers") or {}
+    if not isinstance(teasers, Mapping):
+        teasers = {}
+    sections = []
+    for name, label in order:
+        pack = teasers.get(name) or {}
+        if not isinstance(pack, Mapping) or not pack.get("total"):
+            continue
+        sections.append(_era90_ranking_section(name, label, pack.get("rows") or [], int(pack["total"])))
+    return {
+        "sections": sections,
+        "has_players": bool(context.get("has_players")),
+        "vol_partial": bool(context.get("vol_partial")),
+    }
+
+
+def _era90_members(context: Mapping[str, object]) -> dict[str, object]:
+    rows = [row for row in (context.get("career") or []) if isinstance(row, Mapping)]
+    high_pf = _max_number(row.get("points_for") for row in rows)
+    high_titles = _max_number(row.get("titles") for row in rows)
+    body: list[list[dict[str, object]]] = []
+    for row in rows:
+        marks_name = ""
+        if high_titles is not None and _same(row.get("titles"), high_titles) and int(row.get("titles") or 0) > 0:
+            marks_name = "is-leader"
+        pf_mark = "is-record" if high_pf is not None and _same(row.get("points_for"), high_pf) else ""
+        body.append(
+            [
+                _era90_cell(row.get("display_name") or "", href=_path("/members", row.get("manager_id")), mark=marks_name),
+                _era90_cell(int(row.get("wins") or 0), numeric=True),
+                _era90_cell(int(row.get("losses") or 0), numeric=True),
+                _era90_cell(tie_dash(row.get("ties"), "era90"), numeric=True),
+                _era90_cell(_num1(row.get("points_for")), numeric=True, mark=pf_mark),
+                _era90_cell(int(row.get("titles") or 0), numeric=True),
+            ]
+        )
+    note = (
+        "W, L, and T are the official line. A zero tie is shown as -. "
+        "PF is points for. Titles are championships. "
+        "H2H, median, playoff, and the rest of the career line are on the member page. "
+        + ERA90_GLOSSARY
+    )
+    board = _era90_table(
+        "All-time",
+        (
+            ("manager", "Manager", False),
+            ("w", "W", True),
+            ("l", "L", True),
+            ("t", "T", True),
+            ("pf", "PF", True),
+            ("titles", "Titles", True),
+        ),
+        body,
+        note,
+    ) if body else None
+    return {"board": board}
+
+
+def _era90_versus(context: Mapping[str, object]) -> dict[str, object]:
+    managers = list(context.get("managers") or [])
+    grid = list(context.get("grid") or [])
+    columns: list[tuple[str, str, bool]] = [("manager", "", False)]
+    for index, manager in enumerate(managers):
+        short = str(manager.get("display_name") or "")[:3]
+        columns.append((f"c{index}", short, True))
+    body: list[list[dict[str, object]]] = []
+    for row in grid:
+        manager = row.get("manager") or {}
+        cells = [
+            _era90_cell(
+                manager.get("display_name") or "",
+                href=_path("/members", manager.get("manager_id")),
+            )
+        ]
+        for cell in row.get("cells") or []:
+            if cell.get("self"):
+                cells.append(_era90_cell("—", numeric=True))
+                continue
+            if not cell.get("games") and not cell.get("deals"):
+                cells.append(_era90_cell("—", numeric=True))
+                continue
+            text = str(cell.get("record") or "—")
+            deals = int(cell.get("deals") or 0)
+            if deals:
+                text = f"{text} · {deals}"
+            cells.append(_era90_cell(text, numeric=True, href=str(cell.get("href") or "")))
+        body.append(cells)
+    notes = []
+    for note in context.get("notes") or []:
+        if not isinstance(note, Mapping):
+            continue
+        notes.append(
+            {
+                "label": note.get("label") or "",
+                "href": str(note.get("href") or ""),
+                "left_name": note.get("left_name") or "",
+                "right_name": note.get("right_name") or "",
+                "detail": note.get("detail") or "",
+            }
+        )
+    note = (
+        "Each figure is the regular-season W-L-T from the row manager's side. "
+        "A number after the dot is how many times that pair has traded. "
+        + ERA90_GLOSSARY
+    )
+    board = _era90_table("Versus", columns, body, note) if body else None
+    return {"notes": notes, "board": board}
+
+
+def _era90_c1b(name: str, context: Mapping[str, object]) -> dict[str, object] | None:
+    if name == "players.html":
+        return _era90_players(context)
+    if name == "members.html":
+        return _era90_members(context)
+    if name == "versus.html":
+        return _era90_versus(context)
+    if name not in _ERA90_MOUNTS:
+        return None
+    glossary = ERA90_GLOSSARY if name == "records/chapter.html" else ""
+    return {
+        "mounted_html": _era90_mounted_body(name, context),
+        "era_identity": _era90_identity(name, context),
+        "year_numerals": _era90_year_links(name, context),
+        "glossary": glossary,
+    }
+
+
+def era90_board_document(request: Request, board: str) -> HTMLResponse:
+    """One era90 ranking page. Player boards are 50-row numeral pages. Other boards mount the fragment."""
+    from .fragments import DEFAULT_PAGE_SIZE, board_by_name, paginate, render_fragment, requested_page
+
+    spec = board_by_name(board)
+    if board == "players-career" or board in _ERA90_SORT:
+        if board == "players-career":
+            loaded = spec.loader(request)
+            window = loaded["pager"]
+            page_rows = list(window.rows)
+            page = int(window.page)
+            pages = int(window.pages)
+            total = int(window.total)
+            page_size = int(window.page_size)
+        else:
+            payload = queries.players_board_payload(board)
+            if payload is None:
+                raise StarletteHTTPException(status_code=404, detail=f"No board {board}.")
+            window = paginate(payload["rows"], page=requested_page(request), page_size=DEFAULT_PAGE_SIZE)
+            page_rows = list(window.rows)
+            page = window.page
+            pages = window.pages
+            total = window.total
+            page_size = window.page_size
+        columns, body = _era90_rank_rows(page_rows, board, offset=(page - 1) * page_size)
+        sort = _ERA90_SORT.get(board, "the published order")
+        blurb = (
+            f"{total} rows, {page_size} to a page, {sort}. "
+            f"Page {page} of {pages}. Rank is the place in that order. "
+            "The other columns stay on the player page and on Modern."
+        )
+        cheer = None
+        if page == 1 and page_rows:
+            top = page_rows[0]
+            cheer = {
+                "lead": "Leader",
+                "name": _era90_player_label(top.get("player_name"), top.get("position")),
+                "href": _era90_href(_path("/players", top.get("player_id"))),
+            }
+        context = {
+            "blurb": blurb,
+            "cheer": cheer,
+            "board": _era90_table(spec.title, columns, body, ERA90_GLOSSARY) if page_rows else None,
+            "tokens": _era90_numeral_tokens(pages),
+            "href_base": f"/boards/{board}",
+            "page": page,
+        }
+        return _era90_response(
+            request,
+            title=spec.title,
+            nav=spec.nav,
+            template="era90/ranking.html",
+            context=context,
+            year=None,
+            weeks=[],
+        )
+    context = {
+        "mounted_html": render_fragment(request, board),
+        "era_identity": "",
+        "year_numerals": [],
+        "glossary": "",
+    }
+    return _era90_response(
+        request,
+        title=spec.title,
+        nav=spec.nav,
+        template="era90/mount.html",
+        context=context,
+        year=None,
+        weeks=[],
+    )
