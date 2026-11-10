@@ -38,7 +38,7 @@ Era `/players` is slower than modern `/players` on this run. The extra work is t
 
 ## Modern bytes
 
-Before the D2 rebase, unthemed responses on 8132 matched the wave serve on 8100 for all 20 `scripts/ui/parity.ps1` routes (status, location, sha256). That serve was wave tip `0d051359`, which is before D2. After rebasing onto `06fa98a`, unthemed pages are checked against that tip, not against 8100.
+Before the D2 rebase, unthemed responses on 8132 matched the wave serve on 8100 for all 20 `scripts/ui/parity.ps1` routes (status, location, sha256). That serve was wave tip `0d051359`. After rebasing onto `06fa98a`, the same 20 unthemed routes on 8132 matched a serve of that tip on 8133 (status, location, sha256). D2's own cuts are in both: `/seasons/2025` is 104,335 bytes and `/members/alex-coletti` is 11,172. `8133/players?theme=era2010` stays `hub.css`, so that serve is not running this dispatch.
 
 ## No-JS
 
