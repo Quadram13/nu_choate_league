@@ -1425,7 +1425,21 @@ def season_schedule(year: int) -> dict[str, Any]:
     }
 
 
-def season_page(year: int) -> dict[str, Any] | None:
+SEASON_PANES = frozenset(
+    {"standings", "weeks", "playoffs", "moves", "draft", "lineups", "stacks"}
+)
+
+
+def season_page(year: int, *, pane: str = "standings") -> dict[str, Any] | None:
+    """Shell plus the active pane.
+
+    First paint is the standings core (table, scoring, desk, median tax,
+    all-pro). Universes, all-play, heat, the points race, and the other
+    panes' boards load through ``season_board`` when that pane or fragment
+    is requested. Header chips still need draft, wire, and trades.
+    """
+    if pane not in SEASON_PANES:
+        pane = "standings"
     current = season_row(year)
     if current is None:
         return None
@@ -1433,32 +1447,24 @@ def season_page(year: int) -> dict[str, Any] | None:
     player_seasons = _player_seasons_year(year)
     through = current.get("through_week")
     draft = _season_draft(year)
-    lineups = _season_lineups(year)
     trades = _season_trades(year)
     wire = _season_wire(year)
-    return {
+    data: dict[str, Any] = {
         "current": current,
         "seasons": list_seasons(),
         "standings": table,
         "teams": len(table),
         "now_week": int(through) if through else None,
+        "pane": pane,
         "schedule": season_schedule(year),
-        "universes": _season_universes(year),
-        "notables": _season_notables(year),
+        "path": _playoff_path(year),
         "trades": trades,
         "wire": wire,
         "draft": draft,
-        "lineups": lineups,
         "scoring": _season_scoring(year),
         "scoring_env": _scoring_environment_year(year),
-        "power": _power_board(year),
-        "heat": _week_rank_heat(year),
-        "race": _points_race_chart(year),
         "desk": _schedule_desk(year),
-        "marks": week_marks_season(year),
         "median_tax": median_tax(year),
-        "path": _playoff_path(year),
-        "ranks": universe_ranks(year),
         "luck_plaques": luck_plaques(table, href=f"/seasons/{year}"),
         "all_pro": _honor_pack(
             player_seasons,
@@ -1472,8 +1478,55 @@ def season_page(year: int) -> dict[str, Any] | None:
             skip_empty=True,
         ),
         "highlights": _season_highlight_chips(year, draft=draft, wire=wire, trades=trades),
-        "stacks": _season_stacks(year),
     }
+    if pane == "weeks":
+        data["notables"] = _season_notables(year)
+        data["marks"] = week_marks_season(year)
+    elif pane == "lineups":
+        data["lineups"] = _season_lineups(year)
+    elif pane == "stacks":
+        data["stacks"] = _season_stacks(year)
+    return data
+
+
+def season_board(year: int, name: str) -> dict[str, Any] | None:
+    """One deferred season board. Does not load the rest of the season page."""
+    current = season_row(year)
+    if current is None:
+        return None
+    through = current.get("through_week")
+    data: dict[str, Any] = {
+        "current": current,
+        "now_week": int(through) if through else None,
+    }
+    if name == "universes":
+        data["universes"] = _season_universes(year)
+        data["ranks"] = universe_ranks(year)
+    elif name == "power":
+        data["power"] = _power_board(year)
+    elif name == "heat":
+        data["heat"] = _week_rank_heat(year)
+    elif name == "race":
+        data["race"] = _points_race_chart(year)
+    elif name == "weeks":
+        data["schedule"] = season_schedule(year)
+        data["notables"] = _season_notables(year)
+        data["marks"] = week_marks_season(year)
+    elif name == "playoffs":
+        data["schedule"] = season_schedule(year)
+        data["path"] = _playoff_path(year)
+    elif name == "moves":
+        data["trades"] = _season_trades(year)
+        data["wire"] = _season_wire(year)
+    elif name == "draft":
+        data["draft"] = _season_draft(year)
+    elif name == "lineups":
+        data["lineups"] = _season_lineups(year)
+    elif name == "stacks":
+        data["stacks"] = _season_stacks(year)
+    else:
+        return None
+    return data
 
 
 def _season_scoring(year: int) -> dict[str, Any] | None:
@@ -3845,7 +3898,33 @@ def career_one(manager_id: str) -> dict[str, Any] | None:
     )
 
 
-def member_page(manager_id: str) -> dict[str, Any] | None:
+MEMBER_SECTIONS = frozenset(
+    {
+        "h2h",
+        "draft",
+        "wire",
+        "trades",
+        "draft-board",
+        "partners",
+        "waiver-roi",
+        "roster-shape",
+        "lineups",
+        "luck",
+        "highs",
+        "consistency",
+        "clutch",
+    }
+)
+
+
+def member_page(manager_id: str, *, section: str | None = None) -> dict[str, Any] | None:
+    """Lead (identity, seasons, hardware) plus at most one below-fold board.
+
+    ``section`` is empty on first paint. Head-to-head rows stay loaded because
+    the lede names the rival and the favorite. The table itself stays deferred.
+    """
+    if section not in MEMBER_SECTIONS:
+        section = ""
     person = career_one(manager_id)
     if person is None:
         return None
@@ -3864,29 +3943,11 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
     split = _member_record_split(manager_id)
     person["h2h_record"] = split["h2h"]
     person["median_record"] = split["median"]
-    return {
+    data: dict[str, Any] = {
         "member": person,
         "finishes": _member_finishes(manager_id),
         "h2h": h2h,
-        "draft": _member_draft(manager_id),
-        "draft_board": _member_draft_board(manager_id),
-        "wire": _member_wire(manager_id),
-        "trades": _member_trades(manager_id),
-        "trade_partners": _member_trade_partners(manager_id),
-        "waiver_roi": _member_waiver_roi(manager_id),
-        "roster_shape": _member_roster_shape(manager_id),
-        "lineups": _member_lineups(manager_id),
-        "luck": fetchone(
-            """
-            SELECT
-                lucky_wins, unlucky_losses, net_luck,
-                underdog_wins, favorite_losses, expected_wins, wins_vs_expected
-            FROM v_luck_career
-            WHERE manager_id = %(manager_id)s
-            """,
-            {"manager_id": manager_id},
-        ),
-        "highs": _member_highs(manager_id),
+        "section": section or "",
         "chairs": fetchone(
             """
             SELECT first_chair, last_chair, benched_first_chair
@@ -3908,9 +3969,41 @@ def member_page(manager_id: str) -> dict[str, Any] | None:
         "kind_order": list(MARK_KIND_ORDER),
         "labels": MARK_LABELS,
         "meta": MARK_META,
-        "volatility": _manager_volatility_bundle(manager_id),
-        "clutch": _manager_clutch_bundle(manager_id),
     }
+    if section == "draft":
+        data["draft"] = _member_draft(manager_id)
+    elif section == "wire":
+        data["wire"] = _member_wire(manager_id)
+    elif section == "trades":
+        data["trades"] = _member_trades(manager_id)
+    elif section == "draft-board":
+        data["draft_board"] = _member_draft_board(manager_id)
+    elif section == "partners":
+        data["trade_partners"] = _member_trade_partners(manager_id)
+    elif section == "waiver-roi":
+        data["waiver_roi"] = _member_waiver_roi(manager_id)
+    elif section == "roster-shape":
+        data["roster_shape"] = _member_roster_shape(manager_id)
+    elif section == "lineups":
+        data["lineups"] = _member_lineups(manager_id)
+    elif section == "luck":
+        data["luck"] = fetchone(
+            """
+            SELECT
+                lucky_wins, unlucky_losses, net_luck,
+                underdog_wins, favorite_losses, expected_wins, wins_vs_expected
+            FROM v_luck_career
+            WHERE manager_id = %(manager_id)s
+            """,
+            {"manager_id": manager_id},
+        )
+    elif section == "highs":
+        data["highs"] = _member_highs(manager_id)
+    elif section == "consistency":
+        data["volatility"] = _manager_volatility_bundle(manager_id)
+    elif section == "clutch":
+        data["clutch"] = _manager_clutch_bundle(manager_id)
+    return data
 
 
 def _member_marks(manager_id: str, display_name: str | None = None) -> dict[str, Any] | None:

@@ -1,0 +1,65 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if lineups.career %}
+<h2 id="lineups">Lineups</h2>
+<p class="note">
+    % is actual / optimal. Career totals are regular season.
+    {% if lineups.career.management_pct is not none %}{{ "%.1f"|format(lineups.career.management_pct * 100) }}%{% endif %}
+    {% if lineups.career.left_on_bench is not none %} · −{{ "%.0f"|format(lineups.career.left_on_bench) }} left on the bench{% endif %}.
+    Worst and best weeks include playoff and consolation.
+</p>
+{% if lineups.worst or lineups.best %}
+<div class="notable-grid">
+    {% if lineups.worst %}
+    <section>
+        <h3>Worst weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in lineups.worst %}
+                <tr>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
+                    <td class="num minus">−{{ "%.0f"|format(row.left_on_bench) }}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if lineups.best %}
+    <section>
+        <h3>Best weeks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th class="num">Left</th>
+                    <th class="num">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in lineups.best %}
+                <tr>
+                    <td>{% if row.matchup_id %}<a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.year }} W{{ row.week }}</a>{% else %}{{ row.year }} W{{ row.week }}{% endif %}{% if row.kind_label %} · {{ row.kind_label }}{% endif %}</td>
+                    <td class="num">{% if row.left_on_bench %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}0{% endif %}</td>
+                    <td class="num">{% if row.management_pct is not none %}{{ "%.0f"|format(row.management_pct * 100) }}%{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}

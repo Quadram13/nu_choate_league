@@ -1,0 +1,46 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if path or schedule.winners_tree or schedule.consolation_tree %}
+<p class="note"><a href="/records/playoff">Playoff records</a> · <a href="/records/playoff-history">History</a></p>
+{% endif %}
+{% if path %}
+<h2>How they got there</h2>
+<p class="note">Regular-season path.{% if current.vs_median %} Record is H2H plus the median game. Median is wins vs the weekly median.{% else %} Record is head-to-head. This season did not play a median game.{% endif %}</p>
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Seed</th>
+            <th>Manager</th>
+            <th data-type="num">Record</th>
+            <th class="num">PF</th>
+            <th class="num">vsExp</th>
+            <th class="num">Luck</th>
+            <th class="num">Median</th>
+            <th class="num">She's cheer captain and...</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in path %}
+        <tr>
+            <td class="num">{{ row.rank }}</td>
+            <td>{% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}{{ person(row.manager_id, row.display_name) }}</td>
+            <td>{{ row.record }}</td>
+            <td class="num">{{ "%.1f"|format(row.points_for) }}</td>
+            <td class="num">{% if row.wins_vs_expected is not none %}{{ "%+.1f"|format(row.wins_vs_expected) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.net_luck is not none %}{{ "%+d"|format(row.net_luck|int) }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.median_wins is not none %}{{ row.median_wins|int }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.left_on_bench is not none %}−{{ "%.0f"|format(row.left_on_bench) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% if schedule.winners_tree or schedule.consolation_tree %}
+<div class="brackets">
+    {{ bracket(schedule.winners_tree, "Winners bracket", none, "playoff", current.year) }}
+    {{ bracket(schedule.consolation_tree, "Consolation", none, "consolation", current.year) }}
+</div>
+{% endif %}

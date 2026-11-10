@@ -1,0 +1,35 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+    {% if heat %}
+    <h2 id="heat">Week ranks</h2>
+    <p class="note">PF rank that week.</p>
+    <div class="standings-wrap">
+    <table class="rank-heat sticky-first">
+        <thead>
+            <tr>
+                <th>Manager</th>
+                {% for week in heat.weeks %}
+                <th class="num wk"><a href="/seasons/{{ current.year }}/week/{{ week }}">{{ week }}</a></th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in heat.managers %}
+            <tr>
+                <td>{% if row.hue is not none %}<span class="hue" style="--hue: {{ row.hue }}"></span>{% endif %}{{ person(row.manager_id, row.display_name) }}</td>
+                {% for cell in row.cells %}
+                {% if cell %}
+                <td class="heat" style="--heat: {{ '%.3f'|format(cell.heat) }}"><a href="/seasons/{{ current.year }}/week/{{ cell.week }}">{{ cell.rank }}</a></td>
+                {% else %}
+                <td class="heat empty"></td>
+                {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}

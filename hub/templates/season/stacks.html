@@ -1,0 +1,89 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+<h2>Stacks</h2>
+<p class="note">A stack is a started quarterback and at least one started WR, TE, or RB on the same matchup side in a posted regular-season week, sharing players.nfl_team. The catcher leg is that catalog position. An RB counts, and the points are the lineup slot, rushing included. Bench and IR slots are out. Two or more catchers are one stack: combined points add the quarterback once and each catcher once. Club is the catalog club on {{ stacks.catalog.catalog_as_of }} ({{ stacks.catalog.with_club }} of {{ stacks.catalog.players }} players). A season before that date uses this later club. Share is combined points divided by official points for. Those points are already inside the team total.</p>
+{% if stacks.coverage %}
+<p class="note">Starter rows with a catalog club: {{ stacks.coverage.starter_with_club }} of {{ stacks.coverage.starter_rows }}{% if stacks.coverage.starter_club_rate is not none %} ({{ "%.1f"|format(stacks.coverage.starter_club_rate * 100) }}%){% endif %}. Posted regular-season quarterbacks with a club: {{ stacks.coverage.regular_qb_with_club }} of {{ stacks.coverage.regular_qb_rows }}. WR, TE, and RB: {{ stacks.coverage.regular_catcher_with_club }} of {{ stacks.coverage.regular_catcher_rows }}{% if stacks.coverage.regular_catcher_club_rate is not none %} ({{ "%.1f"|format(stacks.coverage.regular_catcher_club_rate * 100) }}%){% endif %}. A stack can use only the clubbed rows.{% if stacks.coverage.unposted_starter_rows %} {{ stacks.coverage.unposted_starter_rows }} starter rows sit on an unposted week and stay out of the count.{% endif %}</p>
+{% endif %}
+<p class="note">{{ stacks.stack_weeks }} regular-season stacks across {{ stacks.managers_with_stack }} managers. Two-catcher weeks: {{ stacks.multi_catcher_weeks }}. <a href="/records/stacks#stacks">Record book</a> has the all-time weeks, the season leaders, and the league comparison.</p>
+{% if stacks.managers %}
+<div class="standings-wrap">
+    <table class="js-sort sticky-first">
+        <thead>
+            <tr>
+                <th>Manager</th>
+                <th class="num">Stacks</th>
+                <th class="num">2+ catchers</th>
+                <th class="num">Combined</th>
+                <th class="num">PF</th>
+                <th class="num">Share</th>
+                <th>Best week</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in stacks.managers %}
+            <tr>
+                <td>
+                    <span class="who">
+                        {{ person(row.manager_id, row.manager_name) }}
+                        {% set jersey = row.team_name | flavor_team(row.manager_name) %}
+                        {% if jersey %}<span class="team">{{ jersey }}</span>{% endif %}
+                    </span>
+                </td>
+                <td class="num">{{ row.stack_weeks }}</td>
+                <td class="num">{{ row.multi_catcher_weeks }}</td>
+                <td class="num">{{ "%.2f"|format(row.combined_points) }}</td>
+                <td class="num">{{ "%.2f"|format(row.points_for) }}</td>
+                <td class="num" data-value="{{ row.stack_share if row.stack_share is not none else '' }}">{% if row.stack_share is not none %}{{ "%.1f"|format(row.stack_share * 100) }}%{% else %}—{% endif %}</td>
+                <td>
+                    {% if row.best_week %}
+                    <a href="/seasons/{{ current.year }}/week/{{ row.best_week }}/{{ row.best_matchup_id }}">W{{ row.best_week }}</a>
+                    {% if row.best_qb_player_id %}<a href="/players/{{ row.best_qb_player_id }}">{{ row.best_qb_name }}</a>{% else %}{{ row.best_qb_name }}{% endif %}
+                    + {{ row.best_catcher_names }}
+                    {% if row.best_nfl_team %}<span class="team">{{ row.best_nfl_team }}</span>{% endif %}
+                    <span class="num">{{ "%.2f"|format(row.best_combined) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% if stacks.weeks %}
+<h3>Best weeks</h3>
+<p class="note">Highest regular-season stacks this year. Catcher points are the sum of the catcher legs. Combined adds the quarterback once.</p>
+<table>
+    <thead>
+        <tr>
+            <th class="num">#</th>
+            <th class="num">Wk</th>
+            <th>Manager</th>
+            <th>Club</th>
+            <th>QB</th>
+            <th class="num">QB pts</th>
+            <th>Catchers</th>
+            <th class="num">Catcher pts</th>
+            <th class="num">Combined</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in stacks.weeks %}
+        <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td class="num"><a href="/seasons/{{ current.year }}/week/{{ row.week }}/{{ row.matchup_id }}">{{ row.week }}</a></td>
+            <td>{{ person(row.manager_id, row.manager_name) }}</td>
+            <td>{{ row.nfl_team }}</td>
+            <td><a href="/players/{{ row.qb_player_id }}">{{ row.qb_name }}</a></td>
+            <td class="num">{{ "%.2f"|format(row.qb_points) }}</td>
+            <td>{% for leg in row.catchers %}{% if not loop.first %}, {% endif %}<a href="/players/{{ leg.player_id }}">{{ leg.player_name }}</a> <span class="team">{{ leg.position }} {{ "%.2f"|format(leg.points) }}</span>{% endfor %}</td>
+            <td class="num">{{ "%.2f"|format(row.catcher_points) }}</td>
+            <td class="num">{{ "%.2f"|format(row.combined_points) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}

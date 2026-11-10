@@ -1,0 +1,105 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if highs.high or highs.low or highs.blowout or highs.closest or highs.win_streak or highs.loss_streak %}
+<h2 id="highs">Highs</h2>
+<table>
+    <tbody>
+        {% if highs.high %}
+        <tr>
+            <td>
+                Highest week
+                {% if highs.high.alltime_rank and highs.high.records_href %}
+                · <a href="{{ records_chapter(highs.high.records_href) }}">{{ highs.high.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.high.id %}<a href="/seasons/{{ highs.high.year }}/week/{{ highs.high.week }}/{{ highs.high.id }}">{{ highs.high.year }} W{{ highs.high.week }}</a>{% else %}{{ highs.high.year }} W{{ highs.high.week }}{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(highs.high.points) }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.low %}
+        <tr>
+            <td>
+                Lowest week
+                {% if highs.low.alltime_rank and highs.low.records_href %}
+                · <a href="{{ records_chapter(highs.low.records_href) }}">{{ highs.low.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.low.id %}<a href="/seasons/{{ highs.low.year }}/week/{{ highs.low.week }}/{{ highs.low.id }}">{{ highs.low.year }} W{{ highs.low.week }}</a>{% else %}{{ highs.low.year }} W{{ highs.low.week }}{% endif %}</td>
+            <td class="num">{{ "%.2f"|format(highs.low.points) }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.blowout %}
+        <tr>
+            <td>
+                Biggest blowout
+                {% if highs.blowout.alltime_rank and highs.blowout.records_href %}
+                · <a href="{{ records_chapter(highs.blowout.records_href) }}">{{ highs.blowout.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.blowout.id %}<a href="/seasons/{{ highs.blowout.year }}/week/{{ highs.blowout.week }}/{{ highs.blowout.id }}">{{ highs.blowout.year }} W{{ highs.blowout.week }}</a>{% else %}{{ highs.blowout.year }} W{{ highs.blowout.week }}{% endif %}</td>
+            <td>
+                <span class="{% if highs.blowout.winner_id and highs.blowout.winner_id == highs.blowout.home.id %}won{% elif highs.blowout.winner_id %}lost{% endif %}">{{ person(highs.blowout.home.id, highs.blowout.home.name) }}</span>
+                <span class="num">{% if highs.blowout.home.points is not none %}{{ "%.1f"|format(highs.blowout.home.points) }}{% endif %}</span>
+                –
+                <span class="num">{% if highs.blowout.away.points is not none %}{{ "%.1f"|format(highs.blowout.away.points) }}{% endif %}</span>
+                <span class="{% if highs.blowout.winner_id and highs.blowout.winner_id == highs.blowout.away.id %}won{% elif highs.blowout.winner_id %}lost{% endif %}">{{ person(highs.blowout.away.id, highs.blowout.away.name) }}</span>
+            </td>
+        </tr>
+        {% endif %}
+        {% if highs.closest %}
+        <tr>
+            <td>
+                Closest
+                {% if highs.closest.alltime_rank and highs.closest.records_href %}
+                · <a href="{{ records_chapter(highs.closest.records_href) }}">{{ highs.closest.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>{% if highs.closest.id %}<a href="/seasons/{{ highs.closest.year }}/week/{{ highs.closest.week }}/{{ highs.closest.id }}">{{ highs.closest.year }} W{{ highs.closest.week }}</a>{% else %}{{ highs.closest.year }} W{{ highs.closest.week }}{% endif %}</td>
+            <td>
+                <span class="{% if highs.closest.winner_id and highs.closest.winner_id == highs.closest.home.id %}won{% elif highs.closest.winner_id %}lost{% endif %}">{{ person(highs.closest.home.id, highs.closest.home.name) }}</span>
+                <span class="num">{% if highs.closest.home.points is not none %}{{ "%.1f"|format(highs.closest.home.points) }}{% endif %}</span>
+                –
+                <span class="num">{% if highs.closest.away.points is not none %}{{ "%.1f"|format(highs.closest.away.points) }}{% endif %}</span>
+                <span class="{% if highs.closest.winner_id and highs.closest.winner_id == highs.closest.away.id %}won{% elif highs.closest.winner_id %}lost{% endif %}">{{ person(highs.closest.away.id, highs.closest.away.name) }}</span>
+            </td>
+        </tr>
+        {% endif %}
+        {% if highs.win_streak %}
+        <tr>
+            <td>
+                Longest win streak{% if highs.win_streak.is_current %} · current{% endif %}
+                {% if highs.win_streak.alltime_rank and highs.win_streak.records_href %}
+                · <a href="{{ records_chapter(highs.win_streak.records_href) }}">{{ highs.win_streak.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/seasons/{{ highs.win_streak.start_year }}/week/{{ highs.win_streak.start_week }}">{{ highs.win_streak.start_year }} W{{ highs.win_streak.start_week }}</a>
+                –
+                <a href="/seasons/{{ highs.win_streak.end_year }}/week/{{ highs.win_streak.end_week }}">{{ highs.win_streak.end_year }} W{{ highs.win_streak.end_week }}</a>
+            </td>
+            <td class="num">{{ highs.win_streak.length }}</td>
+        </tr>
+        {% endif %}
+        {% if highs.loss_streak %}
+        <tr>
+            <td>
+                Longest loss streak{% if highs.loss_streak.is_current %} · current{% endif %}
+                {% if highs.loss_streak.alltime_rank and highs.loss_streak.records_href %}
+                · <a href="{{ records_chapter(highs.loss_streak.records_href) }}">{{ highs.loss_streak.alltime_label }}</a>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/seasons/{{ highs.loss_streak.start_year }}/week/{{ highs.loss_streak.start_week }}">{{ highs.loss_streak.start_year }} W{{ highs.loss_streak.start_week }}</a>
+                –
+                <a href="/seasons/{{ highs.loss_streak.end_year }}/week/{{ highs.loss_streak.end_week }}">{{ highs.loss_streak.end_year }} W{{ highs.loss_streak.end_week }}</a>
+            </td>
+            <td class="num">{{ highs.loss_streak.length }}</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endif %}

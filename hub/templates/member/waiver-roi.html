@@ -1,0 +1,88 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if waiver_roi.coverage %}
+<h2 id="waiver-roi">Waiver priority</h2>
+{{ waiver_coverage(waiver_roi.coverage) }}
+{% if waiver_roi.seasons %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num" title="Completed waiver adds that stored a priority">Claims</th>
+            <th class="num" title="Sum of priority + 1">Pri units</th>
+            <th class="num" title="Rest-of-season VORP">VORP</th>
+            <th class="num" title="VORP divided by priority units">Per pri</th>
+            <th class="num" title="Average league processing order. Seq 0 ran first.">Avg seq</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.seasons %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ row.year }}#wire">{{ row.year }}</a></td>
+            <td class="num" data-value="{{ row.claims }}">{{ row.claims|int }}</td>
+            <td class="num" data-value="{{ row.priority_units }}">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+            <td class="num" data-value="{{ row.avg_seq if row.avg_seq is not none else '' }}">{% if row.avg_seq is not none %}{{ "%.1f"|format(row.avg_seq) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% if waiver_roi.career %}
+    {% set row = waiver_roi.career %}
+    <tfoot>
+        <tr>
+            <td>2024–2025</td>
+            <td class="num">{{ row.claims|int }}</td>
+            <td class="num">{{ row.priority_units|int }}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+            <td></td>
+        </tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+{% else %}
+<p class="note">No completed 2024 or 2025 waiver add stored a priority for this manager.</p>
+{% endif %}
+{% if waiver_roi.claims %}
+<h3>Priced adds</h3>
+<p class="note">Pri is priority + 1. These claims are the rows in the ratio above.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th class="num">Year</th>
+            <th class="num">Wk</th>
+            <th>Player</th>
+            <th class="num" title="priority + 1. Pri 1 is this manager’s first claim in the run.">Pri</th>
+            <th class="num" title="League processing order. Seq 0 ran first.">Seq</th>
+            <th class="num">VORP</th>
+            <th class="num">Per pri</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in waiver_roi.claims %}
+        <tr>
+            <td class="num"><a href="/seasons/{{ row.year }}">{{ row.year }}</a></td>
+            <td class="num"><a href="/seasons/{{ row.year }}/week/{{ row.week }}#transactions">{{ row.week }}</a></td>
+            <td>
+                {% if row.transaction_id %}<a href="/seasons/{{ row.year }}/wire/{{ row.transaction_id }}">{{ row.player_name }}</a>{% elif row.player_id %}<a href="/players/{{ row.player_id }}">{{ row.player_name }}</a>{% else %}{{ row.player_name }}{% endif %}
+                {% if row.position %}<span class="team">{{ row.position }}</span>{% endif %}
+            </td>
+            <td class="num" data-value="{{ row.priority_units }}">pri {{ row.priority_units|int }}</td>
+            <td class="num" data-value="{{ row.seq if row.seq is not none else '' }}">{% if row.seq is not none %}{{ row.seq|int }}{% else %}—{% endif %}</td>
+            {{ signed_cell(row.ros_vorp) }}
+            {{ signed_cell(row.vorp_per_priority) }}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}

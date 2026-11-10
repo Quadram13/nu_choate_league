@@ -1,0 +1,97 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+    {% if universes %}
+    <p class="note universe-line" id="universes">
+        Official {{ person(universes.official_champ_id, universes.official_champ) }}
+        <span class="team">RS {{ person(universes.official_rs_id, universes.official_rs) }}</span>
+        · H2H {{ person(universes.h2h_champ_id, universes.h2h_champ) }}{% if universes.h2h_same %} <span class="matches-official">matches official</span>{% elif universes.h2h_same is false %} differs{% endif %}
+        · Median {{ person(universes.median_champ_id, universes.median_champ) }}{% if universes.median_same %} <span class="matches-official">matches official</span>{% elif universes.median_same is false %} differs{% endif %}
+    </p>
+    {% if universes.brackets %}
+    <h2 id="universe-brackets">Counterfactual brackets</h2>
+    <p class="note">Never-median is H2H only. Always-median adds a game against the weekly median. Points are that round's score, summed when the round covers more than one week.</p>
+    <div class="brackets universe-brackets">
+        {% for board in universes.brackets %}
+        <section class="universe-board" data-universe="{{ board.key }}" data-matches-official="{{ 'true' if board.matches_official else 'false' }}">
+            <h2>{{ board.label }}</h2>
+            {% if board.matches_official %}<p class="note matches-official">matches official</p>{% endif %}
+            <div class="bracket-tree tree">
+                <svg class="bracket-lines" aria-hidden="true"></svg>
+                {% for round in board.rounds %}
+                <div class="bracket-round">
+                    <h3>{{ round.label }} · {{ round.span }}</h3>
+                    <div class="bracket-slots">
+                        {% for match in round.matches %}
+                        {{ universe_match(match, current.year) }}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if loop.first %}<h3 id="universe-replay">Game by game</h3>
+            <p class="note">Same games as the bracket: round, seeds, points, winner, and tiebreak. A blank tiebreak means the points decided it.</p>{% endif %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Round</th>
+                        <th class="num">Seeds</th>
+                        <th>Score</th>
+                        <th>Winner</th>
+                        <th>Tiebreak</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for packed in board.rounds %}
+                    {% for match in packed.matches %}
+                    <tr>
+                        <td>{{ packed.label }} · {{ packed.span }}</td>
+                        <td class="num">{{ match.home_seed }}–{{ match.away_seed }}</td>
+                        <td>
+                            {{ person(match.home_id, match.home_name) }}
+                            {% if match.home_points is not none %}{{ "%.2f"|format(match.home_points) }}{% else %}—{% endif %}
+                            –
+                            {% if match.away_points is not none %}{{ "%.2f"|format(match.away_points) }}{% else %}—{% endif %}
+                            {{ person(match.away_id, match.away_name) }}
+                        </td>
+                        <td>{% if match.winner_id %}{{ person(match.winner_id, match.winner_name) }}{% else %}—{% endif %}</td>
+                        <td>{% if match.tiebreak %}{{ match.tiebreak }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if ranks %}
+    <h2 id="universe-ranks">Universe ranks</h2>
+    <p class="note">Official vs always-H2H vs always-median. 1 is first.</p>
+    <div class="standings-wrap">
+    <table class="rank-heat sticky-first">
+        <thead>
+            <tr>
+                <th>Manager</th>
+                <th class="num">Official</th>
+                <th class="num">H2H</th>
+                <th class="num">Median</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in ranks %}
+            <tr>
+                <td>{{ person(row.manager_id, row.display_name) }}</td>
+                <td class="heat{% if row.official_heat is none %} empty{% endif %}"{% if row.official_heat is not none %} style="--heat: {{ '%.3f'|format(row.official_heat) }}"{% endif %}>{{ row.official_rank }}</td>
+                <td class="heat{% if row.h2h_heat is none %} empty{% endif %}"{% if row.h2h_heat is not none %} style="--heat: {{ '%.3f'|format(row.h2h_heat) }}"{% endif %}>{% if row.h2h_rank is not none %}{{ row.h2h_rank }}{% else %}—{% endif %}</td>
+                <td class="heat{% if row.median_heat is none %} empty{% endif %}"{% if row.median_heat is not none %} style="--heat: {{ '%.3f'|format(row.median_heat) }}"{% endif %}>{% if row.median_rank is not none %}{{ row.median_rank }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}

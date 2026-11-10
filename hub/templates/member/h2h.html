@@ -1,0 +1,44 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if h2h %}
+<h2 id="h2h">Head-to-head</h2>
+<p class="note">Regular season plus winners-bracket playoff. Closest and Blowout use every one of those games.</p>
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Opponent</th>
+            <th data-type="num">Regular</th>
+            <th data-type="num">Playoff</th>
+            <th class="num">Closest</th>
+            <th class="num">Blowout</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in h2h %}
+        <tr>
+            <td>{% if row.href %}<a href="{{ row.href }}">{{ row.opponent }}</a>{% else %}{{ person(row.opponent_id, row.opponent) }}{% endif %}</td>
+            <td data-value="{% if row.regular_games %}{{ ((row.regular_wins or 0) + 0.5 * (row.regular_ties or 0)) / row.regular_games }}{% endif %}">
+                {{ record(row.regular_wins, row.regular_losses, row.regular_ties) }}
+                · {{ "%.0f"|format(row.regular_points_for or 0) }}-{{ "%.0f"|format(row.regular_points_against or 0) }}
+            </td>
+            <td data-value="{% if row.playoff_games %}{{ ((row.playoff_wins or 0) + 0.5 * (row.playoff_ties or 0)) / row.playoff_games }}{% endif %}">
+                {% if row.playoff_games %}
+                {{ record(row.playoff_wins, row.playoff_losses, row.playoff_ties) }}
+                · {{ "%.0f"|format(row.playoff_points_for or 0) }}-{{ "%.0f"|format(row.playoff_points_against or 0) }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+            <td class="num">{% if row.series_closest is not none %}{{ "%.1f"|format(row.series_closest) }}{% endif %}</td>
+            <td class="num">{% if row.series_biggest_blowout is not none %}{{ "%.1f"|format(row.series_biggest_blowout) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}

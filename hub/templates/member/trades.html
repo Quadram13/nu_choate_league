@@ -1,0 +1,38 @@
+{%- from "member/_macros.html" import person, record -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "plaque_macros.html" import holder_row, team_season_card -%}
+{%- from "acquisition_macros.html" import signed_cell, roster_head, roster_cells, roster_note, waiver_coverage -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if trades %}
+<h2 id="trades">Trades</h2>
+<p class="note">Rest-of-season starter VORP. This manager listed first.</p>
+<div class="standings-wrap">
+<table class="js-sort js-fold trade-table" data-fold="8">
+    <thead>
+        <tr>
+            <th>When</th>
+            <th>Got</th>
+            <th class="num">VORP</th>
+            <th>Sent to</th>
+            <th>They got</th>
+            <th class="num">VORP</th>
+            <th>Grade</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in trades %}
+        <tr>
+            <td><a href="/seasons/{{ row.year }}/trades/{{ row.transaction_id }}">{{ row.year }} W{{ row.week }}</a></td>
+            <td class="trade-got {% if row.verdict.kind != 'even' and row.winner_id == row.home.id %}won{% elif row.verdict.kind != 'even' %}lost{% endif %}">{{ trade_got(row.home) }}</td>
+            <td class="num">{% if row.home.vorp is not none %}{{ "%+.1f"|format(row.home.vorp) }}{% endif %}</td>
+            <td class="{% if row.verdict.kind != 'even' and row.winner_id == row.away.id %}won{% elif row.verdict.kind != 'even' %}lost{% endif %}">{{ person(row.away.id, row.away.name) }}</td>
+            <td class="trade-got">{{ trade_got(row.away) }}</td>
+            <td class="num">{% if row.away.vorp is not none %}{{ "%+.1f"|format(row.away.vorp) }}{% endif %}</td>
+            <td data-value="{{ row.verdict.gap }}"><span class="verdict {{ row.verdict.kind }}">{{ row.verdict.label }}</span> {{ "%.0f"|format(row.verdict.gap) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}

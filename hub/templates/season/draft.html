@@ -1,0 +1,124 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if draft.managers or draft.hits or draft.misses %}
+<h2>Draft</h2>
+<p class="note">Starter VORP vs that round’s average. A hit is 8 or more starts and above that round’s VORP. <a href="/seasons/{{ current.year }}/draft">Full board</a> · <a href="/records/draft">Record book</a>{% if draft.has_market %} Market ADP is ESPN’s average draft position against the slot.{% endif %}</p>
+{% if draft.managers %}
+<div class="standings-wrap">
+<table class="js-sort">
+    <thead>
+        <tr>
+            <th>Manager</th>
+            <th class="num">Picks</th>
+            {% if draft.has_keepers %}<th class="num">Keep</th>{% endif %}
+            <th class="num">PF</th>
+            <th class="num">VORP</th>
+            <th class="num">vsRnd</th>
+            <th class="num" title="8 or more starts and above that round’s VORP">Hits</th>
+            <th>Best</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in draft.managers %}
+        <tr>
+            <td>
+                <span class="who">
+                    {{ person(row.manager_id, row.manager_name) }}
+                    {% set jersey = row.team_name | flavor_team(row.manager_name) %}
+                    {% if jersey %}<span class="team">{{ jersey }}</span>{% endif %}
+                </span>
+            </td>
+            <td class="num">{{ row.picks }}</td>
+            {% if draft.has_keepers %}<td class="num">{{ row.keepers }}</td>{% endif %}
+            <td class="num">{% if row.ros_starter is not none %}{{ "%.0f"|format(row.ros_starter) }}{% endif %}</td>
+            <td class="num{% if row.ros_vorp and row.ros_vorp > 0 %} plus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% endif %}</td>
+            <td class="num{% if row.vs_vorp and row.vs_vorp > 0 %} plus{% elif row.vs_vorp and row.vs_vorp < 0 %} minus{% endif %}">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+            <td class="num">{{ row.hits }}</td>
+            <td>
+                {% if row.best_player %}
+                {{ pick_link(current.year, {"overall": row.best_overall, "player_name": row.best_player}) }}
+                {% if row.best_vorp is not none %}<span class="team">{{ "%+.1f"|format(row.best_vorp) }}</span>{% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% if draft.hits or draft.misses %}
+<div class="notable-grid">
+    {% if draft.hits %}
+    <section>
+        <h3>Best vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Pick</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                    <th class="num">ADP</th>
+                    {% if draft.has_market %}<th class="num">Mkt</th><th class="num">vs mkt</th><th class="num">ROS</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.hits %}
+                <tr>
+                    <td class="num">{{ pick_link(current.year, row, row.overall) }}</td>
+                    <td>{{ pick_link(current.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num plus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                    <td class="num">{% if row.adp is not none and (row.times_drafted or 0) >= 2 %}{{ "%.0f"|format(row.adp) }}{% else %}—{% endif %}</td>
+                    {% if draft.has_market %}
+                    <td class="num">{% if row.market_adp is not none %}{{ "%.1f"|format(row.market_adp) }}{% else %}—{% endif %}</td>
+                    <td class="num{% if row.pick_vs_market is not none and row.pick_vs_market > 0 %} plus{% elif row.pick_vs_market is not none and row.pick_vs_market < 0 %} minus{% endif %}">{% if row.pick_vs_market is not none %}{{ "%+.1f"|format(row.pick_vs_market) }}{% else %}—{% endif %}{% if row.market_grade %}<span class="team">{{ row.market_grade }}</span>{% endif %}</td>
+                    <td class="num{% if row.ros_vorp is not none and row.ros_vorp > 0 %} plus{% elif row.ros_vorp is not none and row.ros_vorp < 0 %} minus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+    {% if draft.misses %}
+    <section>
+        <h3>Worst vs round</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Pick</th>
+                    <th>Player</th>
+                    <th>Manager</th>
+                    <th class="num">vsRnd</th>
+                    <th class="num">ADP</th>
+                    {% if draft.has_market %}<th class="num">Mkt</th><th class="num">vs mkt</th><th class="num">ROS</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in draft.misses %}
+                <tr>
+                    <td class="num">{{ pick_link(current.year, row, row.overall) }}</td>
+                    <td>{{ pick_link(current.year, row) }}{% if row.position %} <span class="team">{{ row.position }}</span>{% endif %}{% if row.keeper %} <span class="team">K</span>{% endif %}</td>
+                    <td>{{ person(row.manager_id, row.manager_name) }}</td>
+                    <td class="num minus">{% if row.vs_vorp is not none %}{{ "%+.1f"|format(row.vs_vorp) }}{% endif %}</td>
+                    <td class="num">{% if row.adp is not none and (row.times_drafted or 0) >= 2 %}{{ "%.0f"|format(row.adp) }}{% else %}—{% endif %}</td>
+                    {% if draft.has_market %}
+                    <td class="num">{% if row.market_adp is not none %}{{ "%.1f"|format(row.market_adp) }}{% else %}—{% endif %}</td>
+                    <td class="num{% if row.pick_vs_market is not none and row.pick_vs_market > 0 %} plus{% elif row.pick_vs_market is not none and row.pick_vs_market < 0 %} minus{% endif %}">{% if row.pick_vs_market is not none %}{{ "%+.1f"|format(row.pick_vs_market) }}{% else %}—{% endif %}{% if row.market_grade %}<span class="team">{{ row.market_grade }}</span>{% endif %}</td>
+                    <td class="num{% if row.ros_vorp is not none and row.ros_vorp > 0 %} plus{% elif row.ros_vorp is not none and row.ros_vorp < 0 %} minus{% endif %}">{% if row.ros_vorp is not none %}{{ "%+.1f"|format(row.ros_vorp) }}{% else %}—{% endif %}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% else %}
+<p class="note">No draft stored for this season.</p>
+{% endif %}

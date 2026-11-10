@@ -1,0 +1,105 @@
+{% from "plaque_macros.html" import person_link %}
+{% from "link_macros.html" import records_chapter %}
+{% macro person(id, name) %}
+{{ person_link(id, name) }}
+{% endmacro %}
+{% macro notable_row(game, year) %}
+{% if game %}
+<tr>
+    <td>
+        {{ game.label }}
+        {% if game.alltime_rank and game.records_href %}
+        · <a href="{{ records_chapter(game.records_href) }}">{{ game.alltime_label }}</a>
+        {% endif %}
+    </td>
+    <td class="num">{% if game.id %}<a href="/seasons/{{ year }}/week/{{ game.week }}/{{ game.id }}">{{ game.week }}</a>{% else %}{{ game.week }}{% endif %}</td>
+    <td>
+        <span class="{% if game.winner_id and game.winner_id == game.home.id %}won{% elif game.winner_id %}lost{% endif %}">{{ person(game.home.id, game.home.name) }}</span>
+        <span class="num">{% if game.home.points is not none %}{{ "%.1f"|format(game.home.points) }}{% endif %}</span>
+        –
+        <span class="num">{% if game.away.points is not none %}{{ "%.1f"|format(game.away.points) }}{% endif %}</span>
+        <span class="{% if game.winner_id and game.winner_id == game.away.id %}won{% elif game.winner_id %}lost{% endif %}">{{ person(game.away.id, game.away.name) }}</span>
+    </td>
+</tr>
+{% endif %}
+{% endmacro %}
+{% macro luck_line(row) %}
+{% if row %}
+<p class="note">
+    {{ row.flag }} ·
+    <a href="/seasons/{{ row.year }}/week/{{ row.week }}/{{ row.matchup_id }}">W{{ row.week }}</a>
+    · {{ person(row.manager_id, row.display_name) }}
+    {{ "%.1f"|format(row.points) }}–{{ "%.1f"|format(row.opp_points) }}
+    vs {{ person(row.opponent_id, row.opponent_name) }}
+    · {{ row.pf_rank }} of {{ row.teams }}
+</p>
+{% endif %}
+{% endmacro %}
+{% macro seed(manager_id, name, team, points, winner_id, year=none) %}
+<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
+    <span class="who">
+        {{ person(manager_id, name) }}
+        {% if team %}<span class="team">{% if year and manager_id %}<a href="/seasons/{{ year }}#m-{{ manager_id }}" title="{{ team }}">{{ team }}</a>{% else %}{{ team }}{% endif %}</span>{% endif %}
+    </span>
+    <span class="num">{% if points is not none %}{{ "%.1f"|format(points) }}{% endif %}</span>
+</div>
+{% endmacro %}
+{% macro match_card(match, year) %}
+<article class="bracket-match" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}">
+    {{ seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, year) }}
+    {{ seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, year) }}
+    {% if match.id %}
+    <p class="open-gc"><a href="/seasons/{{ year }}/week/{{ match.week }}/{{ match.id }}">lineups</a></p>
+    {% endif %}
+</article>
+{% endmacro %}
+{% macro universe_seed(manager_id, name, team, points, winner_id, seed_no, year=none) %}
+<div class="seed{% if winner_id and manager_id == winner_id %} won{% elif winner_id %} lost{% endif %}"{% if manager_id %} data-manager-id="{{ manager_id }}"{% endif %}>
+    <span class="who">
+        <span class="seed-line">
+            <span class="seed-no">{{ seed_no }}</span>
+            {{ person(manager_id, name) }}
+        </span>
+        {% if team %}<span class="team">{% if year and manager_id %}<a href="/seasons/{{ year }}#m-{{ manager_id }}" title="{{ team }}">{{ team }}</a>{% else %}{{ team }}{% endif %}</span>{% endif %}
+    </span>
+    <span class="num">{% if points is not none %}{{ "%.2f"|format(points) }}{% endif %}</span>
+</div>
+{% endmacro %}
+{% macro universe_match(match, year=none) %}
+<article class="bracket-match universe-game" data-round="{{ match.round }}" data-home-id="{{ match.home_id or '' }}" data-away-id="{{ match.away_id or '' }}" data-winner-id="{{ match.winner_id or '' }}" data-home-seed="{{ match.home_seed }}" data-away-seed="{{ match.away_seed }}">
+    {{ universe_seed(match.home_id, match.home_name, match.home_team, match.home_points, match.winner_id, match.home_seed, year) }}
+    {{ universe_seed(match.away_id, match.away_name, match.away_team, match.away_points, match.winner_id, match.away_seed, year) }}
+    {% if match.tiebreak %}<p class="note tiebreak">Tiebreak: {{ match.tiebreak }}</p>{% endif %}
+</article>
+{% endmacro %}
+{% macro bracket(tree, heading, note, fragment, year) %}
+{% if tree %}
+<section>
+    <h2>{{ heading }}</h2>
+    {% if note %}<p class="note">{{ note }}</p>{% endif %}
+    <div class="bracket-tree {{ tree.kind }}">
+        <svg class="bracket-lines" aria-hidden="true"></svg>
+        {% for round in tree.rounds %}
+        <div class="bracket-round">
+            <h3 id="week-{{ round.week }}-{{ fragment }}">{{ round.label }} · <a href="/seasons/{{ year }}/week/{{ round.week }}">week {{ round.week }}</a></h3>
+            <div class="bracket-slots">
+                {% for match in round.matches %}
+                {{ match_card(match, year) }}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if tree.placements %}
+    <div class="placements">
+        {% for match in tree.placements %}
+        <div>
+            <h3>{{ match.place_label }}</h3>
+            {{ match_card(match, year) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+{% endmacro %}

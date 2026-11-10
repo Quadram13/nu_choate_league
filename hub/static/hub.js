@@ -92,10 +92,85 @@ function enableSeasonTabs() {
         panes.forEach((pane) => {
             pane.hidden = pane.id !== target;
         });
+        ensureSeasonPane(target);
         window.dispatchEvent(new Event("resize"));
     }
+    tabs.addEventListener("click", (event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        const link = event.target.closest ? event.target.closest("a") : null;
+        if (!link || !tabs.contains(link)) {
+            return;
+        }
+        const hash = link.dataset.tab ? `#${link.dataset.tab}` : (link.hash || "");
+        if (!hash) {
+            return;
+        }
+        event.preventDefault();
+        if (location.hash !== hash) {
+            location.hash = hash;
+        } else {
+            show(hash);
+        }
+    });
     window.addEventListener("hashchange", () => show(location.hash));
-    show(location.hash);
+    const requested = new URLSearchParams(location.search).get("pane");
+    if (!location.hash && requested) {
+        show(`#${requested}`);
+    } else {
+        show(location.hash);
+    }
+}
+
+function ensureSeasonPane(id) {
+    const pane = document.getElementById(id);
+    if (!pane || pane.dataset.loaded === "1" || typeof fetch !== "function") {
+        return;
+    }
+    const host = pane.hasAttribute("data-fragment") ? pane : pane.querySelector("[data-fragment]");
+    const fragment = host ? host.getAttribute("data-fragment") : "";
+    if (!host || !fragment) {
+        pane.dataset.loaded = "1";
+        return;
+    }
+    if (pane.dataset.loading === "1") {
+        return;
+    }
+    pane.dataset.loading = "1";
+    const year = host.getAttribute("data-year") || "";
+    const fallback = host.getAttribute("data-fallback");
+    fetch(`${fragment}?year=${encodeURIComponent(year)}`, {
+        headers: { Accept: "text/html" },
+        credentials: "same-origin",
+    }).then((res) => {
+        if (!res.ok) {
+            throw new Error(String(res.status));
+        }
+        return res.text();
+    }).then((html) => {
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        const next = parsed.querySelector("[data-fragment]");
+        if (!next || next.getAttribute("data-fragment") !== fragment) {
+            throw new Error("bad");
+        }
+        pane.innerHTML = next.innerHTML;
+        pane.dataset.loaded = "1";
+        pane.querySelectorAll("table.js-sort").forEach(enableSort);
+        pane.querySelectorAll(".bracket-tree").forEach(enableBracket);
+        const anchor = (location.hash || "").replace(/^#/, "");
+        const node = anchor ? document.getElementById(anchor) : null;
+        if (node) {
+            node.scrollIntoView();
+        }
+        window.dispatchEvent(new Event("resize"));
+    }).catch(() => {
+        if (fallback) {
+            window.location.assign(fallback);
+        }
+    }).finally(() => {
+        pane.dataset.loading = "";
+    });
 }
 
 function enableAwardTabs() {
@@ -586,6 +661,9 @@ function highlightBracket(tree, managerId) {
         container.innerHTML = next.innerHTML;
         if (typeof enableSort === "function") {
             container.querySelectorAll("table.js-sort").forEach(enableSort);
+        }
+        if (typeof enableBracket === "function") {
+            container.querySelectorAll(".bracket-tree").forEach(enableBracket);
         }
         return "ok";
     }

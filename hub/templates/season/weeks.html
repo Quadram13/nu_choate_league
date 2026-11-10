@@ -1,0 +1,56 @@
+{%- from "season/_macros.html" import person, notable_row, luck_line, seed, match_card, universe_seed, universe_match, bracket -%}
+{%- from "trade_macros.html" import trade_got -%}
+{%- from "draft_macros.html" import pick_link -%}
+{%- from "wire_macros.html" import value_strip, cost_cell -%}
+{%- from "link_macros.html" import records_chapter -%}
+{% if schedule.regular %}
+<div class="week-grid">
+    {% for week, games in schedule.regular %}
+    <section class="week-grid-row">
+        <h3><a href="/seasons/{{ current.year }}/week/{{ week }}">Week {{ week }}</a></h3>
+        <div class="week-grid-games">
+            {% for game in games %}
+            <article class="gc-match compact">
+                <header class="gc-score">
+                    <div class="side">
+                        <div class="who">{{ person(game.home_manager_id, game.home_name) }}</div>
+                        <span class="num">{% if game.home_points is not none %}{{ "%.1f"|format(game.home_points) }}{% endif %}</span>
+                    </div>
+                    <div class="side">
+                        <div class="who">{{ person(game.away_manager_id, game.away_name) }}</div>
+                        <span class="num">{% if game.away_points is not none %}{{ "%.1f"|format(game.away_points) }}{% endif %}</span>
+                    </div>
+                </header>
+                <p class="open-gc"><a href="/seasons/{{ current.year }}/week/{{ week }}/{{ game.id }}">lineups</a></p>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% elif schedule.weeks %}
+<p class="jump weeks-line">
+    {% for week in schedule.weeks %}
+    <a href="/seasons/{{ current.year }}/week/{{ week }}"{% if now_week and week == now_week %} class="on"{% endif %}>{{ week }}</a>
+    {% endfor %}
+</p>
+{% else %}
+<p class="note">No scored weeks yet.</p>
+{% endif %}
+{% if marks and marks.weeks %}
+<p class="note"><a href="/seasons/{{ current.year }}/marks">All distinctions this season</a></p>
+{% endif %}
+{% if notables.high or notables.low or notables.blowout or notables.closest or notables.lucky or notables.unlucky %}
+<h2 id="matchups">Notable matchups</h2>
+<p class="note"><a href="/records/environment#high">Highest weeks</a> · <a href="/records/games">Games</a> · <a href="/seasons/{{ current.year }}/marks">Distinctions</a></p>
+<table>
+    <tbody>
+        {{ notable_row(notables.high, current.year) }}
+        {{ notable_row(notables.low, current.year) }}
+        {{ notable_row(notables.blowout, current.year) }}
+        {{ notable_row(notables.closest, current.year) }}
+    </tbody>
+</table>
+{{ luck_line(notables.lucky) }}
+{{ luck_line(notables.unlucky) }}
+{% endif %}
